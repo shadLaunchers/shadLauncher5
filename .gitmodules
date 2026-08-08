@@ -1,0 +1,12 @@
+[submodule "extternals/libdeflate"]
+	path = extternals/libdeflate
+	url = https://github.com/shadexternals/libdeflate.git
+[submodule "externals/libdeflate"]
+	path = externals/libdeflate
+	url = https://github.com/shadexternals/libdeflate.git
+[submodule "externals/zstd"]
+	path = externals/zstd
+	url = https://github.com/shadexternals/zstd.git
+[submodule "externals/zarchive"]
+	path = externals/zarchive
+	url = https://github.com/shadexternals/ZArchive.git
