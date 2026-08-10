@@ -10,3 +10,9 @@
 [submodule "externals/zarchive"]
 	path = externals/zarchive
 	url = https://github.com/shadexternals/ZArchive.git
+[submodule "externals/json"]
+	path = externals/json
+	url = https://github.com/shadexternals/json.git
+[submodule "externals/fmt"]
+	path = externals/fmt
+	url = https://github.com/shadexternals/fmt.git

@@ -10,6 +10,20 @@ set_directory_properties(PROPERTIES
     SYSTEM ON
 )
 
+# ---- fmt ----
+if(NOT TARGET fmt::fmt)
+set(FMT_MODULE OFF)
+set(BUILD_SHARED_LIBS OFF)
+set(FMT_INSTALL OFF)
+set(FMT_DOC OFF)
+set(FMT_TEST OFF)
+add_subdirectory(fmt)
+endif()
+
+# ---- nlohmann/json ----
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+add_subdirectory(json)
+
 #libdeflate
 
 # enable SIMD instructions
