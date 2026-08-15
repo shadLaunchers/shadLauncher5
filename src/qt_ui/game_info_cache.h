@@ -45,8 +45,16 @@ public:
     // Per-game free-text notes, keyed by serial rather than path so a note
     // survives the game's on-disk path changing (e.g. converting to/from a
     // .zar archive, or the user moving/reinstalling it under a new path).
-    QString GetNotes(const std::string& serial);
-    void SetNotes(const std::string& serial, const QString& notes); // empty notes removes the row
+    // Notes are keyed on the install path, not the serial: the same game can be
+    // installed several times and each copy carries its own notes.
+    QString GetNotes(const std::string& game_path);
+    void SetNotes(const std::string& game_path, const QString& notes); // empty notes removes row
+
+    // User supplied title shown instead of the one from param.sfo. Keyed on the
+    // install path, so each copy of a game can be named on its own.
+    QString GetTitle(const std::string& game_path);
+    void SetTitle(const std::string& game_path, const QString& title); // empty title removes row
+    void ClearTitles();                                                // drops every custom title
 
     // Returns one GameInfo per distinct cached serial (deduped, and skipping DLC and
     // -UPDATE/-patch sub-folders so update/patch directories - which share their base game's

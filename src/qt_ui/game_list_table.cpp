@@ -294,8 +294,10 @@ void GameListTable::Populate(const std::vector<game_info>& game_data,
     int index = -1;
     int selected_row = -1;
 
-    const auto get_title = [&title_map](const QString& serial, const std::string& name) -> QString {
-        if (const auto it = title_map.find(serial); it != title_map.cend()) {
+    // Custom titles are keyed on the install path, not the serial: the same
+    // game can be installed several times and each copy is titled on its own.
+    const auto get_title = [&title_map](const QString& key, const std::string& name) -> QString {
+        if (const auto it = title_map.find(key); it != title_map.cend()) {
             return it->second;
         }
 
@@ -306,7 +308,7 @@ void GameListTable::Populate(const std::vector<game_info>& game_data,
         index++;
 
         const QString serial = QString::fromStdString(game->info.serial);
-        const QString title = get_title(serial, game->info.name);
+        const QString title = get_title(GUI::Utils::GameKeyOf(game->info), game->info.name);
 
         // Icon
         CustomTableWidgetItem* icon_item = new CustomTableWidgetItem;
@@ -400,13 +402,13 @@ void GameListTable::Populate(const std::vector<game_info>& game_data,
         // Serial
         CustomTableWidgetItem* serial_item = new CustomTableWidgetItem(game->info.serial);
 
-        if (const auto it = notes_map.find(serial);
-            it != notes_map.cend() && !it->second.isEmpty()) {
-            const QString tool_tip = QString("%0 [%1]\n\n%2\n%3")
-                                         .arg(title)
-                                         .arg(serial)
-                                         .arg(tr("Notes:"))
-                                         .arg(it->second);
+        QString notes;
+        if (const auto it = notes_map.find(GUI::Utils::GameKeyOf(game->info));
+            it != notes_map.cend()) {
+            notes = it->second;
+        }
+
+        if (const QString tool_tip = BuildToolTip(game, title, notes, false); !tool_tip.isEmpty()) {
             title_item->setToolTip(tool_tip);
             serial_item->setToolTip(tool_tip);
         }
