@@ -91,13 +91,15 @@ GameListFrame::GameListFrame(std::shared_ptr<GUISettings> gui_settings,
 
     m_old_layout_is_list = m_is_list_layout;
 
-    m_categories = std::make_shared<GameCategories>(m_gui_settings);
-    m_current_category =
-        m_categories->Resolve(m_gui_settings->GetValue(GUI::game_list_current_category).toString());
-
     m_info_cache = std::make_shared<GameInfoCache>(
         Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "game_info_cache.sqlite3");
     QThreadPool::globalInstance()->start([cache = m_info_cache]() { cache->WarmUp(); });
+
+    // Categories are stored in the game info database, so this has to come
+    // after the cache is up.
+    m_categories = std::make_shared<GameCategories>(m_info_cache);
+    m_current_category =
+        m_categories->Resolve(m_gui_settings->GetValue(GUI::game_list_current_category).toString());
 
     // Save factors for first setup
     m_gui_settings->SetValue(GUI::game_list_iconColor, m_icon_color, false);

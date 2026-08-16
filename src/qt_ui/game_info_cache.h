@@ -12,9 +12,16 @@
 #include <vector>
 #include <QByteArray>
 #include <QString>
+#include <QStringList>
 
 #include "common/types.h"
 #include "game_info.h"
+
+/** One category and the games assigned to it, in display order. */
+struct CategoryRecord {
+    QString name;
+    QStringList game_paths;
+};
 
 class GameInfoCache {
 public:
@@ -55,6 +62,12 @@ public:
     QString GetTitle(const std::string& game_path);
     void SetTitle(const std::string& game_path, const QString& title); // empty title removes row
     void ClearTitles();                                                // drops every custom title
+
+    // User defined categories. Stored here rather than in the GUI settings so a
+    // large list of assignments doesn't bloat the settings file, and so writes
+    // are transactional.
+    std::vector<CategoryRecord> LoadCategories();
+    void SaveCategories(const std::vector<CategoryRecord>& categories);
 
     // Returns one GameInfo per distinct cached serial (deduped, and skipping DLC and
     // -UPDATE/-patch sub-folders so update/patch directories - which share their base game's
