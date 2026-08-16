@@ -97,7 +97,7 @@ struct DeletePaths {
     QString shader_cache_dir;
     QString shader_cache_zip;
     // Trophy data lives in two places: the trophy files unpacked from the game's
-    // TRP, and one progress file per user holding what they actually unlocked.
+    // container, and one progress file per user holding what they unlocked.
     QStringList trophy_dirs;
     QStringList trophy_user_files;
 };
@@ -130,9 +130,9 @@ static DeletePaths ResolveDeletePaths(const std::filesystem::path& addon_install
     // Trophy data is filed under the game's NPComm IDs, which come out of
     // npbind.dat inside the game itself.
     std::filesystem::path npbind_path =
-        std::filesystem::path(gameinfo->info.path) / "sce_sys" / "npbind.dat";
+        std::filesystem::path(gameinfo->info.path) / "sce_sys/trophy2" / "npbind.dat";
     if (const auto resolved =
-            Core::FileSys::ResolveGameFilePath(gameinfo->info.path, "sce_sys/npbind.dat")) {
+            Core::FileSys::ResolveGameFilePath(gameinfo->info.path, "sce_sys/trophy2/npbind.dat")) {
         npbind_path = *resolved;
     }
 
@@ -155,7 +155,7 @@ static DeletePaths ResolveDeletePaths(const std::filesystem::path& addon_install
                 QString user_file;
                 Common::FS::PathToQString(user_file, EmulatorSettings.GetHomeDir() /
                                                          std::to_string(user.user_id) / "trophy" /
-                                                         (np_comm_id + ".xml"));
+                                                         (np_comm_id + ".json"));
                 paths.trophy_user_files.append(user_file);
             }
         }
@@ -1081,17 +1081,6 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
 
     QAction* trophy_viewer = addAction(tr("&Trophy Viewer"));
     connect(trophy_viewer, &QAction::triggered, frame, [frame, current_game] {
-        const auto& user_key_vec =
-            KeyManager::GetInstance()->GetAllKeys().TrophyKeySet.ReleaseTrophyKey;
-
-        if (user_key_vec.size() != 16) {
-            // turn clang format off to maintain one string line for easy translations
-            // clang-format off
-            QMessageBox::critical(nullptr, tr("Error"), tr("A trophy key is required to use the Trophy Viewer. This can be inputted by clicking Utilities - Crypto Key Manager"));
-            // clang-format on
-            return;
-        }
-
         if (frame->m_game_data.empty()) {
             QMessageBox::information(
                 frame, tr("Trophy Viewer"),
@@ -1099,14 +1088,14 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
             return;
         }
 
-        QString trophyPath, gameTrpPath;
+        QString trophyPath, gameUcpPath;
         Common::FS::PathToQString(trophyPath, current_game.serial);
-        Common::FS::PathToQString(gameTrpPath, current_game.path);
+        Common::FS::PathToQString(gameUcpPath, current_game.path);
 
         // current_game.update_path is resolved at scan time and is already
         // aware of .zar-packed base/update folders.
         if (!current_game.update_path.empty()) {
-            Common::FS::PathToQString(gameTrpPath, current_game.update_path);
+            Common::FS::PathToQString(gameUcpPath, current_game.update_path);
         }
 
         QVector<TrophyGameInfo> allTrophyGames;
@@ -1114,10 +1103,10 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
             TrophyGameInfo gameInfo;
             gameInfo.name = QString::fromStdString(game->info.name);
             Common::FS::PathToQString(gameInfo.trophyPath, game->info.serial);
-            Common::FS::PathToQString(gameInfo.gameTrpPath, game->info.path);
+            Common::FS::PathToQString(gameInfo.gameUcpPath, game->info.path);
 
             if (!game->info.update_path.empty()) {
-                Common::FS::PathToQString(gameInfo.gameTrpPath, game->info.update_path);
+                Common::FS::PathToQString(gameInfo.gameUcpPath, game->info.update_path);
             }
 
             allTrophyGames.append(gameInfo);
@@ -1125,7 +1114,7 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
 
         QString gameName = QString::fromStdString(current_game.name);
         TrophyViewer* trophyViewer =
-            new TrophyViewer(frame->m_gui_settings, trophyPath, gameTrpPath, gameName, allTrophyGames);
+            new TrophyViewer(frame->m_gui_settings, trophyPath, gameUcpPath, gameName, allTrophyGames);
         trophyViewer->show();
     });
 

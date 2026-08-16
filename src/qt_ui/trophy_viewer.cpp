@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <fstream>
@@ -10,7 +11,6 @@
 #include <QPushButton>
 #include <QResizeEvent>
 #include <QScreen>
-#include <QXmlStreamWriter>
 #include <cmrc/cmrc.hpp>
 #include <nlohmann/json.hpp>
 
@@ -23,275 +23,25 @@
 #include "core/user_settings.h"
 #include "trophy_viewer.h"
 
-static constexpr std::array<std::string_view, 31> s_language_xml_names = {
-    "TROP_00.XML", // 00 Japanese
-    "TROP_01.XML", // 01 English (US)
-    "TROP_02.XML", // 02 French
-    "TROP_03.XML", // 03 Spanish (ES)
-    "TROP_04.XML", // 04 German
-    "TROP_05.XML", // 05 Italian
-    "TROP_06.XML", // 06 Dutch
-    "TROP_07.XML", // 07 Portuguese (PT)
-    "TROP_08.XML", // 08 Russian
-    "TROP_09.XML", // 09 Korean
-    "TROP_10.XML", // 10 Traditional Chinese
-    "TROP_11.XML", // 11 Simplified Chinese
-    "TROP_12.XML", // 12 Finnish
-    "TROP_13.XML", // 13 Swedish
-    "TROP_14.XML", // 14 Danish
-    "TROP_15.XML", // 15 Norwegian
-    "TROP_16.XML", // 16 Polish
-    "TROP_17.XML", // 17 Portuguese (BR)
-    "TROP_18.XML", // 18 English (GB)
-    "TROP_19.XML", // 19 Turkish
-    "TROP_20.XML", // 20 Spanish (LA)
-    "TROP_21.XML", // 21 Arabic
-    "TROP_22.XML", // 22 French (CA)
-    "TROP_23.XML", // 23 Czech
-    "TROP_24.XML", // 24 Hungarian
-    "TROP_25.XML", // 25 Greek
-    "TROP_26.XML", // 26 Romanian
-    "TROP_27.XML", // 27 Thai
-    "TROP_28.XML", // 28 Vietnamese
-    "TROP_29.XML", // 29 Indonesian
-    "TROP_30.XML", // 30 Unkrainian
-};
-
-// Returns the best available trophy XML path for the current system language.
-// Resolution order:
-//   1. TROP_XX.XML for the active system language (e.g. TROP01.XML for English)
-//   2. TROP.XML    (master / language-neutral fallback)
-static std::filesystem::path GetTrophyXmlPath(const std::filesystem::path& xml_dir,
-                                              int system_language) {
-    // Try the exact language file first.
-    if (system_language >= 0 && system_language < static_cast<int>(s_language_xml_names.size())) {
-        auto lang_path = xml_dir / s_language_xml_names[system_language];
-        if (std::filesystem::exists(lang_path)) {
-            return lang_path;
-        }
-    }
-    // Final fallback: master TROP.XML (always present).
-    return xml_dir / "TROP.XML";
-}
-
-// Maps a param.json locale code (e.g. "en-US") to the same CELL/Prospero
-// language index s_language_xml_names above is keyed by. Kept as a small
-// local table (rather than reusing param.cpp's) since core/file_format/ has no
-// Qt dependency and this is purely a UI-side concern for picking a
-// TROP_XX.XML name.
-static int LocaleToLanguageIndex(const std::string& locale) {
-    static const std::pair<int, const char*> table[] = {
-        {0, "ja-JP"},    {1, "en-US"},    {2, "fr-FR"},  {3, "es-ES"},  {4, "de-DE"},
-        {5, "it-IT"},    {6, "nl-NL"},    {7, "pt-PT"},  {8, "ru-RU"},  {9, "ko-KR"},
-        {10, "zh-Hant"}, {11, "zh-Hans"}, {12, "fi-FI"}, {13, "sv-SE"}, {14, "da-DK"},
-        {15, "no-NO"},   {16, "pl-PL"},   {17, "pt-BR"}, {18, "en-GB"}, {19, "tr-TR"},
-        {20, "es-419"},  {21, "ar-AE"},   {22, "fr-CA"}, {23, "cs-CZ"}, {24, "hu-HU"},
-        {25, "el-GR"},   {26, "ro-RO"},   {27, "th-TH"}, {28, "vi-VN"}, {29, "id-ID"},
-        {30, "uk-UA"},
-    };
-    for (const auto& [index, code] : table) {
-        if (locale == code) {
-            return index;
-        }
-    }
-    return -1;
-}
-
-// Writes one TROP_XX.XML-shaped file (or the TROP.XML master fallback) from
-// a single tropmeta_<locale>.json's parsed contents, in the same order as
-// tropconfTrophyIds (so row N here lines up with row N of TROPCONF.XML and
-// with the Nth alphabetically-sorted icon file, exactly like the legacy TRP
-// pipeline already relies on).
-static bool WriteTropLangXml(const std::filesystem::path& outPath, const nlohmann::json& meta,
-                             const std::vector<std::string>& tropconfTrophyIds) {
-    QFile file(QString::fromStdString(outPath.string()));
-    if (!file.open(QFile::WriteOnly | QFile::Text)) {
-        return false;
-    }
-
-    std::unordered_map<std::string, const nlohmann::json*> byId;
-    if (meta.contains("metadata") && meta["metadata"].contains("trophyMetadata")) {
-        for (const auto& t : meta["metadata"]["trophyMetadata"]) {
-            if (t.contains("id")) {
-                byId[t["id"].get<std::string>()] = &t;
-            }
-        }
-    }
-
-    QXmlStreamWriter writer(&file);
-    writer.setAutoFormatting(true);
-    writer.writeStartDocument();
-    writer.writeStartElement("trophyconf");
-
-    std::string title;
-    if (meta.contains("metadata") && meta["metadata"].contains("titleMetadata") &&
-        meta["metadata"]["titleMetadata"].contains("name")) {
-        title = meta["metadata"]["titleMetadata"]["name"].get<std::string>();
-    }
-    writer.writeTextElement("title-name", QString::fromStdString(title));
-
-    for (const auto& id : tropconfTrophyIds) {
-        writer.writeStartElement("trophy");
-        std::string name, detail;
-        if (const auto it = byId.find(id); it != byId.end()) {
-            const auto& t = *it->second;
-            if (t.contains("name")) {
-                name = t["name"].get<std::string>();
-            }
-            if (t.contains("detail")) {
-                detail = t["detail"].get<std::string>();
-            }
-        }
-        writer.writeTextElement("name", QString::fromStdString(name));
-        writer.writeTextElement("detail", QString::fromStdString(detail));
-        writer.writeEndElement(); // trophy
-    }
-
-    writer.writeEndElement(); // trophyconf
-    writer.writeEndDocument();
-    return true;
-}
-
 bool TrophyViewer::ExtractUcpTrophies(const std::filesystem::path& gamePath,
-                                      const std::filesystem::path& outputPath) {
+                                      const std::filesystem::path& outputPath,
+                                      const std::string& npCommId, int index) {
     const std::filesystem::path trophyDir = gamePath / "sce_sys" / "trophy2";
-    std::filesystem::path ucpPath;
-    for (const char* name : {"Trophy00.ucp", "uds00.ucp"}) {
-        if (auto candidate = trophyDir / name; std::filesystem::exists(candidate)) {
-            ucpPath = candidate;
-            break;
-        }
-    }
-    if (ucpPath.empty()) {
+
+    // A multi-disc title ships one container per trophy set, so pick the one
+    // that actually holds npCommId rather than assuming the first file found.
+    const auto ucpPath = UCP::FindContainerFor(trophyDir, npCommId, index);
+    if (!ucpPath) {
         return false;
     }
 
     UCP ucp;
-    if (!ucp.Open(ucpPath)) {
-        LOG_ERROR(Loader, "Failed to open UCP trophy container: {}", ucpPath.string());
+    if (!ucp.Open(*ucpPath)) {
+        LOG_ERROR(Loader, "Failed to open UCP trophy container: {}", ucpPath->string());
         return false;
     }
 
-    std::error_code ec;
-    std::filesystem::create_directories(outputPath / "Icons", ec);
-    std::filesystem::create_directories(outputPath / "Xml", ec);
-
-    // Extract icons as-is: same names as stored (trop00XX.png, matching the
-    // "starts with trop" filter PopulateTrophyWidget already applies).
-    for (const auto& entry : ucp.GetEntries()) {
-        if (entry.name.ends_with(".png")) {
-            if (!ucp.ExtractEntry(entry, outputPath / "Icons" / entry.name)) {
-                LOG_WARNING(Loader, "Failed to extract UCP icon entry: {}", entry.name);
-            }
-        }
-    }
-
-    const auto conf_bytes = ucp.ReadEntry("tropconf.json");
-    if (!conf_bytes) {
-        LOG_ERROR(Loader, "UCP trophy container missing tropconf.json: {}", ucpPath.string());
-        return false;
-    }
-
-    nlohmann::json conf;
-    try {
-        conf = nlohmann::json::parse(*conf_bytes);
-    } catch (const nlohmann::json::exception& e) {
-        LOG_ERROR(Loader, "Failed to parse tropconf.json from {}: {}", ucpPath.string(), e.what());
-        return false;
-    }
-
-    if (!conf.contains("trophies") || !conf["trophies"].is_array()) {
-        LOG_ERROR(Loader, "tropconf.json in {} has no trophies array", ucpPath.string());
-        return false;
-    }
-
-    // Write TROPCONF.XML: one <trophy id hidden ttype pid/> per entry, in
-    // the same order as the JSON (which is already ascending by id, matching
-    // the icon files' natural alphabetical sort).
-    std::vector<std::string> trophyIds;
-    {
-        QFile file(QString::fromStdString((outputPath / "Xml" / "TROPCONF.XML").string()));
-        if (!file.open(QFile::WriteOnly | QFile::Text)) {
-            LOG_ERROR(Loader, "Failed to create TROPCONF.XML under {}", outputPath.string());
-            return false;
-        }
-        QXmlStreamWriter writer(&file);
-        writer.setAutoFormatting(true);
-        writer.writeStartDocument();
-        writer.writeStartElement("trophyconf");
-
-        for (const auto& t : conf["trophies"]) {
-            const std::string id = t.value("id", "");
-            trophyIds.push_back(id);
-
-            writer.writeStartElement("trophy");
-            writer.writeAttribute("id", QString::fromStdString(id));
-            writer.writeAttribute("hidden", t.value("hidden", false) ? "true" : "false");
-            // "grade" ("P"/"G"/"S"/"B") maps directly onto legacy TRP's
-            // "ttype" attribute -- both use the exact same single-letter
-            // codes (see TrophyViewer::GetTrpType), so no translation needed.
-            writer.writeAttribute("ttype", QString::fromStdString(t.value("grade", "")));
-            writer.writeAttribute("pid", QString::fromStdString(t.value("platinumTrophyId", "")));
-            writer.writeEndElement(); // trophy
-        }
-
-        writer.writeEndElement(); // trophyconf
-        writer.writeEndDocument();
-    }
-
-    // Write one TROP_XX.XML per locale actually present in the container,
-    // plus a TROP.XML master fallback (GetTrophyXmlPath's "always present"
-    // assumption) from the container's defaultLanguage, or the first
-    // available locale if that one's tropmeta happens to be missing.
-    const std::string default_locale = conf.value("defaultLanguage", "en-US");
-    bool wrote_master = false;
-    for (const auto& entry : ucp.GetEntries()) {
-        if (!entry.name.starts_with("tropmeta_") || !entry.name.ends_with(".json")) {
-            continue;
-        }
-        const std::string locale =
-            entry.name.substr(9, entry.name.size() - 9 - 5); // strip "tropmeta_" and ".json"
-
-        const auto meta_bytes = ucp.ReadEntry(entry);
-        if (!meta_bytes) {
-            continue;
-        }
-        nlohmann::json meta;
-        try {
-            meta = nlohmann::json::parse(*meta_bytes);
-        } catch (const nlohmann::json::exception&) {
-            continue;
-        }
-
-        const int lang_index = LocaleToLanguageIndex(locale);
-        if (lang_index >= 0 && lang_index < static_cast<int>(s_language_xml_names.size())) {
-            WriteTropLangXml(outputPath / "Xml" / std::string(s_language_xml_names[lang_index]),
-                             meta, trophyIds);
-        }
-
-        if (!wrote_master && locale == default_locale) {
-            wrote_master = WriteTropLangXml(outputPath / "Xml" / "TROP.XML", meta, trophyIds);
-        }
-    }
-    if (!wrote_master) {
-        // Fall back to whatever locale we last parsed rather than leaving
-        // GetTrophyXmlPath's guaranteed-present TROP.XML missing.
-        for (const auto& entry : ucp.GetEntries()) {
-            if (entry.name.starts_with("tropmeta_") && entry.name.ends_with(".json")) {
-                if (const auto meta_bytes = ucp.ReadEntry(entry)) {
-                    try {
-                        auto meta = nlohmann::json::parse(*meta_bytes);
-                        if (WriteTropLangXml(outputPath / "Xml" / "TROP.XML", meta, trophyIds)) {
-                            break;
-                        }
-                    } catch (const nlohmann::json::exception&) {
-                    }
-                }
-            }
-        }
-    }
-
-    return true;
+    return ucp.ExtractTrophyFiles(outputPath);
 }
 
 namespace fs = std::filesystem;
@@ -394,7 +144,7 @@ void TrophyViewer::updateTableFilters() {
 }
 
 TrophyViewer::TrophyViewer(std::shared_ptr<GUISettings> gui_settings, QString trophyPath,
-                           QString gameTrpPath, QString gameName,
+                           QString gameUcpPath, QString gameName,
                            const QVector<TrophyGameInfo>& allTrophyGames)
     : QMainWindow(), allTrophyGames_(allTrophyGames), currentGameName_(gameName),
       m_gui_settings(std::move(gui_settings)) {
@@ -402,11 +152,11 @@ TrophyViewer::TrophyViewer(std::shared_ptr<GUISettings> gui_settings, QString tr
     this->setAttribute(Qt::WA_DeleteOnClose);
     tabWidget = new QTabWidget(this);
 
-    gameTrpPath_ = gameTrpPath;
+    gameUcpPath_ = gameUcpPath;
     std::filesystem::path npbindPath =
-        Common::FS::PathFromQString(gameTrpPath) / "sce_sys" / "trophy2" / "npbind.dat";
+        Common::FS::PathFromQString(gameUcpPath) / "sce_sys" / "trophy2" / "npbind.dat";
     if (const auto resolved = Core::FileSys::ResolveGameFilePath(
-            Common::FS::PathFromQString(gameTrpPath), "sce_sys/trophy2/npbind.dat")) {
+            Common::FS::PathFromQString(gameUcpPath), "sce_sys/trophy2/npbind.dat")) {
         npbindPath = *resolved;
     }
 
@@ -569,12 +319,12 @@ void TrophyViewer::SelectionChanged(int gameIndex, QString user) {
 
     const TrophyGameInfo& selectedGame = allTrophyGames_[gameIndex];
     currentGameName_ = selectedGame.name;
-    gameTrpPath_ = selectedGame.gameTrpPath;
+    gameUcpPath_ = selectedGame.gameUcpPath;
 
     this->setWindowTitle(tr("Trophy Viewer") + " - " + currentGameName_);
 
     std::filesystem::path npbindPath =
-        Common::FS::PathFromQString(gameTrpPath_) / "sce_sys" / "trophy2" / "npbind.dat";
+        Common::FS::PathFromQString(gameUcpPath_) / "sce_sys" / "trophy2" / "npbind.dat";
 
     NPBindFile npbind;
     if (!npbind.Load(npbindPath.string())) {
@@ -605,26 +355,32 @@ void TrophyViewer::reopenLeftDock() {
 
 void TrophyViewer::PopulateTrophyWidget(QString title, QString user) {
 
-    int index = 0;
+    // Position within npbind.dat's list. Advanced at the top of the loop so
+    // that skipping a set on error can't shift every later index.
+    int index = -1;
     for (const auto& npCommId : npCommIds) {
+        ++index;
         auto trophyFilesPath =
             Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "trophy" / npCommId;
         QString trophyDirQt;
         Common::FS::PathToQString(trophyDirQt, trophyFilesPath);
 
-        std::filesystem::path extractPath =
-            GetTrpFilesPath(Common::FS::PathFromQString(gameTrpPath_));
+        const std::filesystem::path extractPath = Common::FS::PathFromQString(gameUcpPath_);
         QDir dir(trophyDirQt);
         if (!dir.exists()) {
-            if (!ExtractUcpTrophies(extractPath, trophyFilesPath) &&
-                !trp.Extract(extractPath, index, npCommId, trophyFilesPath, true)) {
-                LOG_ERROR(Loader, "Couldn't extract trophies");
+            if (!ExtractUcpTrophies(extractPath, trophyFilesPath, npCommId, index)) {
+                LOG_ERROR(Loader, "Couldn't extract trophies for {}", npCommId);
+                continue;
             }
         }
 
-        index++;
+        // Definitions plus display strings for the active console language.
+        TrophySet set;
+        if (!set.LoadFromDir(trophyFilesPath, EmulatorSettings.GetConsoleLanguage())) {
+            LOG_ERROR(Loader, "Couldn't load trophy set for {}", npCommId);
+            continue;
+        }
 
-        const std::string filename = npCommId + ".xml";
         std::string userId = "1000";
         for (const auto& User : UserSettings.GetUserManager().GetAllUsers()) {
             if (User.user_name == user) {
@@ -632,40 +388,25 @@ void TrophyViewer::PopulateTrophyWidget(QString title, QString user) {
             }
         }
 
-        auto user_trophy_file = EmulatorSettings.GetHomeDir() / userId / "trophy" / filename;
+        // Per-user unlock state. A missing file just means nothing is earned
+        // yet, so seed one rather than leaving the set unreadable.
+        const auto user_trophy_file =
+            EmulatorSettings.GetHomeDir() / userId / "trophy" / (npCommId + ".json");
+        TrophyProgress progress;
+        if (!progress.Load(user_trophy_file)) {
+            LOG_WARNING(Loader, "Couldn't read trophy progress: {}", user_trophy_file.string());
+        }
         if (!std::filesystem::exists(user_trophy_file)) {
-            if (!std::filesystem::exists(user_trophy_file.parent_path())) {
-                std::filesystem::create_directories(user_trophy_file.parent_path());
+            if (progress.np_comm_id.empty()) {
+                progress.np_comm_id = npCommId;
             }
-
-            std::error_code discard;
-            std::filesystem::copy_file(trophyFilesPath / "Xml" / "TROPCONF.XML", user_trophy_file,
-                                       discard);
+            progress.SeedFrom(set);
+            progress.Save(user_trophy_file);
         }
 
-        QFileInfoList dirList = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
-        if (dirList.isEmpty())
-            return;
-
-        QString trpDir = trophyDirQt;
-
-        QString iconsPath = trpDir + "/Icons";
-        QDir iconsDir(iconsPath);
-        QFileInfoList iconDirList = iconsDir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot);
-        std::vector<QImage> icons;
-
-        for (const QFileInfo& iconInfo : iconDirList) {
-            QString fileName = iconInfo.fileName();
-
-            // Skip files that doesn't start with "trop" or "TROP"
-            if (!fileName.startsWith("trop", Qt::CaseInsensitive))
-                continue;
-
-            QImage icon =
-                QImage(iconInfo.absoluteFilePath())
-                    .scaled(QSize(128, 128), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-            icons.push_back(icon);
-        }
+        // Icons are addressed by trophy id ("trop0000.png"), not by directory
+        // order, so a set with a gap in its numbering still lines up.
+        const std::filesystem::path iconsDir = trophyFilesPath / "Icons";
 
         QStringList trpId;
         QStringList trpHidden;
@@ -675,86 +416,36 @@ void TrophyViewer::PopulateTrophyWidget(QString title, QString user) {
         QStringList trophyNames;
         QStringList trophyDetails;
         QStringList trpTimeUnlocked;
+        std::vector<QImage> icons;
 
-        QString userXmlPath;
-        Common::FS::PathToQString(userXmlPath, user_trophy_file);
-        QFile userFile(userXmlPath);
-        if (!userFile.open(QFile::ReadOnly | QFile::Text)) {
-            return;
-        }
+        for (const auto& def : set.trophies) {
+            QString iconPath;
+            Common::FS::PathToQString(iconPath, iconsDir / def.IconFileName());
+            icons.push_back(QImage(iconPath).scaled(QSize(128, 128), Qt::KeepAspectRatio,
+                                                    Qt::SmoothTransformation));
 
-        QXmlStreamReader usrFileReader(&userFile);
-        while (!usrFileReader.atEnd() && !usrFileReader.hasError()) {
-            usrFileReader.readNext();
-            if (usrFileReader.isStartElement() && usrFileReader.name().toString() == "trophy") {
-                trpId.append(usrFileReader.attributes().value("id").toString());
-                trpHidden.append(usrFileReader.attributes().value("hidden").toString());
-                trpType.append(usrFileReader.attributes().value("ttype").toString());
-                trpPid.append(usrFileReader.attributes().value("pid").toString());
+            trpId.append(QString::fromStdString(def.id));
+            trpHidden.append(def.hidden ? "yes" : "no");
+            trpType.append(QString::fromUtf8(TrophySet::GradeCode(def.grade).data(),
+                                             qsizetype(TrophySet::GradeCode(def.grade).size())));
+            trpPid.append(QString::fromStdString(def.platinum_id));
+            trophyNames.append(QString::fromStdString(def.name));
+            trophyDetails.append(QString::fromStdString(def.detail));
 
-                if (usrFileReader.attributes().hasAttribute("unlockstate")) {
-                    if (usrFileReader.attributes().value("unlockstate").toString() == "true") {
-                        trpUnlocked.append("unlocked");
-                    } else {
-                        trpUnlocked.append("locked");
-                    }
-                    if (usrFileReader.attributes().hasAttribute("timestamp")) {
-                        QString ts = usrFileReader.attributes().value("timestamp").toString();
-                        if (ts.length() > 10)
-                            trpTimeUnlocked.append("unknown");
-                        else {
-                            bool ok;
-                            qint64 timestampInt = ts.toLongLong(&ok);
-                            if (ok) {
-                                QDateTime dt = QDateTime::fromSecsSinceEpoch(timestampInt);
-                                QString format = useEuropeanDateFormat ? "dd/MM/yyyy HH:mm:ss"
-                                                                       : "MM/dd/yyyy HH:mm:ss";
-                                trpTimeUnlocked.append(dt.toString(format));
-                            } else {
-                                trpTimeUnlocked.append("unknown");
-                            }
-                        }
-                    } else {
-                        trpTimeUnlocked.append("");
-                    }
-                } else {
-                    trpUnlocked.append("locked");
-                    trpTimeUnlocked.append("");
-                }
+            const auto entry = progress.Get(def.id);
+            trpUnlocked.append(entry.unlocked ? "unlocked" : "locked");
+            if (entry.unlocked && entry.timestamp != 0) {
+                const QDateTime dt = QDateTime::fromSecsSinceEpoch(entry.timestamp);
+                const char* format =
+                    useEuropeanDateFormat ? "dd/MM/yyyy HH:mm:ss" : "MM/dd/yyyy HH:mm:ss";
+                trpTimeUnlocked.append(dt.toString(format));
+            } else {
+                trpTimeUnlocked.append("");
             }
         }
 
-        std::filesystem::path path = GetTrophyXmlPath(
-            Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "trophy" / npCommId / "Xml",
-            EmulatorSettings.GetConsoleLanguage());
-        QString xmlPath;
-        Common::FS::PathToQString(xmlPath, path);
-
-        QFile file(xmlPath);
-        if (!file.open(QFile::ReadOnly | QFile::Text)) {
-            QMessageBox::information(this, "test", "did not open");
-            return;
-        }
-
-        QString tabName;
-        QXmlStreamReader reader(&file);
-        while (!reader.atEnd() && !reader.hasError()) {
-            reader.readNext();
-            if (reader.isStartElement() && reader.name().toString() == "title-name") {
-                tabName = reader.readElementText();
-            }
-
-            if (reader.isStartElement() && reader.name().toString() == "trophy") {
-                while (reader.readNextStartElement()) {
-                    if (reader.name().toString() == "name" && !trpId.isEmpty()) {
-                        trophyNames.append(reader.readElementText());
-                    }
-                    if (reader.name().toString() == "detail" && !trpId.isEmpty()) {
-                        trophyDetails.append(reader.readElementText());
-                    }
-                }
-            }
-        }
+        const QString tabName =
+            QString::fromStdString(set.title_name.empty() ? npCommId : set.title_name);
 
         QTableWidget* tableWidget = new QTableWidget(this);
         tableWidget->setShowGrid(false);
@@ -775,7 +466,9 @@ void TrophyViewer::PopulateTrophyWidget(QString title, QString user) {
             item->setFlags(item->flags() & ~Qt::ItemIsEditable);
             tableWidget->setItem(row, 1, item);
 
-            const std::string filename = GetTrpType(trpType[row].at(0));
+            const auto grade = TrophySet::GradeFromCode(trpType[row].toStdString());
+            const auto grade_icon = TrophySet::GradeIconFileName(grade);
+            const std::string filename(grade_icon);
             QTableWidgetItem* typeitem = new QTableWidgetItem();
 
             const auto CustomTrophy_Dir =
@@ -889,28 +582,4 @@ void TrophyViewer::SetTableItem(QTableWidget* parent, int row, int column, QStri
     item->setForeground(QBrush(Qt::black));
 
     parent->setItem(row, column, item);
-}
-
-std::filesystem::path TrophyViewer::GetTrpFilesPath(std::filesystem::path gamePath) {
-    if (!gamePath.string().ends_with("-patch") && !gamePath.string().ends_with("-Update")) {
-        return gamePath;
-    }
-
-    std::string basePath = gamePath.string();
-    if (gamePath.string().ends_with("-patch")) {
-        basePath.erase(basePath.length() - 6);
-    } else if (gamePath.string().ends_with("-UDPATE")) {
-        basePath.erase(basePath.length() - 7);
-    }
-
-    if (std::filesystem::exists(gamePath / "sce_sys" / "trophy")) {
-        for (const auto& entry :
-             std::filesystem::directory_iterator(gamePath / "sce_sys" / "trophy")) {
-            if (entry.path().filename().string().ends_with(".trp")) {
-                return gamePath;
-            }
-        }
-    }
-
-    return basePath;
 }

@@ -175,8 +175,6 @@ set(FILEFORMAT src/core/file_format/param.cpp
                src/core/file_format/npbind.cpp
                src/core/file_format/npbind.h
                src/core/file_format/pfs.h
-               src/core/file_format/trp.cpp
-               src/core/file_format/trp.h
                src/core/file_format/ucp.cpp
                src/core/file_format/ucp.h
                src/core/file_sys/game_backend.cpp
