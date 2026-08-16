@@ -14,6 +14,13 @@ GameCategories::GameCategories(std::shared_ptr<GameInfoCache> info_cache, QObjec
     Load();
 }
 
+QString GameCategories::NormalizedPath(const QString& path) {
+    if (path.isEmpty()) {
+        return {};
+    }
+    return QString::fromStdString(GUI::Utils::NormalizePath(path.toStdString()));
+}
+
 GameKey GameCategories::KeyFor(const GameInfo& info) {
     return GameKey{GUI::Utils::GameKeyOf(info)};
 }
