@@ -2,6 +2,10 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <array>
+#include <cctype>
+#include <cstddef>
+#include <utility>
+
 #include <fmt/format.h>
 #include <nlohmann/json.hpp>
 
@@ -9,6 +13,7 @@
 #include "common/logging/log.h"
 #include "core/file_format/param.h"
 
+// "localizedParameters" locale keys.
 static constexpr std::array<std::pair<s32, std::string_view>, 31> lang_table = {{
     {0, "ja-JP"},  {1, "en-US"},  {2, "fr-FR"},   {3, "es-ES"},  {4, "de-DE"},    {5, "it-IT"},
     {6, "nl-NL"},  {7, "pt-PT"},  {8, "ru-RU"},   {9, "ko-KR"},  {10, "zh-Hant"}, {11, "zh-Hans"},
@@ -18,7 +23,110 @@ static constexpr std::array<std::pair<s32, std::string_view>, 31> lang_table = {
     {30, "uk-UA"},
 }};
 
-static u32 TopU32FromHexU64String(std::string_view hex) {
+// "applicationCategoryType" values.
+static constexpr std::array<std::pair<s64, std::string_view>, 10> category_table = {{
+    {0, "Native Game"},
+    {65536, "Prospero Native Media App"},
+    {65792, "RNPS Media App"},
+    {66048, "Web Based Media App"},
+    {131328, "System Built-in App"},
+    {131584, "Big Daemon"},
+    {16777216, "ShellUI"},
+    {33554432, "Daemon"},
+    {50331648, "CommonDialog"},
+    {67108864, "ShellApp"},
+}};
+
+namespace {
+
+std::string TrimPadding(std::string s) {
+    const auto is_pad = [](unsigned char c) { return std::isspace(c) != 0; };
+    while (!s.empty() && is_pad(static_cast<unsigned char>(s.back()))) {
+        s.pop_back();
+    }
+    std::size_t start = 0;
+    while (start < s.size() && is_pad(static_cast<unsigned char>(s[start]))) {
+        ++start;
+    }
+    return s.substr(start);
+}
+
+ParamValueType TypeOf(const nlohmann::json& node) {
+    if (node.is_object()) {
+        return ParamValueType::Object;
+    }
+    if (node.is_array()) {
+        return ParamValueType::Array;
+    }
+    if (node.is_string()) {
+        return ParamValueType::String;
+    }
+    if (node.is_boolean()) {
+        return ParamValueType::Boolean;
+    }
+    if (node.is_number_float()) {
+        return ParamValueType::Float;
+    }
+    if (node.is_number()) {
+        return ParamValueType::Integer;
+    }
+    return ParamValueType::Null;
+}
+
+std::string RenderScalar(const nlohmann::json& node) {
+    if (node.is_string()) {
+        return TrimPadding(node.get<std::string>());
+    }
+    if (node.is_boolean()) {
+        return node.get<bool>() ? "true" : "false";
+    }
+    if (node.is_number_float()) {
+        return fmt::format("{}", node.get<double>());
+    }
+    if (node.is_number_unsigned()) {
+        return std::to_string(node.get<u64>());
+    }
+    if (node.is_number_integer()) {
+        return std::to_string(node.get<s64>());
+    }
+    if (node.is_null()) {
+        return "null";
+    }
+    return node.dump();
+}
+
+void Flatten(const nlohmann::json& node, const std::string& path, const std::string& lookup,
+             int depth, std::vector<Param::Entry>& out) {
+    if (node.is_object()) {
+        if (!path.empty()) {
+            out.push_back({path, lookup, fmt::format("{} key(s)", node.size()),
+                           ParamValueType::Object, depth});
+        }
+        for (const auto& [key, value] : node.items()) {
+            const std::string child = path.empty() ? key : fmt::format("{}.{}", path, key);
+            const std::string child_lookup =
+                lookup.empty() ? key : fmt::format("{}.{}", lookup, key);
+            Flatten(value, child, child_lookup, path.empty() ? depth : depth + 1, out);
+        }
+        return;
+    }
+
+    if (node.is_array()) {
+        out.push_back(
+            {path, lookup, fmt::format("{} item(s)", node.size()), ParamValueType::Array, depth});
+        for (std::size_t i = 0; i < node.size(); ++i) {
+            Flatten(node[i], fmt::format("{}[{}]", path, i), fmt::format("{}[]", lookup), depth + 1,
+                    out);
+        }
+        return;
+    }
+
+    out.push_back({path, lookup, RenderScalar(node), TypeOf(node), depth});
+}
+
+} // namespace
+
+u32 Param::TopU32FromHexU64String(std::string_view hex) {
     if (hex.starts_with("0x") || hex.starts_with("0X")) {
         hex.remove_prefix(2);
     }
@@ -50,6 +158,26 @@ std::string Param::FormatBcdVersion(u32 bcd) {
     return fmt::format("{}.{:02}", major, minor);
 }
 
+std::string_view Param::TypeName(ParamValueType type) {
+    switch (type) {
+    case ParamValueType::Null:
+        return "null";
+    case ParamValueType::Boolean:
+        return "bool";
+    case ParamValueType::Integer:
+        return "int";
+    case ParamValueType::Float:
+        return "float";
+    case ParamValueType::String:
+        return "string";
+    case ParamValueType::Array:
+        return "array";
+    case ParamValueType::Object:
+        return "object";
+    }
+    return "unknown";
+}
+
 std::string_view Param::LocaleFromLanguage(s32 language_index) {
     for (const auto& [index, locale] : lang_table) {
         if (index == language_index) {
@@ -68,6 +196,15 @@ s32 Param::LanguageFromLocale(std::string_view locale) {
     return -1;
 }
 
+std::string_view Param::CategoryName(s64 application_category_type) {
+    for (const auto& [value, name] : category_table) {
+        if (value == application_category_type) {
+            return name;
+        }
+    }
+    return {};
+}
+
 void Param::Reset() {
     *this = Param{};
 }
@@ -82,7 +219,7 @@ bool Param::Open(const std::filesystem::path& filepath) {
 
     const u64 file_size = file.GetSize();
     if (file_size == 0) {
-        LOG_ERROR(Core, "Param file at {} is empty!", filepath.string());
+        LOG_ERROR(Core, "param.json at {} is empty!", filepath.string());
         return false;
     }
 
@@ -123,12 +260,19 @@ bool Param::Parse(std::string_view json_text) {
         return false;
     }
 
+    // Retained so the viewer can show the document as-is and walk fields this
+    // class has no member for.
+    raw_json.assign(json_text);
+
     // --- Identity ---------------------------------------------------------
     if (const auto it = j.find("titleId"); it != j.end() && it->is_string()) {
-        title_id = it->get<std::string>();
+        title_id = TrimPadding(it->get<std::string>());
     }
     if (const auto it = j.find("contentId"); it != j.end() && it->is_string()) {
-        content_id = it->get<std::string>();
+        content_id = TrimPadding(it->get<std::string>());
+    }
+    if (const auto it = j.find("conceptId"); it != j.end() && it->is_string()) {
+        concept_id = TrimPadding(it->get<std::string>());
     }
 
     // --- Titles -----------------------------------------------------------
@@ -164,9 +308,13 @@ bool Param::Parse(std::string_view json_text) {
     if (const auto it = j.find("applicationCategoryType");
         it != j.end() && it->is_number_integer()) {
         application_category_type = it->get<s64>();
-        if (application_category_type == 0) {
-            category = "gd"; // native game; see param.h for the other values
+        category = CategoryName(application_category_type);
+        if (category.empty()) {
+            category = fmt::format("Unknown ({})", application_category_type);
         }
+    }
+    if (const auto it = j.find("applicationDrmType"); it != j.end() && it->is_string()) {
+        drm_type = it->get<std::string>();
     }
 
     // --- Versions ---------------------------------------------------------
@@ -196,36 +344,31 @@ const std::string& Param::LocalizedTitle(s32 language_index) const {
     return title;
 }
 
-std::vector<Param::DisplayEntry> Param::GetDisplayEntries() const {
-    std::vector<DisplayEntry> entries;
-    entries.reserve(8 + localized_titles.size());
-
-    const auto add_string = [&entries](std::string key, const std::string& value) {
-        if (!value.empty()) {
-            entries.push_back({std::move(key), value, ParamValueType::String});
-        }
-    };
-
-    add_string("TITLE", title);
-    add_string("TITLE_ID", title_id);
-    add_string("CONTENT_ID", content_id);
-    add_string("CATEGORY", category);
-    add_string("APP_VER", app_ver);
-    add_string("MASTER_VERSION", master_version);
-
-    if (application_category_type >= 0) {
-        entries.push_back({"APPLICATION_CATEGORY_TYPE", std::to_string(application_category_type),
-                           ParamValueType::Integer});
-    }
-    if (system_ver != 0) {
-        entries.push_back({"SYSTEM_VER", std::to_string(system_ver), ParamValueType::Integer});
-    }
-    if (sdk_ver != 0) {
-        add_string("SDK_VER", sdk_ver_string);
-    }
-    for (const auto& [index, localized] : localized_titles) {
-        entries.push_back({fmt::format("TITLE_{:02}", index), localized, ParamValueType::String});
+std::vector<Param::Entry> Param::GetEntries() const {
+    std::vector<Entry> entries;
+    if (raw_json.empty()) {
+        return entries;
     }
 
+    nlohmann::json j;
+    try {
+        j = nlohmann::json::parse(raw_json, /*cb=*/nullptr, /*allow_exceptions=*/true);
+    } catch (const nlohmann::json::exception& e) {
+        LOG_ERROR(Core, "Failed to re-parse retained param.json: {}", e.what());
+        return entries;
+    }
+
+    Flatten(j, /*path=*/"", /*lookup=*/"", /*depth=*/0, entries);
     return entries;
+}
+
+std::string Param::PrettyJson() const {
+    if (raw_json.empty()) {
+        return {};
+    }
+    try {
+        return nlohmann::json::parse(raw_json).dump(4);
+    } catch (const nlohmann::json::exception&) {
+        return raw_json;
+    }
 }

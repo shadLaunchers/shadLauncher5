@@ -57,7 +57,7 @@ public:
     QString GetNotes(const std::string& game_path);
     void SetNotes(const std::string& game_path, const QString& notes); // empty notes removes row
 
-    // User supplied title shown instead of the one from param.sfo. Keyed on the
+    // User supplied title shown instead of the one from param.json. Keyed on the
     // install path, so each copy of a game can be named on its own.
     QString GetTitle(const std::string& game_path);
     void SetTitle(const std::string& game_path, const QString& title); // empty title removes row
