@@ -74,9 +74,9 @@ static std::filesystem::path GetTrophyXmlPath(const std::filesystem::path& xml_d
     return xml_dir / "TROP.XML";
 }
 
-// Maps a param.json-style locale code (e.g. "en-US") to the same CELL/Prospero
+// Maps a param.json locale code (e.g. "en-US") to the same CELL/Prospero
 // language index s_language_xml_names above is keyed by. Kept as a small
-// local table (rather than reusing psf.cpp's) since core/file_format/ has no
+// local table (rather than reusing param.cpp's) since core/file_format/ has no
 // Qt dependency and this is purely a UI-side concern for picking a
 // TROP_XX.XML name.
 static int LocaleToLanguageIndex(const std::string& locale) {

@@ -66,8 +66,8 @@
 #include "common/log_analyzer.h"
 #include "common/path_util.h"
 #include "core/ipc/ipc_client.h"
+#include "param_viewer_dialog.h"
 #include "settings_dialog.h"
-#include "sfo_viewer_dialog.h"
 #include "trophy_viewer.h"
 #include "zarchive_viewer_dialog.h"
 
@@ -468,7 +468,7 @@ bool GameListFrame::SearchMatchesApp(const game_info& game, bool fallback) const
     }
 
     // A renamed game has to stay findable under both names, so check the custom
-    // title as well as the one from param.sfo.
+    // title as well as the one from param.json.
     if (const auto it = m_titles.find(GUI::Utils::GameKeyOf(game->info)); it != m_titles.cend()) {
         const QString custom_title = it->second.toLower();
         if (custom_title != original_title && SearchMatchesTitle(custom_title, fallback)) {
@@ -870,11 +870,10 @@ void GameListFrame::OnParsingFinished() {
         const bool is_archive = Core::FileSys::IsZArchiveFile(entry_path);
         game.info.path = GUI::Utils::NormalizePath(entry_path);
 
-        // PS5's param.json has no documented equivalent of PSF's CATEGORY="ac" for
-        // add-on content (confirmed against psdevwiki.com/ps5/Param.json: the
-        // applicationCategoryType enum only covers native games, media apps, and
-        // system/daemon processes -- nothing for DLC). So rather than guessing at
-        // an undocumented Sony field, skip anything that lives under this
+        // param.json has no field that marks add-on content: its
+        // applicationCategoryType enum only covers native games, media apps and
+        // system/daemon processes (psdevwiki.com/ps5/Param.json). So rather than
+        // guessing at an undocumented Sony field, skip anything that lives under this
         // emulator's own configured Addon Install Dir, which is the one place
         // this codebase already treats DLC as living (see GetAddonInstallDir()
         // and its use in the Delete DLC handler below). game.info.path is already
@@ -892,21 +891,21 @@ void GameListFrame::OnParsingFinished() {
 
         const Localized thread_localized;
 
-        const std::string sfo_dir = dir_or_elf + "/sce_sys";
-        std::string sfo_path;
+        const std::string param_dir = dir_or_elf + "/sce_sys";
+        std::string param_path;
         if (is_archive) {
             // ResolveParamPath extracts sce_sys/param.json out of the archive into
             // the cache dir so Param::Open() can read it like any other file.
             if (const auto resolved = Core::FileSys::ResolveParamPath(entry_path)) {
-                sfo_path = resolved->string();
+                param_path = resolved->string();
             } else {
                 qDebug() << "Failed to read sce_sys/param.json from archive:"
                          << QString::fromStdString(dir_or_elf);
                 return;
             }
         } else {
-            const auto found_param = Common::FS::FindParamPath(sfo_dir);
-            sfo_path = found_param ? found_param->string() : sfo_dir + "/param.json";
+            const auto found_param = Common::FS::FindParamPath(param_dir);
+            param_path = found_param ? found_param->string() : param_dir + "/param.json";
         }
 
         s64 fingerprint = 0;
@@ -918,8 +917,8 @@ void GameListFrame::OnParsingFinished() {
                 fingerprint = static_cast<s64>(ftime.time_since_epoch().count()) ^
                               (static_cast<s64>(language_index) << 48);
             }
-        } else if (std::error_code ec; std::filesystem::exists(sfo_path, ec) && !ec) {
-            if (const auto ftime = std::filesystem::last_write_time(sfo_path, ec); !ec) {
+        } else if (std::error_code ec; std::filesystem::exists(param_path, ec) && !ec) {
+            if (const auto ftime = std::filesystem::last_write_time(param_path, ec); !ec) {
                 fingerprint = static_cast<s64>(ftime.time_since_epoch().count()) ^
                               (static_cast<s64>(language_index) << 48);
             }
@@ -934,18 +933,10 @@ void GameListFrame::OnParsingFinished() {
 
         if (game.info.serial.empty()) {
             Param param;
-            param.Open(sfo_path);
+            param.Open(param_path);
 
+            // Human-readable "applicationCategoryType", e.g. "Native Game".
             game.info.category = param.category;
-            // PS5's param.json never produces CATEGORY="ac" (see the addon-dir
-            // check above), so this is effectively a defensive no-op now, kept
-            // in case a future field mapping does distinguish DLC this way.
-#ifdef _WIN32
-            if (_stricmp(game.info.category.c_str(), "ac") == 0) // skip dlc
-#else
-            if (strcasecmp(game.info.category.c_str(), "ac") == 0)
-#endif
-                return;
 
             NPBindFile m_npfile;
             std::string npbind_path = dir_or_elf + "/sce_sys/trophy2/npbind.dat";
@@ -1004,20 +995,20 @@ void GameListFrame::OnParsingFinished() {
             } else {
                 if (game.info.icon_path.empty()) {
                     for (const auto& icon_name : localized_icons) {
-                        if (std::string icon_path = sfo_dir + "/" + icon_name;
+                        if (std::string icon_path = param_dir + "/" + icon_name;
                             std::filesystem::is_regular_file(icon_path)) {
                             game.info.icon_path = std::move(icon_path);
                             break;
                         }
                     }
                     if (game.info.icon_path.empty()) {
-                        game.info.icon_path = sfo_dir + "/icon0.png";
+                        game.info.icon_path = param_dir + "/icon0.png";
                     }
                 }
 
                 if (game.info.snd0_path.empty()) {
-                    if (std::filesystem::is_regular_file(sfo_dir + "/snd0.at9")) {
-                        game.info.snd0_path = sfo_dir + "/snd0.at9";
+                    if (std::filesystem::is_regular_file(param_dir + "/snd0.at9")) {
+                        game.info.snd0_path = param_dir + "/snd0.at9";
                     }
                 }
             }
@@ -1026,15 +1017,6 @@ void GameListFrame::OnParsingFinished() {
                 std::lock_guard lock(m_pending_cache_puts_mutex);
                 m_pending_cache_puts.emplace_back(game.info, fingerprint);
             }
-        } else {
-            // Cache hit: category is already known without touching disk.
-            // Same vestigial note as above: PS5's param.json never yields "ac".
-#ifdef _WIN32
-            if (_stricmp(game.info.category.c_str(), "ac") == 0) // skip dlc
-#else
-            if (strcasecmp(game.info.category.c_str(), "ac") == 0)
-#endif
-                return;
         }
 
         const QString serial = QString::fromStdString(game.info.serial);

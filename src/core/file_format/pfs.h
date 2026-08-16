@@ -21,7 +21,9 @@ enum PfsMode : unsigned short {
     UnknownFlagAlwaysSet = 0x8
 };
 
-struct PSFHeader_ {
+// PFS superblock. (Named "PSFHeader_" upstream; that was a typo for PFS and
+// had nothing to do with the PS4 param.sfo format.)
+struct PFSHeader_ {
     s64 version;
     s64 magic;
     s64 id;

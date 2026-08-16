@@ -107,7 +107,7 @@ public:
     int CustomTitleCount() const {
         return static_cast<int>(m_titles.size());
     }
-    /** Drops every custom title and goes back to the names from param.sfo. */
+    /** Drops every custom title and goes back to the names from param.json. */
     void ResetCustomTitles();
 
 public Q_SLOTS:

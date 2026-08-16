@@ -261,11 +261,11 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/user_manager_dialog.h
           src/qt_ui/game_list_exporter.cpp
           src/qt_ui/game_list_exporter.h
-          src/qt_ui/sfo_viewer_dialog.cpp
-          src/qt_ui/sfo_viewer_dialog.h
-          src/qt_ui/sfo_model.cpp
-          src/qt_ui/sfo_model.h
-          src/qt_ui/sfo_key_map.h
+          src/qt_ui/param_viewer_dialog.cpp
+          src/qt_ui/param_viewer_dialog.h
+          src/qt_ui/param_model.cpp
+          src/qt_ui/param_model.h
+          src/qt_ui/param_key_map.h
           src/qt_ui/settings_dialog.cpp
           src/qt_ui/settings_dialog.h
           src/qt_ui/settings_dialog.ui

@@ -28,8 +28,8 @@
 //                     trophyMetadata: [ { id, name, detail } ] } }
 //
 // This class still only extracts raw bytes -- parsing/interpreting this
-// JSON is left to the caller (e.g. trophy_viewer.cpp), same division of
-// labor as PSF/param.json vs. their callers elsewhere in this codebase.
+// JSON is left to the caller (e.g. trophy_viewer.cpp), the same division of
+// labor param.json has with its callers elsewhere in this codebase.
 
 #pragma once
 

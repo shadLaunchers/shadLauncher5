@@ -47,8 +47,8 @@
 #include "common/log_analyzer.h"
 #include "common/path_util.h"
 #include "core/ipc/ipc_client.h"
+#include "param_viewer_dialog.h"
 #include "settings_dialog.h"
-#include "sfo_viewer_dialog.h"
 #include "trophy_viewer.h"
 #include "zarchive_viewer_dialog.h"
 
@@ -1034,20 +1034,20 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
             }
         }
     });
-    // SFO viewer
-    QAction* sfo_view = addAction(tr("&SFO viewer"));
-    connect(sfo_view, &QAction::triggered, frame, [frame, current_game] {
+    // param.json viewer
+    QAction* param_view = addAction(tr("&param.json viewer"));
+    connect(param_view, &QAction::triggered, frame, [frame, current_game] {
         const std::string base_path =
             !current_game.update_path.empty() ? current_game.update_path : current_game.path;
-        QString sfo_path;
+        QString param_path;
         if (const auto resolved = Core::FileSys::ResolveParamPath(base_path)) {
             // Directories resolve to the file itself; archives resolve to an
             // extracted copy in the cache dir.
-            Common::FS::PathToQString(sfo_path, *resolved);
+            Common::FS::PathToQString(param_path, *resolved);
         } else {
-            sfo_path = QString::fromStdString(base_path) + "/sce_sys/param.json";
+            param_path = QString::fromStdString(base_path) + "/sce_sys/param.json";
         }
-        SFOViewerDialog dialog(frame, sfo_path);
+        ParamViewerDialog dialog(frame, param_path);
         dialog.exec();
     });
 
@@ -1449,7 +1449,7 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
         frame->Refresh();
     });
     connect(edit_title, &QAction::triggered, frame, [frame, name, serial, game_key, game_path] {
-        // The name from param.sfo, shown as the placeholder and used to detect
+        // The name from param.json, shown as the placeholder and used to detect
         // "the user typed the original name back in".
         const QString original_title = name;
         const QString old_title =
