@@ -41,6 +41,10 @@ public:
     /** Sets the custom config icon. */
     static QIcon GetCustomConfigIcon(const game_info& game);
 
+    /** Tooltip for one game */
+    static QString BuildToolTip(const game_info& game, const QString& title, const QString& notes,
+                                bool always);
+
 protected:
     void IconLoadFunction(game_info game, GameItemBase* item, qreal device_pixel_ratio,
                           std::shared_ptr<std::atomic<bool>> cancel);
