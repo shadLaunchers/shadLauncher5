@@ -1,0 +1,672 @@
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher4 Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include <atomic>
+#include <memory>
+#include <unordered_map>
+#include <QSqlDatabase>
+#include <QSqlError>
+#include <QSqlQuery>
+#include <QStringList>
+#include <QVariant>
+
+#include "common/logging/log.h"
+#include "common/path_util.h"
+#include "game_info_cache.h"
+
+namespace {
+
+QString JoinNpCommIds(const std::vector<std::string>& ids) {
+    QStringList list;
+    list.reserve(static_cast<int>(ids.size()));
+    for (const auto& id : ids) {
+        list << QString::fromStdString(id);
+    }
+    return list.join(QLatin1Char(';'));
+}
+
+std::vector<std::string> SplitNpCommIds(const QString& joined) {
+    std::vector<std::string> ids;
+    if (joined.isEmpty()) {
+        return ids;
+    }
+    const QStringList list = joined.split(QLatin1Char(';'), Qt::SkipEmptyParts);
+    ids.reserve(static_cast<size_t>(list.size()));
+    for (const QString& id : list) {
+        ids.push_back(id.toStdString());
+    }
+    return ids;
+}
+
+} // namespace
+
+class GameInfoCache::Connection {
+public:
+    Connection(const QString& name, const std::filesystem::path& db_path) : m_name(name) {
+        if (!QSqlDatabase::isDriverAvailable(QStringLiteral("QSQLITE"))) {
+            LOG_ERROR(Frontend,
+                      "GameInfoCache: the Qt 'QSQLITE' driver plugin isn't available, so the "
+                      "game metadata cache is disabled (titles will always be re-parsed from "
+                      "disk). On Linux this usually means the Qt SQLite driver package isn't "
+                      "installed (e.g. 'libqt6sql6-sqlite' on Debian/Ubuntu). For a packaged "
+                      "build, make sure 'sqldrivers/qsqlite[d].{{dll,so,dylib}}' was deployed "
+                      "next to the other Qt plugins (dist/qtplugins/).");
+            return;
+        }
+
+        QSqlDatabase db = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"), name);
+
+        QString path_str;
+        Common::FS::PathToQString(path_str, db_path);
+        db.setDatabaseName(path_str);
+        db.setConnectOptions(QStringLiteral("QSQLITE_BUSY_TIMEOUT=5000"));
+
+        if (!db.open()) {
+            LOG_ERROR(Frontend, "GameInfoCache: failed to open '{}': {}", path_str.toStdString(),
+                      db.lastError().text().toStdString());
+            return;
+        }
+
+        QSqlQuery setup(db);
+        setup.exec(QStringLiteral("PRAGMA journal_mode=WAL"));
+        setup.exec(QStringLiteral("PRAGMA synchronous=NORMAL"));
+        setup.exec(QStringLiteral("PRAGMA temp_store=MEMORY"));
+        if (!setup.exec(
+                QStringLiteral("CREATE TABLE IF NOT EXISTS game_cache ("
+                               "path TEXT PRIMARY KEY,"
+                               "fingerprint INTEGER NOT NULL,"
+                               "serial TEXT, name TEXT, category TEXT, app_ver TEXT, sdk_ver TEXT,"
+                               "fw TEXT, region TEXT,"
+                               "icon_path TEXT, snd0_path TEXT, np_comm_ids TEXT,"
+                               "size_on_disk INTEGER, size_fingerprint INTEGER,"
+                               "icon_blob BLOB, icon_fingerprint INTEGER)"))) {
+            LOG_ERROR(Frontend, "GameInfoCache: failed to create schema: {}",
+                      setup.lastError().text().toStdString());
+            return;
+        }
+        if (!setup.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS game_notes ("
+                                       "path TEXT PRIMARY KEY,"
+                                       "notes TEXT NOT NULL)"))) {
+            LOG_ERROR(Frontend, "GameInfoCache: failed to create notes schema: {}",
+                      setup.lastError().text().toStdString());
+            return;
+        }
+        if (!setup.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS categories ("
+                                       "name TEXT PRIMARY KEY,"
+                                       "position INTEGER NOT NULL)")) ||
+            !setup.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS category_games ("
+                                       "category TEXT NOT NULL,"
+                                       "path TEXT NOT NULL,"
+                                       "PRIMARY KEY (category, path))"))) {
+            LOG_ERROR(Frontend, "GameInfoCache: failed to create categories schema: {}",
+                      setup.lastError().text().toStdString());
+            return;
+        }
+        if (!setup.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS game_titles ("
+                                       "path TEXT PRIMARY KEY,"
+                                       "title TEXT NOT NULL)"))) {
+            LOG_ERROR(Frontend, "GameInfoCache: failed to create titles schema: {}",
+                      setup.lastError().text().toStdString());
+            return;
+        }
+        LOG_INFO(Frontend, "GameInfoCache: using '{}'", path_str.toStdString());
+        m_valid = true;
+    }
+
+    ~Connection() {
+        {
+            QSqlDatabase db = QSqlDatabase::database(m_name, false);
+            if (db.isOpen()) {
+                db.close();
+            }
+        }
+        QSqlDatabase::removeDatabase(m_name);
+    }
+
+    Connection(const Connection&) = delete;
+    Connection& operator=(const Connection&) = delete;
+
+    bool IsValid() const {
+        return m_valid;
+    }
+
+    QSqlDatabase Db() const {
+        return QSqlDatabase::database(m_name, false);
+    }
+
+private:
+    QString m_name;
+    bool m_valid = false;
+};
+
+GameInfoCache::GameInfoCache(std::filesystem::path db_path) : m_db_path(std::move(db_path)) {
+    std::error_code ec;
+    std::filesystem::create_directories(m_db_path.parent_path(), ec);
+    m_connection_prefix =
+        QStringLiteral("shadLauncher5_game_info_cache_%1_").arg(reinterpret_cast<quintptr>(this));
+}
+
+GameInfoCache::~GameInfoCache() = default;
+
+GameInfoCache::Connection& GameInfoCache::ThreadConnection() {
+    thread_local std::unordered_map<const GameInfoCache*, std::unique_ptr<Connection>> connections;
+
+    auto it = connections.find(this);
+    if (it == connections.end()) {
+        static std::atomic<u64> counter{0};
+        const QString name =
+            m_connection_prefix + QString::number(counter.fetch_add(1, std::memory_order_relaxed));
+        it = connections.emplace(this, std::make_unique<Connection>(name, m_db_path)).first;
+    }
+    return *it->second;
+}
+
+void GameInfoCache::WarmUp() {
+    ThreadConnection();
+}
+
+std::optional<GameInfo> GameInfoCache::Get(const std::string& game_path, s64 fingerprint) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return std::nullopt;
+    }
+
+    QSqlQuery query(conn.Db());
+    query.prepare(
+        QStringLiteral("SELECT fingerprint, serial, name, category, app_ver, sdk_ver, fw, region,"
+                       " icon_path, snd0_path, np_comm_ids FROM game_cache WHERE path = ?"));
+    query.addBindValue(QString::fromStdString(game_path));
+
+    if (!query.exec() || !query.next()) {
+        return std::nullopt;
+    }
+    if (query.value(0).toLongLong() != fingerprint) {
+        return std::nullopt;
+    }
+
+    GameInfo info;
+    info.path = game_path;
+    info.serial = query.value(1).toString().toStdString();
+    info.name = query.value(2).toString().toStdString();
+    info.category = query.value(3).toString().toStdString();
+    info.app_ver = query.value(4).toString().toStdString();
+    info.sdk_ver = query.value(5).toString().toStdString();
+    info.fw = query.value(6).toString().toStdString();
+    info.region = query.value(7).toString().toStdString();
+    info.icon_path = query.value(8).toString().toStdString();
+    info.snd0_path = query.value(9).toString().toStdString();
+    info.np_comm_ids = SplitNpCommIds(query.value(10).toString());
+    return info;
+}
+
+std::unordered_map<std::string, GameInfoCache::CachedEntry> GameInfoCache::GetAllMeta() {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return {};
+    }
+
+    QSqlQuery query(conn.Db());
+    query.setForwardOnly(true);
+    if (!query.exec(QStringLiteral(
+            "SELECT path, fingerprint, serial, name, category, app_ver, sdk_ver, fw, region,"
+            " icon_path, snd0_path, np_comm_ids FROM game_cache"))) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to bulk-load cache: {}",
+                  query.lastError().text().toStdString());
+        return {};
+    }
+
+    std::unordered_map<std::string, CachedEntry> results;
+    while (query.next()) {
+        CachedEntry entry;
+        entry.fingerprint = query.value(1).toLongLong();
+        entry.info.path = query.value(0).toString().toStdString();
+        entry.info.serial = query.value(2).toString().toStdString();
+        entry.info.name = query.value(3).toString().toStdString();
+        entry.info.category = query.value(4).toString().toStdString();
+        entry.info.app_ver = query.value(5).toString().toStdString();
+        entry.info.sdk_ver = query.value(6).toString().toStdString();
+        entry.info.fw = query.value(7).toString().toStdString();
+        entry.info.region = query.value(8).toString().toStdString();
+        entry.info.icon_path = query.value(9).toString().toStdString();
+        entry.info.snd0_path = query.value(10).toString().toStdString();
+        entry.info.np_comm_ids = SplitNpCommIds(query.value(11).toString());
+        std::string key = entry.info.path;
+        results.emplace(std::move(key), std::move(entry));
+    }
+    return results;
+}
+
+std::vector<GameInfo> GameInfoCache::GetAllForInstantList() {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return {};
+    }
+
+    QSqlQuery query(conn.Db());
+    if (!query.exec(
+            QStringLiteral("SELECT path, serial, name, category, app_ver, sdk_ver, fw, region,"
+                           " icon_path, snd0_path, np_comm_ids FROM game_cache"
+                           " WHERE serial != '' AND category != 'ac'"
+                           " AND path NOT LIKE '%-UPDATE' AND path NOT LIKE '%-patch'"
+                           " GROUP BY serial ORDER BY name COLLATE NOCASE"))) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to query instant list: {}",
+                  query.lastError().text().toStdString());
+        return {};
+    }
+
+    std::vector<GameInfo> results;
+    while (query.next()) {
+        GameInfo info;
+        info.path = query.value(0).toString().toStdString();
+        info.serial = query.value(1).toString().toStdString();
+        info.name = query.value(2).toString().toStdString();
+        info.category = query.value(3).toString().toStdString();
+        info.app_ver = query.value(4).toString().toStdString();
+        info.sdk_ver = query.value(5).toString().toStdString();
+        info.fw = query.value(6).toString().toStdString();
+        info.region = query.value(7).toString().toStdString();
+        info.icon_path = query.value(8).toString().toStdString();
+        info.snd0_path = query.value(9).toString().toStdString();
+        info.np_comm_ids = SplitNpCommIds(query.value(10).toString());
+        results.push_back(std::move(info));
+    }
+    return results;
+}
+
+std::optional<u64> GameInfoCache::GetSize(const std::string& game_path, s64 size_fingerprint) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return std::nullopt;
+    }
+
+    QSqlQuery query(conn.Db());
+    query.prepare(
+        QStringLiteral("SELECT size_on_disk, size_fingerprint FROM game_cache WHERE path = ?"));
+    query.addBindValue(QString::fromStdString(game_path));
+
+    if (!query.exec() || !query.next()) {
+        return std::nullopt;
+    }
+    if (query.value(0).isNull() || query.value(1).isNull()) {
+        return std::nullopt;
+    }
+    if (query.value(1).toLongLong() != size_fingerprint) {
+        return std::nullopt;
+    }
+    return static_cast<u64>(query.value(0).toLongLong());
+}
+
+void GameInfoCache::PutSize(const std::string& game_path, u64 size_on_disk, s64 size_fingerprint) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return;
+    }
+
+    QSqlQuery query(conn.Db());
+    query.prepare(QStringLiteral(
+        "INSERT INTO game_cache (path, fingerprint, size_on_disk, size_fingerprint)"
+        " VALUES (?, 0, ?, ?)"
+        " ON CONFLICT(path) DO UPDATE SET"
+        " size_on_disk=excluded.size_on_disk, size_fingerprint=excluded.size_fingerprint"));
+    query.addBindValue(QString::fromStdString(game_path));
+    query.addBindValue(static_cast<qint64>(size_on_disk));
+    query.addBindValue(static_cast<qint64>(size_fingerprint));
+
+    if (!query.exec()) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to cache size for '{}': {}", game_path,
+                  query.lastError().text().toStdString());
+    }
+}
+
+QString GameInfoCache::GetNotes(const std::string& game_path) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return QString();
+    }
+
+    QSqlQuery query(conn.Db());
+    query.prepare(QStringLiteral("SELECT notes FROM game_notes WHERE path = ?"));
+    query.addBindValue(QString::fromStdString(game_path));
+
+    if (!query.exec() || !query.next()) {
+        return QString();
+    }
+    return query.value(0).toString();
+}
+
+void GameInfoCache::SetNotes(const std::string& game_path, const QString& notes) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return;
+    }
+
+    QSqlQuery query(conn.Db());
+    if (notes.isEmpty()) {
+        query.prepare(QStringLiteral("DELETE FROM game_notes WHERE path = ?"));
+        query.addBindValue(QString::fromStdString(game_path));
+    } else {
+        query.prepare(QStringLiteral("INSERT INTO game_notes (path, notes) VALUES (?, ?)"
+                                     " ON CONFLICT(path) DO UPDATE SET notes=excluded.notes"));
+        query.addBindValue(QString::fromStdString(game_path));
+        query.addBindValue(notes);
+    }
+
+    if (!query.exec()) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to save notes for '{}': {}", game_path,
+                  query.lastError().text().toStdString());
+    }
+}
+
+QString GameInfoCache::GetTitle(const std::string& game_path) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return QString();
+    }
+
+    QSqlQuery query(conn.Db());
+    query.prepare(QStringLiteral("SELECT title FROM game_titles WHERE path = ?"));
+    query.addBindValue(QString::fromStdString(game_path));
+
+    if (!query.exec() || !query.next()) {
+        return QString();
+    }
+    return query.value(0).toString();
+}
+
+void GameInfoCache::SetTitle(const std::string& game_path, const QString& title) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return;
+    }
+
+    QSqlQuery query(conn.Db());
+    if (title.isEmpty()) {
+        query.prepare(QStringLiteral("DELETE FROM game_titles WHERE path = ?"));
+        query.addBindValue(QString::fromStdString(game_path));
+    } else {
+        query.prepare(QStringLiteral("INSERT INTO game_titles (path, title) VALUES (?, ?)"
+                                     " ON CONFLICT(path) DO UPDATE SET title=excluded.title"));
+        query.addBindValue(QString::fromStdString(game_path));
+        query.addBindValue(title);
+    }
+
+    if (!query.exec()) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to save title for '{}': {}", game_path,
+                  query.lastError().text().toStdString());
+    }
+}
+
+void GameInfoCache::ClearTitles() {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return;
+    }
+
+    QSqlQuery query(conn.Db());
+    if (!query.exec(QStringLiteral("DELETE FROM game_titles"))) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to clear custom titles: {}",
+                  query.lastError().text().toStdString());
+    }
+}
+
+std::vector<CategoryRecord> GameInfoCache::LoadCategories() {
+    std::vector<CategoryRecord> categories;
+
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return categories;
+    }
+
+    QSqlQuery names(conn.Db());
+    if (!names.exec(QStringLiteral("SELECT name FROM categories ORDER BY position"))) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to read categories: {}",
+                  names.lastError().text().toStdString());
+        return categories;
+    }
+
+    while (names.next()) {
+        CategoryRecord record;
+        record.name = names.value(0).toString();
+        categories.push_back(std::move(record));
+    }
+
+    QSqlQuery games(conn.Db());
+    games.prepare(QStringLiteral("SELECT path FROM category_games WHERE category = ?"));
+    for (CategoryRecord& record : categories) {
+        games.addBindValue(record.name);
+        if (!games.exec()) {
+            LOG_ERROR(Frontend, "GameInfoCache: failed to read category games for '{}': {}",
+                      record.name.toStdString(), games.lastError().text().toStdString());
+            continue;
+        }
+        while (games.next()) {
+            record.game_paths.append(games.value(0).toString());
+        }
+    }
+
+    return categories;
+}
+
+void GameInfoCache::SaveCategories(const std::vector<CategoryRecord>& categories) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return;
+    }
+
+    // Rewritten wholesale: the list is small and a single transaction keeps the
+    // two tables from ever disagreeing.
+    QSqlDatabase db = conn.Db();
+    const bool in_transaction = db.transaction();
+
+    QSqlQuery query(db);
+    if (!query.exec(QStringLiteral("DELETE FROM category_games")) ||
+        !query.exec(QStringLiteral("DELETE FROM categories"))) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to clear categories: {}",
+                  query.lastError().text().toStdString());
+        if (in_transaction) {
+            db.rollback();
+        }
+        return;
+    }
+
+    QSqlQuery insert_category(db);
+    insert_category.prepare(
+        QStringLiteral("INSERT INTO categories (name, position) VALUES (?, ?)"));
+
+    QSqlQuery insert_game(db);
+    insert_game.prepare(
+        QStringLiteral("INSERT INTO category_games (category, path) VALUES (?, ?)"));
+
+    int position = 0;
+    for (const CategoryRecord& record : categories) {
+        insert_category.addBindValue(record.name);
+        insert_category.addBindValue(position++);
+        if (!insert_category.exec()) {
+            LOG_ERROR(Frontend, "GameInfoCache: failed to save category '{}': {}",
+                      record.name.toStdString(), insert_category.lastError().text().toStdString());
+            if (in_transaction) {
+                db.rollback();
+            }
+            return;
+        }
+
+        for (const QString& path : record.game_paths) {
+            insert_game.addBindValue(record.name);
+            insert_game.addBindValue(path);
+            if (!insert_game.exec()) {
+                LOG_ERROR(Frontend, "GameInfoCache: failed to save category game '{}': {}",
+                          path.toStdString(), insert_game.lastError().text().toStdString());
+                if (in_transaction) {
+                    db.rollback();
+                }
+                return;
+            }
+        }
+    }
+
+    if (in_transaction && !db.commit()) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to commit categories: {}",
+                  db.lastError().text().toStdString());
+        db.rollback();
+    }
+}
+
+std::optional<QByteArray> GameInfoCache::GetIcon(const std::string& game_path,
+                                                 s64 icon_fingerprint) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return std::nullopt;
+    }
+
+    QSqlQuery query(conn.Db());
+    query.prepare(
+        QStringLiteral("SELECT icon_blob, icon_fingerprint FROM game_cache WHERE path = ?"));
+    query.addBindValue(QString::fromStdString(game_path));
+
+    if (!query.exec() || !query.next()) {
+        return std::nullopt;
+    }
+    if (query.value(0).isNull() || query.value(1).isNull()) {
+        return std::nullopt;
+    }
+    if (query.value(1).toLongLong() != icon_fingerprint) {
+        return std::nullopt;
+    }
+
+    QByteArray data = query.value(0).toByteArray();
+    if (data.isEmpty()) {
+        return std::nullopt;
+    }
+    return data;
+}
+
+void GameInfoCache::PutIcon(const std::string& game_path, const QByteArray& icon_data,
+                            s64 icon_fingerprint) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid() || icon_data.isEmpty()) {
+        return;
+    }
+
+    QSqlQuery query(conn.Db());
+    query.prepare(QStringLiteral(
+        "INSERT INTO game_cache (path, fingerprint, icon_blob, icon_fingerprint)"
+        " VALUES (?, 0, ?, ?)"
+        " ON CONFLICT(path) DO UPDATE SET"
+        " icon_blob=excluded.icon_blob, icon_fingerprint=excluded.icon_fingerprint"));
+    query.addBindValue(QString::fromStdString(game_path));
+    query.addBindValue(icon_data);
+    query.addBindValue(static_cast<qint64>(icon_fingerprint));
+
+    if (!query.exec()) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to cache icon for '{}': {}", game_path,
+                  query.lastError().text().toStdString());
+    }
+}
+
+void GameInfoCache::Put(const GameInfo& info, s64 fingerprint) {
+    PutMany({{info, fingerprint}});
+}
+
+void GameInfoCache::PutMany(const std::vector<std::pair<GameInfo, s64>>& entries) {
+    if (entries.empty()) {
+        return;
+    }
+
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return;
+    }
+
+    QSqlDatabase db = conn.Db();
+    QSqlQuery query(db);
+    query.prepare(QStringLiteral(
+        "INSERT INTO game_cache (path, fingerprint, serial, name, category, app_ver, sdk_ver,"
+        " fw, region, icon_path, snd0_path, np_comm_ids)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        " ON CONFLICT(path) DO UPDATE SET"
+        " fingerprint=excluded.fingerprint, serial=excluded.serial, name=excluded.name,"
+        " category=excluded.category, app_ver=excluded.app_ver, sdk_ver=excluded.sdk_ver,"
+        " fw=excluded.fw, region=excluded.region,"
+        " icon_path=excluded.icon_path,"
+        " snd0_path=excluded.snd0_path, np_comm_ids=excluded.np_comm_ids"));
+
+    db.transaction();
+    for (const auto& [info, fingerprint] : entries) {
+        query.addBindValue(QString::fromStdString(info.path));
+        query.addBindValue(static_cast<qint64>(fingerprint));
+        query.addBindValue(QString::fromStdString(info.serial));
+        query.addBindValue(QString::fromStdString(info.name));
+        query.addBindValue(QString::fromStdString(info.category));
+        query.addBindValue(QString::fromStdString(info.app_ver));
+        query.addBindValue(QString::fromStdString(info.sdk_ver));
+        query.addBindValue(QString::fromStdString(info.fw));
+        query.addBindValue(QString::fromStdString(info.region));
+        query.addBindValue(QString::fromStdString(info.icon_path));
+        query.addBindValue(QString::fromStdString(info.snd0_path));
+        query.addBindValue(JoinNpCommIds(info.np_comm_ids));
+
+        if (!query.exec()) {
+            LOG_ERROR(Frontend, "GameInfoCache: failed to cache '{}': {}", info.path,
+                      query.lastError().text().toStdString());
+        }
+    }
+    db.commit();
+}
+
+void GameInfoCache::Prune(const std::vector<std::string>& known_paths) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return;
+    }
+
+    QSqlDatabase db = conn.Db();
+    QSqlQuery query(db);
+
+    db.transaction();
+    query.exec(
+        QStringLiteral("CREATE TEMP TABLE IF NOT EXISTS keep_paths (path TEXT PRIMARY KEY)"));
+    query.exec(QStringLiteral("DELETE FROM keep_paths"));
+
+    if (!known_paths.empty()) {
+        query.prepare(QStringLiteral("INSERT OR IGNORE INTO keep_paths (path) VALUES (?)"));
+        QVariantList path_list;
+        path_list.reserve(static_cast<int>(known_paths.size()));
+        for (const auto& path : known_paths) {
+            path_list.append(QString::fromStdString(path));
+        }
+        query.addBindValue(path_list);
+        query.execBatch();
+    }
+
+    query.exec(
+        QStringLiteral("DELETE FROM game_cache WHERE path NOT IN (SELECT path FROM keep_paths)"));
+    query.exec(QStringLiteral("DROP TABLE keep_paths"));
+    db.commit();
+}
+
+void GameInfoCache::Clear() {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return;
+    }
+    QSqlQuery query(conn.Db());
+    if (!query.exec(QStringLiteral("DELETE FROM game_cache"))) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to clear cache: {}",
+                  query.lastError().text().toStdString());
+    }
+}
+
+void GameInfoCache::ClearGame(const std::string& game_path) {
+    Connection& conn = ThreadConnection();
+    if (!conn.IsValid()) {
+        return;
+    }
+    QSqlQuery query(conn.Db());
+    query.prepare(QStringLiteral("DELETE FROM game_cache WHERE path = ?"));
+    query.addBindValue(QString::fromStdString(game_path));
+    if (!query.exec()) {
+        LOG_ERROR(Frontend, "GameInfoCache: failed to clear cache for '{}': {}", game_path,
+                  query.lastError().text().toStdString());
+    }
+}
