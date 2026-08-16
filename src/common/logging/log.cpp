@@ -22,12 +22,19 @@ static std::shared_ptr<spdlog_stdout> g_console_sink;
 static std::shared_ptr<spdlog::sinks::basic_file_sink_mt> g_shad_file_sink;
 
 std::unordered_map<std::string_view, std::shared_ptr<spdlog::logger>> ALL_LOGGERS{
-    {Class::Common, nullptr}, {Class::Common_Filesystem, nullptr},
-    {Class::Config, nullptr}, {Class::Core, nullptr},
-    {Class::Debug, nullptr},  {Class::Frontend, nullptr},
-    {Class::IPC, nullptr},    {Class::Lib, nullptr},
-    {Class::Loader, nullptr}, {Class::Log, nullptr},
+    // clang-format off
+    {Class::Common, nullptr},
+    {Class::Common_Filesystem, nullptr},
+    {Class::Config, nullptr},
+    {Class::Core, nullptr},
+    {Class::Debug, nullptr},
+    {Class::Frontend, nullptr},
+    {Class::IPC, nullptr},
+    {Class::Lib, nullptr},
+    {Class::Loader, nullptr},
+    {Class::Log, nullptr},
     {Class::Tty, nullptr},
+    // clang-format on
 };
 
 template <typename T>
