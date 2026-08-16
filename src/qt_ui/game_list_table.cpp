@@ -129,9 +129,8 @@ GameListTable::GameListTable(GameListFrame* frame, std::shared_ptr<GUISettings> 
                     // unknown" as 0 rather than UINT64_MAX so unresolved
                     // entries don't briefly masquerade as the largest game
                     // on disk while their size is still being computed.
-                    size_item->setData(
-                        Qt::UserRole,
-                        QVariant::fromValue<qulonglong>(game_size != UINT64_MAX ? game_size : 0));
+                    size_item->setData(Qt::UserRole, QVariant::fromValue<qulonglong>(
+                                                         game_size != UINT64_MAX ? game_size : 0));
 
                     if (horizontalHeader()->sortIndicatorSection() ==
                         static_cast<int>(GUI::GameListColumns::dir_size)) {
@@ -494,13 +493,13 @@ void GameListTable::Populate(const std::vector<game_info>& game_data,
                                                    Qt::UserRole, QVariant(app_value));
         setItem(row, static_cast<int>(GUI::GameListColumns::version), app_item);
 
-        setItem(row, static_cast<int>(GUI::GameListColumns::last_play),
-                new CustomTableWidgetItem(
-                    locale.toString(last_played,
-                                    last_played >= QDateTime::currentDateTime().addDays(-7)
-                                        ? last_played_date_with_time_of_day_format
-                                        : last_played_date_format),
-                    Qt::UserRole, last_played));
+        setItem(
+            row, static_cast<int>(GUI::GameListColumns::last_play),
+            new CustomTableWidgetItem(
+                locale.toString(last_played, last_played >= QDateTime::currentDateTime().addDays(-7)
+                                                 ? last_played_date_with_time_of_day_format
+                                                 : last_played_date_format),
+                Qt::UserRole, last_played));
         setItem(row, static_cast<int>(GUI::GameListColumns::play_time),
                 new CustomTableWidgetItem(
                     elapsed_ms == 0 ? tr("Never played") : localized.getVerboseTimeByMs(elapsed_ms),
@@ -528,4 +527,3 @@ void GameListTable::RepaintIcons(std::vector<game_info>& game_data, const QColor
     GameListBase::RepaintIcons(game_data, icon_color, icon_size, device_pixel_ratio);
     adjustIconColumn();
 }
-
