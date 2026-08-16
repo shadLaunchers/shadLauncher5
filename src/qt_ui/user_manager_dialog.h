@@ -1,4 +1,5 @@
-// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher5 Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher4 Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -27,7 +28,6 @@ private Q_SLOTS:
     void OnUserSetDefault();
     void OnUserSetColor();
     void OnUserSetControllerPort();
-    void OnUserEditShadNet();
     void OnSort(int logicalIndex);
 
 private:
@@ -75,7 +75,6 @@ private:
     QPushButton* push_set_default;
     QPushButton* push_set_color;
     QPushButton* push_set_controller;
-    QPushButton* push_shadnet;
     QPushButton* push_close;
 
     int m_sort_column = 1;

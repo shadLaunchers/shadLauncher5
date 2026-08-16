@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <filesystem>
@@ -92,47 +93,27 @@ Users UserManager::CreateDefaultUsers() {
     default_users.user = {
         {
             .user_id = 1000,
-            .user_name = "shadPS4",
+            .user_name = "shadPS5",
             .user_color = 1,
             .player_index = 1,
-            .shadnet_npid = "",
-            .shadnet_password = "",
-            .shadnet_token = "",
-            .shadnet_email = "",
-            .shadnet_enabled = false,
         },
         {
             .user_id = 1001,
-            .user_name = "shadPS4-2",
+            .user_name = "shadPS5-2",
             .user_color = 2,
             .player_index = 2,
-            .shadnet_npid = "",
-            .shadnet_password = "",
-            .shadnet_token = "",
-            .shadnet_email = "",
-            .shadnet_enabled = false,
         },
         {
             .user_id = 1002,
-            .user_name = "shadPS4-3",
+            .user_name = "shadPS5-3",
             .user_color = 3,
             .player_index = 3,
-            .shadnet_npid = "",
-            .shadnet_password = "",
-            .shadnet_token = "",
-            .shadnet_email = "",
-            .shadnet_enabled = false,
         },
         {
             .user_id = 1003,
-            .user_name = "shadPS4-4",
+            .user_name = "shadPS5-4",
             .user_color = 4,
             .player_index = 4,
-            .shadnet_npid = "",
-            .shadnet_password = "",
-            .shadnet_token = "",
-            .shadnet_email = "",
-            .shadnet_enabled = false,
         },
     };
 

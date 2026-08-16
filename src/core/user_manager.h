@@ -1,4 +1,5 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -14,12 +15,6 @@ struct User {
     u32 user_color = 1;
     int player_index = 0; // 1-4
     bool logged_in = false;
-    // ShadNet settings
-    std::string shadnet_npid = "";     // account identifier
-    std::string shadnet_password = ""; // account password
-    std::string shadnet_token = "";    // 2FA/validation token (future use)
-    std::string shadnet_email = "";    // email address (furute use)
-    bool shadnet_enabled = false;      // enable shadnet for user
 };
 
 struct Users {
@@ -27,8 +22,7 @@ struct Users {
     std::string commit_hash{};
 };
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(User, user_id, user_color, user_name, player_index,
-                                                shadnet_npid, shadnet_password, shadnet_enabled)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(User, user_id, user_color, user_name, player_index)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Users, user, commit_hash)
 
 using LoggedInUsers = std::array<User*, 4>;
