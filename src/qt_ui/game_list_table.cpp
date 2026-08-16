@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2025 RPCS3 Project
-// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher5 Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher4 Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <string_view>
@@ -19,11 +20,6 @@
 #include "localized.h"
 #include "qt_utils.h"
 
-namespace {
-
-// "Last Played" display formats: the short date form normally, and a
-// date-with-time-of-day form for anything played within the last week
-// (when the extra precision is actually useful).
 const QString last_played_date_format = "dd/MM/yyyy";
 const QString last_played_date_with_time_of_day_format = "dd/MM/yyyy HH:mm";
 
@@ -64,8 +60,6 @@ s64 ComputeSizeFingerprint(const std::string& game_path) {
 
     return fingerprint;
 }
-
-} // namespace
 
 GameListTable::GameListTable(GameListFrame* frame, std::shared_ptr<GUISettings> gui_settings)
     : GameList(), m_game_list_frame(frame), m_gui_settings(std::move(gui_settings)) {
@@ -109,13 +103,6 @@ GameListTable::GameListTable(GameListFrame* frame, std::shared_ptr<GUISettings> 
     connect(this, &GameListTable::sizeOnDiskReady, this,
             [this](const game_info& game, GameItemBase* item,
                    std::shared_ptr<std::atomic<bool>> cancel) {
-                // `item`/`game->item` may be a stale address freed and reused by an
-                // unrelated item during a list refresh, so pointer-identity comparison
-                // alone can't tell us the callback still refers to something alive.
-                // `cancel` is the per-item aborted flag captured before the worker
-                // started; the item's destructor sets it and waits for the worker to
-                // finish before the item is freed, so seeing it still false proves the
-                // item is still alive and this callback is still valid.
                 if (!game || !item || game->item != item || !cancel || cancel->load())
                     return;
                 if (QTableWidgetItem* size_item =
@@ -125,10 +112,6 @@ GameListTable::GameListTable(GameListFrame* frame, std::shared_ptr<GUISettings> 
                     size_item->setText(game_size != UINT64_MAX
                                            ? GUI::Utils::FormatByteSize(game_size)
                                            : tr("Unknown"));
-                    // Sort by the real size once known; treat "still
-                    // unknown" as 0 rather than UINT64_MAX so unresolved
-                    // entries don't briefly masquerade as the largest game
-                    // on disk while their size is still being computed.
                     size_item->setData(Qt::UserRole, QVariant::fromValue<qulonglong>(
                                                          game_size != UINT64_MAX ? game_size : 0));
 

@@ -46,7 +46,7 @@ bool GUIApplication::init(QString emulator_arg, QString game_arg, QStringList pa
     m_ipc_client = std::make_shared<IpcClient>();
     m_emu_state = std::make_shared<EmulatorState>();
     EmulatorState::SetInstance(m_emu_state);
-    EmulatorSettingsImpl::SetInstance(m_emu_settings); // initialize singleton instance
+    EmulatorSettingsImpl::SetInstance(m_emu_settings);
     UserSettings.Load();
 
     m_main_window = new MainWindow(m_gui_settings, m_emu_settings, m_ipc_client, nullptr);
