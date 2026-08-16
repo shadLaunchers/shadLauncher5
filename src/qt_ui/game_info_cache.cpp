@@ -85,16 +85,13 @@ public:
                       setup.lastError().text().toStdString());
             return;
         }
-        if (!setup.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS game_notes_by_path ("
+        if (!setup.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS game_notes ("
                                        "path TEXT PRIMARY KEY,"
                                        "notes TEXT NOT NULL)"))) {
             LOG_ERROR(Frontend, "GameInfoCache: failed to create notes schema: {}",
                       setup.lastError().text().toStdString());
             return;
         }
-        // Notes used to be keyed on the serial, which lumped together every
-        // install of the same game. That table is obsolete.
-        setup.exec(QStringLiteral("DROP TABLE IF EXISTS game_notes"));
         if (!setup.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS categories ("
                                        "name TEXT PRIMARY KEY,"
                                        "position INTEGER NOT NULL)")) ||
@@ -106,7 +103,7 @@ public:
                       setup.lastError().text().toStdString());
             return;
         }
-        if (!setup.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS game_titles_by_path ("
+        if (!setup.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS game_titles ("
                                        "path TEXT PRIMARY KEY,"
                                        "title TEXT NOT NULL)"))) {
             LOG_ERROR(Frontend, "GameInfoCache: failed to create titles schema: {}",
@@ -329,7 +326,7 @@ QString GameInfoCache::GetNotes(const std::string& game_path) {
     }
 
     QSqlQuery query(conn.Db());
-    query.prepare(QStringLiteral("SELECT notes FROM game_notes_by_path WHERE path = ?"));
+    query.prepare(QStringLiteral("SELECT notes FROM game_notes WHERE path = ?"));
     query.addBindValue(QString::fromStdString(game_path));
 
     if (!query.exec() || !query.next()) {
@@ -346,10 +343,10 @@ void GameInfoCache::SetNotes(const std::string& game_path, const QString& notes)
 
     QSqlQuery query(conn.Db());
     if (notes.isEmpty()) {
-        query.prepare(QStringLiteral("DELETE FROM game_notes_by_path WHERE path = ?"));
+        query.prepare(QStringLiteral("DELETE FROM game_notes WHERE path = ?"));
         query.addBindValue(QString::fromStdString(game_path));
     } else {
-        query.prepare(QStringLiteral("INSERT INTO game_notes_by_path (path, notes) VALUES (?, ?)"
+        query.prepare(QStringLiteral("INSERT INTO game_notes (path, notes) VALUES (?, ?)"
                                      " ON CONFLICT(path) DO UPDATE SET notes=excluded.notes"));
         query.addBindValue(QString::fromStdString(game_path));
         query.addBindValue(notes);
@@ -368,7 +365,7 @@ QString GameInfoCache::GetTitle(const std::string& game_path) {
     }
 
     QSqlQuery query(conn.Db());
-    query.prepare(QStringLiteral("SELECT title FROM game_titles_by_path WHERE path = ?"));
+    query.prepare(QStringLiteral("SELECT title FROM game_titles WHERE path = ?"));
     query.addBindValue(QString::fromStdString(game_path));
 
     if (!query.exec() || !query.next()) {
@@ -385,10 +382,10 @@ void GameInfoCache::SetTitle(const std::string& game_path, const QString& title)
 
     QSqlQuery query(conn.Db());
     if (title.isEmpty()) {
-        query.prepare(QStringLiteral("DELETE FROM game_titles_by_path WHERE path = ?"));
+        query.prepare(QStringLiteral("DELETE FROM game_titles WHERE path = ?"));
         query.addBindValue(QString::fromStdString(game_path));
     } else {
-        query.prepare(QStringLiteral("INSERT INTO game_titles_by_path (path, title) VALUES (?, ?)"
+        query.prepare(QStringLiteral("INSERT INTO game_titles (path, title) VALUES (?, ?)"
                                      " ON CONFLICT(path) DO UPDATE SET title=excluded.title"));
         query.addBindValue(QString::fromStdString(game_path));
         query.addBindValue(title);
@@ -407,7 +404,7 @@ void GameInfoCache::ClearTitles() {
     }
 
     QSqlQuery query(conn.Db());
-    if (!query.exec(QStringLiteral("DELETE FROM game_titles_by_path"))) {
+    if (!query.exec(QStringLiteral("DELETE FROM game_titles"))) {
         LOG_ERROR(Frontend, "GameInfoCache: failed to clear custom titles: {}",
                   query.lastError().text().toStdString());
     }

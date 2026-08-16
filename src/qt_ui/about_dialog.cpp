@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher4 Project
 // SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -113,7 +114,7 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
     desc->setObjectName("AboutDialog_description");
     desc->setWordWrap(true);
     desc->setTextFormat(Qt::RichText);
-    desc->setText(tr("A graphical launcher for the shadPS4 PlayStation 4 emulator. "
+    desc->setText(tr("A graphical launcher for the shadPS5 PlayStation 5 emulator. "
                      "Browse, organize, and start your game library, manage emulator "
                      "versions, and configure settings from one place."));
 
@@ -133,7 +134,7 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
     credits->setTextFormat(Qt::RichText);
     credits->setOpenExternalLinks(true);
     credits->setText(
-        tr("Powered by the <a href=\"https://github.com/shadps4-emu/shadPS4\">shadPS4</a> "
+        tr("Powered by the <a href=\"https://github.com/shadps5-emu/shadPS5\">shadPS5</a> "
            "emulator.<br>"
            "Licensed under the GNU General Public License v2.0 or later."));
     {

@@ -1,5 +1,6 @@
 ﻿// SPDX-FileCopyrightText: Copyright 2025 RPCS3 Project
-// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher5 Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher4 Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include "custom_table_widget_item.h"
