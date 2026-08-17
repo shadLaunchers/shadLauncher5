@@ -1,0 +1,239 @@
+// SPDX-FileCopyrightText: Copyright 2025 RPCS3 Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher4 Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#pragma once
+
+#include "common/lf_queue.h"
+#include "custom_dock_widget.h"
+#include "game_info_cache.h"
+#include "game_list.h"
+
+#include <QFutureWatcher>
+#include <QMainWindow>
+#include <QSet>
+#include <QSplitter>
+#include <QStackedWidget>
+#include <QTabBar>
+#include <QTableWidgetItem>
+#include <QTextEdit>
+#include <QTimer>
+#include <QToolBar>
+
+#include <filesystem>
+#include <memory>
+#include <mutex>
+#include <optional>
+#include <set>
+#include <unordered_map>
+#include <utility>
+
+class GameListTable;
+class GameListGrid;
+class GameCategories;
+struct GameKey;
+class GUISettings;
+class EmulatorSettingsImpl;
+class ProgressDialog;
+class IpcClient;
+
+class GameListFrame : public CustomDockWidget {
+    Q_OBJECT
+
+    friend class GameListContextMenu;
+
+public:
+    explicit GameListFrame(std::shared_ptr<GUISettings> gui_settings,
+                           std::shared_ptr<EmulatorSettingsImpl> emu_settings,
+                           std::shared_ptr<IpcClient> ipc_client, QWidget* parent = nullptr);
+    ~GameListFrame();
+
+    /** Refresh the gamelist with/without loading game data from files. Public so that main frame
+     * can refresh after install */
+    void Refresh(const bool from_drive = false,
+                 const std::vector<std::string>& serials_to_remove = {},
+                 const bool scroll_after = true);
+    /** Loads from settings. Public so that main frame can easily reset these settings if needed. */
+    void LoadSettings();
+    /** Saves settings. Public so that main frame can save this when a caching of column widths is
+     * needed for settings backup */
+    void SaveSettings();
+    /** Repaint Gamelist Icons with new background color */
+    void RepaintIcons(const bool& from_settings = false);
+    /** Resize Gamelist Icons to size given by slider position */
+    void ResizeIcons(const int& slider_pos);
+    void ShowCustomConfigIcon(const game_info& game);
+    void SetShowHidden(bool show);
+    bool IsEntryVisible(const game_info& game, bool search_fallback = false) const;
+    const std::vector<game_info>& GetGameInfo() const;
+    void CheckCompatibilityAtStartup();
+    void PlayBackgroundMusic(game_info game);
+    bool RemoveCustomConfiguration(const QString& serial, const game_info& game);
+    void requestShortcut(const GameInfo& currentInfo, QString emuPath = "");
+    bool convertPngToIco(const QString& pngFilePath, const QString& icoFilePath);
+#ifdef _WIN32
+    bool createShortcutWin(const QString& linkPath, const QString& targetPath,
+                           const QString& iconPath, const QString& exePath, QString emuPath);
+#else
+    bool createShortcutLinux(const QString& linkPath, const std::string& name,
+                             const QString& targetPath, const QString& iconPath, QString emuPath);
+#endif
+
+    // Play time / last played, as tracked by shadPS5 itself in its own
+    // play_time.txt (one "<serial> <H:MM:SS> <unix_timestamp>" line per
+    // game), rather than anything the launcher tracks independently.
+    struct PlayTimeEntry {
+        quint64 seconds = 0;
+        qint64 last_played_unix = 0; // 0 = never played
+    };
+
+    // Looks up the given serial's entry from the play_time.txt data most
+    // recently loaded by Refresh(). Returns a zeroed entry ("never played")
+    // if the game has no recorded play time.
+    PlayTimeEntry GetPlayTimeEntry(const std::string& serial) const;
+
+    /** Category model shared with the context menu, never null. */
+    GameCategories* GetCategories() const {
+        return m_categories.get();
+    }
+    /** Name of the category tab currently selected, empty for the "All" tab. */
+    const QString& CurrentCategory() const {
+        return m_current_category;
+    }
+    /** Select a category tab by name. An unknown or empty name selects "All". */
+    void SetCurrentCategory(const QString& category);
+
+    /** Number of games currently showing a user supplied title. */
+    int CustomTitleCount() const {
+        return static_cast<int>(m_titles.size());
+    }
+    /** Drops every custom title and goes back to the names from param.json. */
+    void ResetCustomTitles();
+
+public Q_SLOTS:
+    void SetListMode(const bool& is_list);
+    void SetSearchText(const QString& text);
+    void SetShowCompatibilityInGrid(bool show);
+    void FocusAndSelectFirstEntryIfNoneIs();
+    void OnCompatUpdatedRequested();
+    game_info GetSelectedGameInfo();
+    void PrintLog(QString entry, QColor textColor);
+    void ShowLog(bool show);
+    GameInfoCache* GetInfoCache() const {
+        return m_info_cache.get();
+    }
+private Q_SLOTS:
+    void OnColumnClicked(int col);
+    void OnParsingFinished();
+    void OnRefreshFinished();
+    void ShowContextMenu(const QPoint& pos);
+    void DoubleClickedSlot(QTableWidgetItem* item);
+    void DoubleClickedSlot(const game_info& game);
+    void OnCompatFinished();
+    void OnCategoryTabChanged(int index);
+    void ShowCategoryTabContextMenu(const QPoint& pos);
+Q_SIGNALS:
+    void FocusToSearchBar();
+    void GameListFrameClosed();
+    void RequestIconSizeChange(const int& val);
+    void Refreshed();
+    void NotifyGameSelection(const game_info& game);
+    void RequestBoot(const game_info& game, QStringList args = {});
+    .void GameCountChanged(int visible_count, int total_count);
+
+protected:
+    /** Override inherited method from Qt to allow signalling when close happened.*/
+    void closeEvent(QCloseEvent* event) override;
+
+private:
+    void PushPath(const std::string& path, std::vector<std::string>& legit_paths);
+    void CreateConnections();
+    bool SearchMatchesApp(const game_info& game, bool fallback = false) const;
+    // Matches the search box against a single title. A game is checked against
+    // both its custom title and its original one.
+    bool SearchMatchesTitle(QString title_name, bool fallback) const;
+    QStringList scanDirectories(const std::vector<std::filesystem::path>& baseDirs, int maxDepth,
+                                int currentDepth = 1);
+    std::string CurrentSelectionPath();
+    void WaitAndAbortRepaintThreads();
+    void WaitAndAbortSizeCalcThreads();
+    game_info GetGameInfoByMode(const QTableWidgetItem* item) const;
+    static game_info GetGameInfoFromItem(const QTableWidgetItem* item);
+    void PopulateFromCacheInstantly();
+    void RebuildCategoryTabs();
+    QString PromptNewCategory(const GameKey* key = nullptr);
+    bool MatchesCurrentCategory(const game_info& game) const;
+    void LoadPlayTimeData();
+    // Settings
+    std::shared_ptr<GUISettings> m_gui_settings;
+    std::shared_ptr<EmulatorSettingsImpl> m_emu_settings;
+    std::shared_ptr<IpcClient> m_ipc_client;
+    std::shared_ptr<GameCategories> m_categories;
+    std::unordered_map<std::string, PlayTimeEntry> m_play_times;
+    // Objects
+    QMainWindow* m_game_dock = nullptr;
+    QStackedWidget* m_central_widget = nullptr;
+    QTabBar* m_category_tabs = nullptr;
+    GameListGrid* m_game_grid = nullptr;  // Game Grid
+    GameListTable* m_game_list = nullptr; // Game List
+    GameCompatibility* m_game_compat = nullptr;
+    ProgressDialog* m_progress_dialog = nullptr;
+    // Data
+    struct path_entry {
+        std::string path;
+        bool is_from_file{};
+    };
+    std::vector<path_entry> m_path_entries;
+    QSet<QString> m_hidden_list;
+    bool m_show_hidden{false};
+    QString m_current_category;
+    bool m_updating_category_tabs = false;
+    std::vector<game_info> m_game_data;
+    QFutureWatcher<void> m_parsing_watcher;
+    QFutureWatcher<void> m_refresh_watcher;
+    std::shared_mutex m_path_mutex;
+    std::set<std::string> m_path_list;
+    QSet<QString> m_game_keys;
+    QMutex m_games_mutex;
+    lf_queue<game_info> m_games;
+    const std::array<int, 1> m_parsing_threads{0};
+    std::shared_ptr<GameInfoCache> m_info_cache;
+    std::mutex m_pending_cache_puts_mutex;
+    std::vector<std::pair<GameInfo, s64>> m_pending_cache_puts;
+    bool m_shown_instant_cache_list = false;
+    // List Mode
+    bool m_is_list_layout = true;
+    bool m_old_layout_is_list = true;
+    // Game List
+    QList<QAction*> m_columnActs;
+    Qt::SortOrder m_col_sort_order{};
+    int m_sort_column{};
+    std::map<QString, QString> m_titles;
+    std::map<QString, QString> m_notes;
+    bool m_initial_refresh_done = false;
+    // Search
+    QString m_search_text;
+    // Icon Size
+    int m_icon_size_index = 0;
+    // Icons
+    QColor m_icon_color;
+    QSize m_icon_size;
+    qreal m_margin_factor;
+    qreal m_text_factor;
+    // Logger
+    QSplitter* splitter;
+    QTextEdit* logDisplay;
+    //
+    bool m_draw_compat_status_to_grid = false;
+    enum class DeleteType {
+        Game,
+        Update,
+        GameAndUpdate,
+        SaveData,
+        DLC,
+        Trophy,
+        ShaderCache,
+        MetadataCache
+    };
+};
