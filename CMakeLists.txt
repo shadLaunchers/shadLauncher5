@@ -1,0 +1,335 @@
+# SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher5 Project
+# SPDX-License-Identifier: GPL-2.0-or-later
+
+cmake_minimum_required(VERSION 3.24)
+
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
+
+# Use the passed version from GitHub Actions if provided
+if(DEFINED APP_VERSION)
+    set(APP_VERSION ${APP_VERSION})
+else()
+    set(APP_VERSION "0.0.1")
+endif()
+
+message(STATUS "Building shadLauncher5 version: ${APP_VERSION}")
+
+string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+" NUMERIC_VERSION "${APP_VERSION}")
+project(shadLauncher5 VERSION ${NUMERIC_VERSION} LANGUAGES CXX C)
+
+set(APP_IS_RELEASE false)
+
+include(FetchContent)
+
+if(WIN32 AND NOT CMAKE_PREFIX_PATH)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/DetectQtInstallation.cmake")
+endif ()
+
+
+find_package(OpenAL CONFIG)
+find_package(VulkanHeaders 1.4.329 CONFIG)
+find_package(fmt 10.2.0 CONFIG)
+find_package(SDL3 3.1.2 CONFIG)
+find_package(Qt6 REQUIRED COMPONENTS Widgets Concurrent LinguistTools Xml Network Multimedia Svg Sql)
+if (UNIX)
+    find_package(OpenSSL REQUIRED)
+endif()
+qt_standard_project_setup()
+set(CMAKE_AUTORCC ON)
+set(CMAKE_AUTOMOC ON)
+set(CMAKE_AUTOUIC ON)
+
+set(QT_TRANSLATIONS "${PROJECT_SOURCE_DIR}/src/qt_ui/translations")
+file(GLOB_RECURSE TRANSLATIONS_TS ${QT_TRANSLATIONS}/*.ts)
+
+set_source_files_properties(${TRANSLATIONS_TS} PROPERTIES OUTPUT_LOCATION "${CMAKE_CURRENT_BINARY_DIR}/translations")
+qt_add_translation(TRANSLATIONS_QM ${TRANSLATIONS_TS})
+
+set(TRANSLATIONS_QRC ${CMAKE_CURRENT_BINARY_DIR}/translations/translations.qrc)
+file(WRITE ${TRANSLATIONS_QRC} "<RCC><qresource prefix=\"translations\">\n")
+foreach (QM ${TRANSLATIONS_QM})
+  get_filename_component(QM_FILE ${QM} NAME)
+  file(APPEND ${TRANSLATIONS_QRC} "<file>${QM_FILE}</file>\n")
+endforeach (QM)
+file(APPEND ${TRANSLATIONS_QRC} "</qresource></RCC>")
+
+qt_add_resources(TRANSLATIONS ${TRANSLATIONS_QRC})
+
+add_subdirectory(externals)
+include_directories(src)
+
+qt_add_resources(RESOURCE_FILES src/shadLauncher5.qrc)
+
+# generate git revision information
+include("${CMAKE_CURRENT_SOURCE_DIR}/externals/cmake-modules/GetGitRevisionDescription.cmake")
+get_git_head_revision(GIT_REF_SPEC GIT_REV)
+git_describe(GIT_DESC --always --long --dirty)
+git_branch_name(GIT_BRANCH)
+string(TIMESTAMP BUILD_DATE "%Y-%m-%d %H:%M:%S")
+configure_file("${CMAKE_CURRENT_SOURCE_DIR}/src/common/scm_rev.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/src/common/scm_rev.cpp" @ONLY)
+
+# Try to detect upstream
+execute_process(
+  COMMAND git rev-parse --abbrev-ref --symbolic-full-name @{u}
+  OUTPUT_VARIABLE GIT_REMOTE_NAME
+  RESULT_VARIABLE GIT_REMOTE_RESULT
+  ERROR_QUIET
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+# Fallback for GitHub Actions
+if (GIT_REMOTE_RESULT OR GIT_REMOTE_NAME STREQUAL "")
+  set(GIT_REMOTE_NAME "origin")
+
+  if (DEFINED ENV{GITHUB_HEAD_REF} AND NOT "$ENV{GITHUB_HEAD_REF}" STREQUAL "")
+    set(GIT_BRANCH "$ENV{GITHUB_HEAD_REF}")
+  elseif (DEFINED ENV{GITHUB_REF} AND NOT "$ENV{GITHUB_REF}" STREQUAL "")
+    string(REGEX REPLACE "^refs/[^/]*/" "" GIT_BRANCH "$ENV{GITHUB_REF}")
+  elseif("${GIT_BRANCH}" STREQUAL "")
+    set(GIT_BRANCH "detached-head")
+  endif()
+else()
+  string(FIND "${GIT_REMOTE_NAME}" "/" INDEX)
+  if (INDEX GREATER -1)
+    string(SUBSTRING "${GIT_REMOTE_NAME}" 0 "${INDEX}" GIT_REMOTE_NAME)
+  endif()
+endif()
+
+# Get remote URL
+execute_process(
+  COMMAND git config --get remote.${GIT_REMOTE_NAME}.url
+  OUTPUT_VARIABLE GIT_REMOTE_URL
+  OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
+message(STATUS "Remote name: ${GIT_REMOTE_NAME}")
+message(STATUS "Branch: ${GIT_BRANCH}")
+message(STATUS "Remote URL: ${GIT_REMOTE_URL}")
+
+string(TOLOWER "${GIT_REMOTE_URL}" GIT_REMOTE_URL_LOWER)
+
+set(COMMON src/common/types.h
+           src/common/fs_util.cpp
+           src/common/fs_util.h
+           src/common/lf_queue.h
+           src/common/endian.h
+           src/common/io_file.cpp
+           src/common/io_file.h
+           src/common/alignment.h
+           src/common/ntapi.cpp
+           src/common/ntapi.h
+           src/common/concepts.h
+           src/common/enum.h
+           src/common/singleton.h
+           src/common/path_util.cpp
+           src/common/path_util.h
+           src/common/versions.cpp
+           src/common/versions.h
+           src/common/logging/classes.h
+           src/common/logging/formatter.h
+           src/common/logging/log.cpp
+           src/common/logging/log.h
+           src/common/logging/thread_name_formatter.h
+           src/common/assert.cpp
+           src/common/assert.h
+           src/common/arch.h
+           src/common/memory_patcher.cpp
+           src/common/memory_patcher.h
+           src/common/zip_util.cpp
+           src/common/zip_util.h
+           ${CMAKE_CURRENT_BINARY_DIR}/src/common/scm_rev.cpp
+           src/common/scm_rev.h
+)
+
+set(CORE src/core/user_manager.cpp
+         src/core/user_manager.h
+         src/core/user_settings.cpp
+         src/core/user_settings.h
+          src/core/emulator_settings.cpp
+          src/core/emulator_settings.h
+          src/core/ipc/ipc_client.cpp
+          src/core/ipc/ipc_client.h
+          src/core/emulator_state.cpp
+          src/core/emulator_state.h
+          src/core/ipc/ipc_client.cpp
+          src/core/ipc/ipc_client.h
+)
+
+set(FILEFORMAT src/core/file_format/param.cpp
+               src/core/file_format/param.h
+               src/core/file_format/npbind.cpp
+               src/core/file_format/npbind.h
+               src/core/file_format/ucp.cpp
+               src/core/file_format/ucp.h
+               src/core/file_sys/game_backend.cpp
+               src/core/file_sys/game_backend.h
+               src/core/file_sys/backends/host_directory_backend.cpp
+               src/core/file_sys/backends/host_directory_backend.h
+               src/core/file_sys/backends/zarchive_backend.cpp
+               src/core/file_sys/backends/zarchive_backend.h
+               src/core/file_sys/zar_packer.cpp
+               src/core/file_sys/zar_packer.h
+)
+
+set(LIBRARIES src/core/libraries/system/system_service.h)
+set(UPDATER src/qt_ui/check_update.cpp
+            src/qt_ui/check_update.h
+)
+
+set(QT_UI src/qt_ui/settings.cpp
+          src/qt_ui/settings.h
+          src/qt_ui/gui_save.h
+          src/qt_ui/about_dialog.cpp
+          src/qt_ui/about_dialog.h
+          src/qt_ui/gui_settings.cpp
+          src/qt_ui/gui_settings.h
+          src/qt_ui/gui_application.cpp
+          src/qt_ui/gui_application.h
+          src/qt_ui/main_window.cpp
+          src/qt_ui/main_window.h
+          src/qt_ui/main_window.ui
+          src/qt_ui/custom_dock_widget.h
+          src/qt_ui/game_item_base.h
+          src/qt_ui/game_item_base.cpp
+          src/qt_ui/game_item.h
+          src/qt_ui/game_item.cpp
+          src/qt_ui/custom_table_widget_item.cpp
+          src/qt_ui/custom_table_widget_item.h
+          src/qt_ui/table_item_delegate.cpp
+          src/qt_ui/table_item_delegate.h
+          src/qt_ui/gui_game_info.h
+          src/qt_ui/game_info_cache.cpp
+          src/qt_ui/game_info_cache.h
+          src/qt_ui/game_compatibility.cpp
+          src/qt_ui/game_compatibility.h
+          src/qt_ui/game_list_delegate.cpp
+          src/qt_ui/game_list_delegate.h
+          src/qt_ui/flow_layout.cpp
+          src/qt_ui/flow_layout.h
+          src/qt_ui/flow_widget.cpp
+          src/qt_ui/flow_widget.h
+          src/qt_ui/flow_widget_item.cpp
+          src/qt_ui/flow_widget_item.h
+          src/qt_ui/game_list_base.cpp
+          src/qt_ui/game_list_base.h
+          src/qt_ui/game_list.cpp
+          src/qt_ui/game_list.h
+          src/qt_ui/game_list_grid_item.cpp
+          src/qt_ui/game_list_grid_item.h
+          src/qt_ui/game_list_grid.cpp
+          src/qt_ui/game_list_grid.h
+          src/qt_ui/qt_utils.cpp
+          src/qt_ui/qt_utils.h
+          src/qt_ui/game_list_table.cpp
+          src/qt_ui/game_list_table.h
+          src/qt_ui/game_categories.cpp
+          src/qt_ui/game_categories.h
+          src/qt_ui/game_list_context_menu.cpp
+          src/qt_ui/game_list_context_menu.h
+          src/qt_ui/game_list_frame.cpp
+          src/qt_ui/game_list_frame.h
+          src/qt_ui/stylesheets.h
+          src/qt_ui/progress_dialog.cpp
+          src/qt_ui/progress_dialog.h
+          src/qt_ui/progress_indicator.cpp
+          src/qt_ui/progress_indicator.h
+          src/qt_ui/localized.cpp
+          src/qt_ui/localized.h
+          src/qt_ui/game_install_dialog.cpp
+          src/qt_ui/game_install_dialog.h
+          src/qt_ui/downloader.cpp
+          src/qt_ui/downloader.h
+          src/qt_ui/user_manager_dialog.cpp
+          src/qt_ui/user_manager_dialog.h
+          src/qt_ui/game_list_exporter.cpp
+          src/qt_ui/game_list_exporter.h
+          src/qt_ui/param_viewer_dialog.cpp
+          src/qt_ui/param_viewer_dialog.h
+          src/qt_ui/param_model.cpp
+          src/qt_ui/param_model.h
+          src/qt_ui/param_key_map.h
+          src/qt_ui/settings_dialog.cpp
+          src/qt_ui/settings_dialog.h
+          src/qt_ui/settings_dialog.ui
+          src/qt_ui/settings_dialog_helper_texts.cpp
+          src/qt_ui/settings_dialog_helper_texts.h
+          src/qt_ui/version_dialog.cpp
+          src/qt_ui/version_dialog.h
+          src/qt_ui/version_dialog.ui
+          src/qt_ui/npbind_dialog.cpp
+          src/qt_ui/npbind_dialog.h
+          src/qt_ui/background_music_player.cpp
+          src/qt_ui/background_music_player.h
+          src/qt_ui/log_presets_dialog.cpp
+          src/qt_ui/log_presets_dialog.h
+          src/qt_ui/trophy_viewer.cpp
+          src/qt_ui/trophy_viewer.h
+          src/qt_ui/zarchive_viewer_dialog.cpp
+          src/qt_ui/zarchive_viewer_dialog.h
+          ${UPDATER}
+)
+
+set(SOURCES ${COMMON} ${CORE} ${QT_UI} ${FILEFORMAT} ${LIBRARIES} ${TRANSLATIONS} src/game_info.h src/main.cpp)
+qt_add_executable(shadLauncher5 ${SOURCES})
+
+# Automatically generate a version header with the same version
+configure_file(
+    ${CMAKE_SOURCE_DIR}/cmake/version.h.in
+    ${CMAKE_BINARY_DIR}/generated/version.h
+    @ONLY
+)
+
+target_include_directories(shadLauncher5 PRIVATE ${CMAKE_BINARY_DIR}/generated)
+
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/CMakeRC.cmake")
+cmrc_add_resource_library(embedded-resources
+        ALIAS res::embedded
+        NAMESPACE res
+        src/images/bronze.png
+        src/images/gold.png
+        src/images/platinum.png
+        src/images/silver.png)
+
+target_link_libraries(shadLauncher5 PRIVATE res::embedded)
+target_link_libraries(shadLauncher5 PRIVATE fmt::fmt spdlog::spdlog)
+target_link_libraries(shadLauncher5 PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Svg Qt6::Multimedia Qt6::Sql nlohmann_json::nlohmann_json libdeflate_static ZArchive::zarchive)
+
+if (ENABLE_UPDATER)
+    add_definitions(-DENABLE_UPDATER)
+endif()
+
+target_sources(shadLauncher5 PRIVATE ${RESOURCE_FILES})
+
+if (WIN32)
+    target_sources(shadLauncher5 PRIVATE src/shadLauncher5.rc)
+    target_link_libraries(shadLauncher5 PRIVATE mincore bcrypt ntdll)
+    if (MSVC)
+        # MSVC likes putting opinions on what people can use, disable:
+        add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS)
+    endif()
+
+    add_definitions(-DNOMINMAX -DWIN32_LEAN_AND_MEAN)
+
+    if (MSVC)
+        # Needed for conflicts with time.h of windows.h
+        add_definitions(-D_TIMESPEC_DEFINED)
+    endif()
+
+    # Target Windows 10 RS5
+    add_definitions(-DNTDDI_VERSION=0x0A000006 -D_WIN32_WINNT=0x0A00 -DWINVER=0x0A00)
+
+    if (MSVC)
+        target_link_libraries(shadLauncher5 PRIVATE clang_rt.builtins-x86_64.lib)
+    endif()
+else ()
+    target_link_libraries(shadLauncher5 PRIVATE OpenSSL::Crypto atomic)
+endif()
+
+set_target_properties(shadLauncher5 PROPERTIES
+   WIN32_EXECUTABLE ON
+#   MACOSX_BUNDLE ON
+#   MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/dist/MacOSBundleInfo.plist.in"
+#   MACOSX_BUNDLE_ICON_FILE "shadPS4.icns"
+#   MACOSX_BUNDLE_SHORT_VERSION_STRING "${APP_VERSION}"
+)

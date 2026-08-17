@@ -36,7 +36,7 @@
   </property>
   <property name="windowIcon">
    <iconset>
-    <normaloff>:/images/shadps4.ico</normaloff>:/images/shadps4.ico</iconset>
+    <normaloff>:/images/shadLauncher5.ico</normaloff>:/images/shadLauncher5.ico</iconset>
   </property>
   <property name="sizeGripEnabled">
    <bool>false</bool>
@@ -652,7 +652,7 @@
         <item>
          <widget class="QGroupBox" name="sysmodulesGroupBox">
           <property name="title">
-           <string>PS4 Sysmodules Path</string>
+           <string>PS5 Sysmodules Path</string>
           </property>
           <layout class="QVBoxLayout" name="dlcFolderGroupBox_4">
            <item>

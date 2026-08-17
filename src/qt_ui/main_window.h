@@ -87,7 +87,6 @@ private:
     QHash<QAction*, QIcon> m_original_menu_icons;
     QLabel* m_toolbar_icon_color_label = nullptr;
     QLabel* m_thumbnail_icon_color_label = nullptr;
-    // Permanent status bar widget showing "N games" / "N of M games".
     QLabel* m_game_count_label = nullptr;
 
     std::shared_ptr<GUISettings> m_gui_settings;
