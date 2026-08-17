@@ -28,7 +28,7 @@ path = [
     "src/images/pause.png",
     "src/qt_ui/translations/update_translation.sh",
     "src/qt_ui/main_window.ui",
-    "src/shadLauncher4.qrc",
+    "src/shadLauncher5.qrc",
     "src/images/*.*",
     "src/images/menu/*.*",
     "src/qt_ui/settings_dialog.ui",
