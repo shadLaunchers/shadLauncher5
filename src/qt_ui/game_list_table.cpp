@@ -446,7 +446,7 @@ void GameListTable::Populate(const std::vector<game_info>& game_data,
         region_item->setData(Qt::UserRole, region_item->toolTip(),
                              true); // make it sortable by region name
 
-        // Playtime / Last played, as tracked by shadPS4 itself in
+        // Playtime / Last played, as tracked by shadPS5 itself in
         // play_time.txt rather than anything the launcher tracks on its
         // own.
         const GameListFrame::PlayTimeEntry play_time_entry =

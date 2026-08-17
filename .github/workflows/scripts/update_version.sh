@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -e
+
+# Always operate from the repository root
+cd "$GITHUB_WORKSPACE"
+
+# Ensure we have tags
+git fetch --tags --force
+
+# Get the latest *release* tag, matching only "1.2.3" / "v1.2.3" style
+# version tags. Without --match, this would also match the
+# "shadLauncher5-<date>-<fullhash>" tags the pre-release workflow creates
+# for every nightly build - which would then get picked up as the "latest
+# tag" here and baked into version.txt, poisoning every subsequent nightly
+# build's version string with the previous one's.
+latest_tag=$(git describe --tags --abbrev=0 --match 'v[0-9]*.[0-9]*.[0-9]*' \
+             --match '[0-9]*.[0-9]*.[0-9]*' 2>/dev/null || echo "0.0.0")
+
+# Count commits since the latest tag
+if git rev-parse "$latest_tag" >/dev/null 2>&1; then
+  commit_count=$(git rev-list "${latest_tag}..HEAD" --count)
+else
+  commit_count=$(git rev-list HEAD --count)
+fi
+
+# Short hash and date
+short_hash=$(git rev-parse --short HEAD)
+date_str=$(date +%Y%m%d)
+
+# Combine into version string (e.g., 1.2.3-45-20251022-ab12cd3)
+version="${latest_tag} build ${commit_count} ${date_str}-${short_hash}"
+
+# Save to version.txt at repo root
+echo "$version" > "$GITHUB_WORKSPACE/version.txt"
+
+# Output for debugging and GitHub Actions
+echo "version=$version" >> "$GITHUB_OUTPUT"
+echo "Computed version: $version"
