@@ -304,6 +304,13 @@ target_sources(shadLauncher5 PRIVATE ${RESOURCE_FILES})
 if (WIN32)
     target_sources(shadLauncher5 PRIVATE src/shadLauncher5.rc)
     target_link_libraries(shadLauncher5 PRIVATE mincore bcrypt ntdll)
+
+    # The application manifest is embedded as an RT_MANIFEST resource via
+    # src/shadLauncher5.rc. Suppress the linker-generated one, otherwise the two
+    # collide (link error, or lld-link's malformed manifest wins and the exe
+    # fails to start with a side-by-side configuration error).
+    # See https://github.com/llvm/llvm-project/issues/120394
+    target_link_options(shadLauncher5 PRIVATE /MANIFEST:NO)
     if (MSVC)
         # MSVC likes putting opinions on what people can use, disable:
         add_definitions(-D_CRT_SECURE_NO_WARNINGS -D_CRT_NONSTDC_NO_DEPRECATE -D_SCL_SECURE_NO_WARNINGS)
