@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+// Note: there are a few TODO here to take care
 #include <algorithm>
 #include <functional>
 #include <QMenu>
@@ -71,24 +72,6 @@ bool MainWindow::init() {
 
     setMinimumSize(350, minimumSizeHint().height()); // seems fine on win 10
 
-    // Mirrors shadPS4's own window title convention (see Emulator::Run in
-    // shadPS4's emulator.cpp): show the version plainly for official
-    // release builds, tag the git remote's org/user name onto it for fork
-    // builds, and add branch/commit info for non-release (dev) builds.
-    //
-    // g_scm_branch/g_scm_desc/g_scm_remote_* come from `git describe` and
-    // friends at configure time. When building from a downloaded source
-    // archive rather than an actual git clone (as people commonly do for
-    // "pre-release" zips), those commands have nothing to work with and
-    // CMake's GetGitRevisionDescription module leaves the placeholder
-    // "GIT-NOTFOUND" in their place instead of an empty string. And a CI
-    // build checked out at a specific tag/commit (also common for
-    // pre-release builds) ends up on a detached HEAD, where `git
-    // rev-parse --abbrev-ref HEAD` just returns the literal string "HEAD"
-    // rather than a real branch name - not something worth showing either.
-    // Blindly formatting any of these in always produced a visibly broken
-    // title. Treat all of them the same as "not available" and quietly
-    // drop them instead.
     auto isUnavailable = [](const std::string& value) {
         return value.empty() || value.find("NOTFOUND") != std::string::npos || value == "unknown" ||
                value == "HEAD";
@@ -107,11 +90,6 @@ bool MainWindow::init() {
     }
 
     if (!Common::g_is_release) {
-        // APP_VERSION (from update_version.sh) already carries its own
-        // "build N date-hash" suffix for non-release builds, so appending
-        // g_scm_desc on top would just repeat the same commit info a
-        // second time. branch is the one thing APP_VERSION doesn't
-        // already include, so that's all that's added here.
         std::string branch(Common::g_scm_branch);
         if (!isUnavailable(branch)) {
             window_title += " " + branch;
@@ -877,16 +855,6 @@ void MainWindow::onGameClosed() {
     if (m_game_list_frame) {
         m_game_list_frame->Refresh(false);
     }
-
-    /* TODO
-    // clear dialogs when game closed
-    skylander_dialog* sky_diag = skylander_dialog::get_dlg(this, m_ipc_client);
-    sky_diag->clear_all();
-    dimensions_dialog* dim_diag = dimensions_dialog::get_dlg(this, m_ipc_client);
-    dim_diag->clear_all();
-    infinity_dialog* inf_diag = infinity_dialog::get_dlg(this, m_ipc_client);
-    inf_diag->clear_all();
-    */
 }
 
 void MainWindow::RestartEmulator() {
