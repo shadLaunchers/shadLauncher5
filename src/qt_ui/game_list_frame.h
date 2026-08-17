@@ -140,7 +140,7 @@ Q_SIGNALS:
     void Refreshed();
     void NotifyGameSelection(const game_info& game);
     void RequestBoot(const game_info& game, QStringList args = {});
-    .void GameCountChanged(int visible_count, int total_count);
+    void GameCountChanged(int visible_count, int total_count);
 
 protected:
     /** Override inherited method from Qt to allow signalling when close happened.*/

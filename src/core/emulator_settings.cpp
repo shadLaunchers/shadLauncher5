@@ -1,0 +1,356 @@
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+
+#include <algorithm>
+#include <fstream>
+#include <iomanip>
+#include <map>
+#include <common/path_util.h>
+#include <common/scm_rev.h>
+#include "common/logging/log.h"
+#include "emulator_settings.h"
+#include "emulator_state.h"
+
+using json = nlohmann::json;
+
+// ── Singleton storage ─────────────────────────────────────────────────
+std::shared_ptr<EmulatorSettingsImpl> EmulatorSettingsImpl::s_instance = nullptr;
+std::mutex EmulatorSettingsImpl::s_mutex;
+
+// ── nlohmann helpers for std::filesystem::path ───────────────────────
+namespace nlohmann {
+template <>
+struct adl_serializer<std::filesystem::path> {
+    static void to_json(json& j, const std::filesystem::path& p) {
+        const auto u8 = p.u8string();
+        j = std::string(reinterpret_cast<const char*>(u8.data()), u8.size());
+    }
+    static void from_json(const json& j, std::filesystem::path& p) {
+        const std::string s = j.get<std::string>();
+        p = std::filesystem::path(
+            std::u8string_view(reinterpret_cast<const char8_t*>(s.data()), s.size()));
+    }
+};
+} // namespace nlohmann
+
+// ── Helpers ───────────────────────────────────────────────────────────
+
+void EmulatorSettingsImpl::PrintChangedSummary(const std::vector<std::string>& changed) {
+    if (changed.empty()) {
+        return;
+    }
+    LOG_DEBUG(Config, "Game-specific overrides applied:");
+    for (const auto& k : changed)
+        LOG_DEBUG(Config, "    * {}", k);
+}
+
+// ── Singleton ────────────────────────────────────────────────────────
+EmulatorSettingsImpl::EmulatorSettingsImpl() = default;
+
+EmulatorSettingsImpl::~EmulatorSettingsImpl() {
+    if (m_loaded)
+        Save();
+}
+
+std::shared_ptr<EmulatorSettingsImpl> EmulatorSettingsImpl::GetInstance() {
+    std::lock_guard lock(s_mutex);
+    if (!s_instance)
+        s_instance = std::make_shared<EmulatorSettingsImpl>();
+    return s_instance;
+}
+
+void EmulatorSettingsImpl::SetInstance(std::shared_ptr<EmulatorSettingsImpl> instance) {
+    std::lock_guard lock(s_mutex);
+    s_instance = std::move(instance);
+}
+
+// --------------------
+// General helpers
+// --------------------
+bool EmulatorSettingsImpl::AddGameInstallDir(const std::filesystem::path& dir, bool enabled) {
+    for (const auto& d : m_general.install_dirs.value)
+        if (d.path == dir)
+            return false;
+    m_general.install_dirs.value.push_back({dir, enabled});
+    return true;
+}
+
+std::vector<std::filesystem::path> EmulatorSettingsImpl::GetGameInstallDirs() const {
+    std::vector<std::filesystem::path> out;
+    for (const auto& d : m_general.install_dirs.value)
+        if (d.enabled)
+            out.push_back(d.path);
+    return out;
+}
+
+const std::vector<GameInstallDir>& EmulatorSettingsImpl::GetAllGameInstallDirs() const {
+    return m_general.install_dirs.value;
+}
+
+void EmulatorSettingsImpl::SetAllGameInstallDirs(const std::vector<GameInstallDir>& dirs) {
+    m_general.install_dirs.value = dirs;
+}
+
+void EmulatorSettingsImpl::RemoveGameInstallDir(const std::filesystem::path& dir) {
+    auto iterator =
+        std::find_if(m_general.install_dirs.value.begin(), m_general.install_dirs.value.end(),
+                     [&dir](const GameInstallDir& install_dir) { return install_dir.path == dir; });
+    if (iterator != m_general.install_dirs.value.end()) {
+        m_general.install_dirs.value.erase(iterator);
+    }
+}
+
+void EmulatorSettingsImpl::SetGameInstallDirEnabled(const std::filesystem::path& dir,
+                                                    bool enabled) {
+    auto iterator =
+        std::find_if(m_general.install_dirs.value.begin(), m_general.install_dirs.value.end(),
+                     [&dir](const GameInstallDir& install_dir) { return install_dir.path == dir; });
+    if (iterator != m_general.install_dirs.value.end()) {
+        iterator->enabled = enabled;
+    }
+}
+
+void EmulatorSettingsImpl::SetGameInstallDirs(
+    const std::vector<std::filesystem::path>& dirs_config) {
+    m_general.install_dirs.value.clear();
+    for (const auto& dir : dirs_config) {
+        m_general.install_dirs.value.push_back({dir, true});
+    }
+}
+
+const std::vector<bool> EmulatorSettingsImpl::GetGameInstallDirsEnabled() {
+    std::vector<bool> enabled_dirs;
+    for (const auto& dir : m_general.install_dirs.value) {
+        enabled_dirs.push_back(dir.enabled);
+    }
+    return enabled_dirs;
+}
+
+std::filesystem::path EmulatorSettingsImpl::GetHomeDir() {
+    if (m_general.home_dir.value.empty()) {
+        return Common::FS::GetUserPath(Common::FS::PathType::HomeDir);
+    }
+    return m_general.home_dir.value;
+}
+
+void EmulatorSettingsImpl::SetHomeDir(const std::filesystem::path& dir) {
+    m_general.home_dir.value = dir;
+}
+
+std::filesystem::path EmulatorSettingsImpl::GetSysModulesDir() {
+    if (m_general.sys_modules_dir.value.empty()) {
+        return Common::FS::GetUserPath(Common::FS::PathType::SysModuleDir);
+    }
+    return m_general.sys_modules_dir.value;
+}
+
+void EmulatorSettingsImpl::SetSysModulesDir(const std::filesystem::path& dir) {
+    m_general.sys_modules_dir.value = dir;
+}
+
+std::filesystem::path EmulatorSettingsImpl::GetAddonInstallDir() {
+    if (m_general.addon_install_dir.value.empty()) {
+        return Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "addcont";
+    }
+    return m_general.addon_install_dir.value;
+}
+
+void EmulatorSettingsImpl::SetAddonInstallDir(const std::filesystem::path& dir) {
+    m_general.addon_install_dir.value = dir;
+}
+
+// ── Game-specific override management ────────────────────────────────
+void EmulatorSettingsImpl::ClearGameSpecificOverrides() {
+    ClearGroupOverrides(m_general);
+    ClearGroupOverrides(m_log);
+    ClearGroupOverrides(m_debug);
+}
+
+void EmulatorSettingsImpl::ResetGameSpecificValue(const std::string& key) {
+    // Walk every overrideable group until we find the matching key.
+    auto tryGroup = [&key](auto& group) {
+        for (auto& item : group.GetOverrideableFields()) {
+            if (key == item.key) {
+                item.reset_game_specific(&group);
+                return true;
+            }
+        }
+        return false;
+    };
+    if (tryGroup(m_general))
+        return;
+    if (tryGroup(m_log))
+        return;
+    if (tryGroup(m_debug))
+        return;
+    LOG_DEBUG(Config, "ResetGameSpecificValue: key '{}' not found", key);
+}
+
+bool EmulatorSettingsImpl::Save(const std::string& serial) {
+    try {
+        if (!serial.empty()) {
+            const auto cfgDir = Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs);
+            std::filesystem::create_directories(cfgDir);
+            const auto path = cfgDir / (serial + ".json");
+
+            json j = json::object();
+
+            json generalObj = json::object();
+            SaveGroupGameSpecific(m_general, generalObj);
+            j["General"] = generalObj;
+
+            json logObj = json::object();
+            SaveGroupGameSpecific(m_log, logObj);
+            j["Log"] = logObj;
+
+            json debugObj = json::object();
+            SaveGroupGameSpecific(m_debug, debugObj);
+            j["Debug"] = debugObj;
+
+            std::ofstream out(path);
+            if (!out) {
+                LOG_DEBUG(Config, "Failed to open game config for writing: {}", path.string());
+                return false;
+            }
+            out << std::setw(2) << j;
+            return !out.fail();
+
+        } else {
+            // ── Global config.json ─────────────────────────────────────
+            const auto path =
+                Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "config.json";
+
+            SetConfigVersion(Common::g_scm_rev);
+
+            json j;
+            j["General"] = m_general;
+            j["Log"] = m_log;
+            j["Debug"] = m_debug;
+
+            // Read the existing file so we can preserve keys unknown to this build
+            json existing = json::object();
+            if (std::ifstream existingIn{path}; existingIn.good()) {
+                try {
+                    existingIn >> existing;
+                } catch (...) {
+                    existing = json::object();
+                }
+            }
+
+            // Merge: update each section's known keys, but leave unknown keys intact
+            for (auto& [section, val] : j.items()) {
+                if (existing.contains(section) && existing[section].is_object() && val.is_object())
+                    existing[section].update(val); // overwrites known keys, keeps unknown ones
+                else
+                    existing[section] = val;
+            }
+
+            std::ofstream out(path);
+            if (!out) {
+                LOG_DEBUG(Config, "Failed to open config for writing: {}", path.string());
+                return false;
+            }
+            out << std::setw(2) << existing;
+            return !out.fail();
+        }
+    } catch (const std::exception& e) {
+        LOG_DEBUG(Config, "Error saving settings: {}", e.what());
+        return false;
+    }
+}
+
+// ── Load ──────────────────────────────────────────────────────────────
+
+bool EmulatorSettingsImpl::Load(const std::string& serial) {
+    try {
+        if (serial.empty()) {
+            // ── Global config ──────────────────────────────────────────
+            const auto userDir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
+            const auto configPath = userDir / "config.json";
+
+            if (std::ifstream in{configPath}; in.good()) {
+                json gj;
+                in >> gj;
+
+                auto mergeGroup = [&gj](auto& group, const char* section) {
+                    if (!gj.contains(section))
+                        return;
+                    json current = group;
+                    current.update(gj.at(section));
+                    group = current.get<std::remove_reference_t<decltype(group)>>();
+                };
+
+                mergeGroup(m_general, "General");
+                mergeGroup(m_log, "Log");
+                mergeGroup(m_debug, "Debug");
+            } else {
+                // No config.json yet: start from defaults and write them out.
+                SetDefaultValues();
+                Save();
+            }
+            if (GetConfigVersion() != Common::g_scm_rev) {
+                Save();
+            }
+            m_loaded = true;
+            return true;
+        } else {
+            // ── Per-game override file ─────────────────────────────────
+            // Never reloads global settings. Only applies
+            // game_specific_value overrides on top of the already-loaded
+            // base configuration.
+            const auto gamePath =
+                Common::FS::GetUserPath(Common::FS::PathType::CustomConfigs) / (serial + ".json");
+
+            if (!std::filesystem::exists(gamePath)) {
+                return false;
+            }
+
+            std::ifstream in(gamePath);
+            if (!in) {
+                return false;
+            }
+
+            json gj;
+            in >> gj;
+
+            std::vector<std::string> changed;
+
+            // ApplyGroupOverrides now correctly stores values as
+            // game_specific_value (see make_override in the header).
+            // ConfigMode::Default will then resolve them at getter call
+            // time without ever touching the base values.
+            if (gj.contains("General"))
+                ApplyGroupOverrides(m_general, gj.at("General"), changed);
+            if (gj.contains("Log"))
+                ApplyGroupOverrides(m_log, gj.at("Log"), changed);
+            if (gj.contains("Debug"))
+                ApplyGroupOverrides(m_debug, gj.at("Debug"), changed);
+
+            PrintChangedSummary(changed);
+            EmulatorState::GetInstance()->SetGameSpecifigConfigUsed(true);
+            return true;
+        }
+    } catch (const std::exception& e) {
+        LOG_DEBUG(Config, "Error loading settings: {}", e.what());
+        return false;
+    }
+}
+
+void EmulatorSettingsImpl::SetDefaultValues() {
+    m_general = GeneralSettings{};
+    m_log = LogSettings{};
+    m_debug = DebugSettings{};
+}
+
+std::vector<std::string> EmulatorSettingsImpl::GetAllOverrideableKeys() const {
+    std::vector<std::string> keys;
+    auto addGroup = [&keys](const auto& fields) {
+        for (const auto& item : fields)
+            keys.push_back(item.key);
+    };
+    addGroup(m_general.GetOverrideableFields());
+    addGroup(m_log.GetOverrideableFields());
+    addGroup(m_debug.GetOverrideableFields());
+    return keys;
+}

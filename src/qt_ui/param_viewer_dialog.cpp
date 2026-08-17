@@ -14,8 +14,6 @@
 #include <QFontMetrics>
 #include <QHBoxLayout>
 #include <QHeaderView>
-#include <QJsonDocument>
-#include <QJsonObject>
 #include <QMessageBox>
 #include <QPixmap>
 #include <QRegularExpression>
@@ -251,13 +249,24 @@ void ParamViewerDialog::onReload() {
 void ParamViewerDialog::onExport() {
     // Name the export after the title ID, which is more use than "param".
     const QString suggested = m_titleIdLabel->text().section(QStringLiteral(": "), 1, 1);
-    QString fileName = QFileDialog::getSaveFileName(this, tr("Export"), suggested,
-                                                    tr("CSV (*.csv);;HTML (*.html)"));
+    QString selectedFilter;
+    QString fileName = QFileDialog::getSaveFileName(
+        this, tr("Export"), suggested, tr("CSV (*.csv);;HTML (*.html)"), &selectedFilter);
     if (fileName.isEmpty()) {
         return;
     }
+    bool as_html;
+    if (fileName.endsWith(QStringLiteral(".html"), Qt::CaseInsensitive) ||
+        fileName.endsWith(QStringLiteral(".htm"), Qt::CaseInsensitive)) {
+        as_html = true;
+    } else if (fileName.endsWith(QStringLiteral(".csv"), Qt::CaseInsensitive)) {
+        as_html = false;
+    } else {
+        as_html = selectedFilter.contains(QStringLiteral("html"), Qt::CaseInsensitive);
+        fileName += as_html ? QStringLiteral(".html") : QStringLiteral(".csv");
+    }
 
-    if (fileName.endsWith(QStringLiteral(".csv"), Qt::CaseInsensitive)) {
+    if (!as_html) {
         QFile f(fileName);
         if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
             return;
@@ -276,7 +285,7 @@ void ParamViewerDialog::onExport() {
         return;
     }
 
-    if (fileName.endsWith(QStringLiteral(".html"), Qt::CaseInsensitive)) {
+    {
         QFile f(fileName);
         if (!f.open(QIODevice::WriteOnly | QIODevice::Text)) {
             return;
