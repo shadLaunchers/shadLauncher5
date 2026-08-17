@@ -74,40 +74,6 @@ jobs:
           arch: x64
 
       - name: Setup Qt
-        uses:   get-info:
-    runs-on: ubuntu-24.04
-    outputs:
-      date: ${{ steps.vars.outputs.date }}
-      shorthash: ${{ steps.vars.outputs.shorthash }}
-      fullhash: ${{ steps.vars.outputs.fullhash }}
-    steps:
-      - uses: actions/checkout@v5
-
-      - name: Get date and git hash
-        id: vars
-        run: |
-          echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_ENV
-          echo "shorthash=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
-          echo "fullhash=$(git rev-parse HEAD)" >> $GITHUB_ENV
-          echo "date=$(date +'%Y-%m-%d')" >> $GITHUB_OUTPUT
-          echo "shorthash=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
-          echo "fullhash=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
-  windows-qt:
-    runs-on: windows-2025
-    needs: get-info
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          submodules: recursive
-
-      - name: Enable MSVC dev environment
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Setup Qt
         uses: jurplel/install-qt-action@v4
         with:
           version: 6.11.1
