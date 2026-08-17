@@ -77,7 +77,7 @@ jobs:
       - name: Setup Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: 6.11.1
+          version: 6.11.0
           host: windows
           target: desktop
           arch: win64_msvc2022_64
