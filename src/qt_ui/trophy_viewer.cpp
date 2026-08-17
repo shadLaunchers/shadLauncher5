@@ -1,7 +1,7 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
-// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
 #include <fstream>
 #include <unordered_map>
 #include <QCheckBox>
@@ -26,11 +26,20 @@
 bool TrophyViewer::ExtractUcpTrophies(const std::filesystem::path& gamePath,
                                       const std::filesystem::path& outputPath,
                                       const std::string& npCommId, int index) {
-    const std::filesystem::path trophyDir = gamePath / "sce_sys" / "trophy2";
+    std::vector<std::filesystem::path> candidates;
+    for (const auto& entry : Core::FileSys::ListGameDir(gamePath, Core::FileSys::TrophyRelDir)) {
+        if (entry.is_directory || !UCP::IsContainerFileName(entry.name)) {
+            continue;
+        }
+        const std::string rel = std::string(Core::FileSys::TrophyRelDir) + "/" + entry.name;
+        if (const auto resolved = Core::FileSys::ResolveGameFilePath(gamePath, rel)) {
+            candidates.push_back(*resolved);
+        }
+    }
+    // ListDir order is backend-defined, so sort for a stable index fallback.
+    std::sort(candidates.begin(), candidates.end());
 
-    // A multi-disc title ships one container per trophy set, so pick the one
-    // that actually holds npCommId rather than assuming the first file found.
-    const auto ucpPath = UCP::FindContainerFor(trophyDir, npCommId, index);
+    const auto ucpPath = UCP::SelectContainerFor(candidates, npCommId, index);
     if (!ucpPath) {
         return false;
     }

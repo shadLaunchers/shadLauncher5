@@ -177,13 +177,19 @@ public:
     // the rest of it. Empty if the container has no readable tropconf.
     [[nodiscard]] std::string ReadNpCommId() const;
 
-    // Picks the container in trophyDir that belongs to `npCommId`.
+    // Picks the container that belongs to `npCommId` out of `candidates`.
+    [[nodiscard]] static std::optional<std::filesystem::path> SelectContainerFor(
+        const std::vector<std::filesystem::path>& candidates, std::string_view npCommId, int index);
+
     [[nodiscard]] static std::optional<std::filesystem::path> FindContainerFor(
         const std::filesystem::path& trophyDir, std::string_view npCommId, int index);
 
     // Every *.ucp in trophyDir, sorted by name for a stable order.
     [[nodiscard]] static std::vector<std::filesystem::path> ListContainers(
         const std::filesystem::path& trophyDir);
+
+    // True if a file name looks like a trophy container ("*.ucp", any case).
+    [[nodiscard]] static bool IsContainerFileName(std::string_view name);
 
 private:
     std::filesystem::path m_path;

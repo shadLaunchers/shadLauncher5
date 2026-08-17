@@ -1,4 +1,3 @@
-// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator
 // SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -47,6 +46,9 @@ bool ReadWholeFile(const std::filesystem::path& path, std::string& out) {
     return true;
 }
 
+// Several tropconf fields are strings in every sample seen ("id": "0000",
+// "targetValue": "1"), but the schema is young enough that a producer emitting
+// them as numbers is plausible. Accept both rather than dropping the field.
 std::string AsString(const nlohmann::json& node) {
     if (node.is_string()) {
         return node.get<std::string>();
@@ -550,6 +552,16 @@ bool UCP::ExtractTrophyFiles(const std::filesystem::path& outputDir) const {
     return true;
 }
 
+bool UCP::IsContainerFileName(std::string_view name) {
+    if (name.size() < 4) {
+        return false;
+    }
+    std::string ext(name.substr(name.size() - 4));
+    std::transform(ext.begin(), ext.end(), ext.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    return ext == ".ucp";
+}
+
 std::vector<std::filesystem::path> UCP::ListContainers(const std::filesystem::path& trophyDir) {
     std::vector<std::filesystem::path> found;
 
@@ -558,13 +570,7 @@ std::vector<std::filesystem::path> UCP::ListContainers(const std::filesystem::pa
         if (ec) {
             break;
         }
-        if (!entry.is_regular_file(ec)) {
-            continue;
-        }
-        std::string ext = entry.path().extension().string();
-        std::transform(ext.begin(), ext.end(), ext.begin(),
-                       [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
-        if (ext == ".ucp") {
+        if (entry.is_regular_file(ec) && IsContainerFileName(entry.path().filename().string())) {
             found.push_back(entry.path());
         }
     }
@@ -592,16 +598,15 @@ std::string UCP::ReadNpCommId() const {
     return {};
 }
 
-std::optional<std::filesystem::path> UCP::FindContainerFor(const std::filesystem::path& trophyDir,
-                                                           std::string_view npCommId, int index) {
-    const auto containers = ListContainers(trophyDir);
-    if (containers.empty()) {
+std::optional<std::filesystem::path> UCP::SelectContainerFor(
+    const std::vector<std::filesystem::path>& candidates, std::string_view npCommId, int index) {
+    if (candidates.empty()) {
         return std::nullopt;
     }
 
     // Preferred: ask each container which trophy set it actually holds.
     if (!npCommId.empty()) {
-        for (const auto& path : containers) {
+        for (const auto& path : candidates) {
             UCP ucp;
             if (!ucp.Open(path)) {
                 continue;
@@ -616,9 +621,9 @@ std::optional<std::filesystem::path> UCP::FindContainerFor(const std::filesystem
     // containers whose tropconf couldn't be read.
     if (index >= 0) {
         for (const char* stem : {"Trophy", "uds"}) {
-            const auto candidate = trophyDir / fmt::format("{}{:02}.ucp", stem, index);
-            for (const auto& path : containers) {
-                if (path == candidate) {
+            const auto wanted = fmt::format("{}{:02}.ucp", stem, index);
+            for (const auto& path : candidates) {
+                if (path.filename().string() == wanted) {
                     return path;
                 }
             }
@@ -627,15 +632,20 @@ std::optional<std::filesystem::path> UCP::FindContainerFor(const std::filesystem
 
     // Single-set titles are the common case: if there is exactly one
     // container and nothing matched, it is unambiguously the right one.
-    if (containers.size() == 1) {
+    if (candidates.size() == 1) {
         LOG_WARNING(Common_Filesystem, "Using sole trophy container {} for NPComm ID '{}'",
-                    containers.front().string(), std::string(npCommId));
-        return containers.front();
+                    candidates.front().string(), std::string(npCommId));
+        return candidates.front();
     }
 
-    LOG_ERROR(Common_Filesystem, "No trophy container in {} matches NPComm ID '{}'",
-              trophyDir.string(), std::string(npCommId));
+    LOG_ERROR(Common_Filesystem, "No trophy container matches NPComm ID '{}' among {} candidates",
+              std::string(npCommId), candidates.size());
     return std::nullopt;
+}
+
+std::optional<std::filesystem::path> UCP::FindContainerFor(const std::filesystem::path& trophyDir,
+                                                           std::string_view npCommId, int index) {
+    return SelectContainerFor(ListContainers(trophyDir), npCommId, index);
 }
 
 bool UCP::LoadTrophySet(TrophySet& out, int language_index) const {
