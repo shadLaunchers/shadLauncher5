@@ -9,5 +9,5 @@ OUTDIR=$(realpath "$SCRIPTDIR")
 lupdate $SRCDIRS $OPTS -locations none -source-language en_US  -ts "$OUTDIR/en_US.ts"
 
 if ! head -n 2 "$OUTDIR/en_US.ts" | grep -q "SPDX-FileCopyrightText"; then
-    sed -i '2i\<!-- SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher5 Project\n     SPDX-License-Identifier: GPL-2.0-or-later -->' "$OUTDIR/en_US.ts"
+    sed -i '2i\<!-- SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project\n     SPDX-License-Identifier: GPL-2.0-or-later -->' "$OUTDIR/en_US.ts"
 fi
