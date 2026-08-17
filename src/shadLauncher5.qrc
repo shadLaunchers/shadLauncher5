@@ -20,20 +20,12 @@
         <file>images/flag_china.png</file>
         <file>images/shadLauncher5.png</file>
         <file>images/custom_config.png</file>
-        <file>images/menu/package.svg</file>
         <file>images/menu/exit.svg</file>
         <file>images/menu/user.svg</file>
-        <file>images/menu/key.svg</file>
         <file>images/menu/export.svg</file>
-        <file>images/menu/hotkey.svg</file>
-        <file>images/menu/cfg-general.svg</file>
-        <file>images/menu/cfg-audio.svg</file>
         <file>images/menu/cfg-gui.svg</file>
-        <file>images/menu/cfg-graphics.svg</file>
         <file>images/menu/cfg-paths.svg</file>
         <file>images/menu/cfg-log.svg</file>
-        <file>images/menu/cfg-debug.svg</file>
-        <file>images/menu/cfg-experimental.svg</file>
         <file>images/menu/show-list.svg</file>
         <file>images/menu/toolbar.svg</file>
         <file>images/menu/titlebar.svg</file>
@@ -44,6 +36,5 @@
         <file>images/menu/size-small.svg</file>
         <file>images/menu/size-medium.svg</file>
         <file>images/menu/size-large.svg</file>
-        <file>images/menu/network.svg</file>
     </qresource>
 </RCC>

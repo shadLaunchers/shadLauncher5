@@ -186,15 +186,9 @@
     <property name="title">
      <string>Configuration</string>
     </property>
-    <addaction name="actionConfigGeneral"/>
-    <addaction name="actionConfigAudio"/>
     <addaction name="actionConfigGUI"/>
-    <addaction name="actionConfigGraphics"/>
-    <addaction name="actionConfigInput"/>
     <addaction name="actionConfigPaths"/>
     <addaction name="actionConfigLog"/>
-    <addaction name="actionConfigDebug"/>
-    <addaction name="actionConfigExperimental"/>
    </widget>
    <widget class="QMenu" name="menuManage">
     <property name="title">
@@ -208,9 +202,6 @@
     </property>
     <addaction name="actionExport_GameList"/>
     <addaction name="actionReset_Custom_Titles"/>
-    <addaction name="actionCrypto_Key_Manager"/>
-    <addaction name="actionConfigure_Hotkeys"/>
-    <addaction name="actionHostOverrides"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -314,9 +305,6 @@
    <addaction name="toolbar_config"/>
    <addaction name="toolbar_fullscreen"/>
    <addaction name="separator"/>
-   <addaction name="toolbar_controls"/>
-   <addaction name="toolbar_keyboard"/>
-   <addaction name="separator"/>
    <addaction name="toolbar_refresh"/>
    <addaction name="toolbar_list"/>
    <addaction name="toolbar_grid"/>
@@ -400,18 +388,6 @@
    </property>
    <property name="toolTip">
     <string>Manage user accounts</string>
-   </property>
-  </action>
-  <action name="actionHostOverrides">
-   <property name="icon">
-    <iconset resource="../shadLauncher5.qrc">
-     <normaloff>:/images/menu/network.svg</normaloff>:/images/menu/network.svg</iconset>
-   </property>
-   <property name="text">
-    <string>Network Host Overrides</string>
-   </property>
-   <property name="toolTip">
-    <string>Redirect game network traffic to another server</string>
    </property>
   </action>
   <action name="aboutAct">
@@ -736,33 +712,6 @@
     <string>Restores the original name of every game you renamed in the game list</string>
    </property>
   </action>
-  <action name="actionConfigGeneral">
-   <property name="icon">
-    <iconset resource="../shadLauncher5.qrc">
-     <normaloff>:/images/menu/cfg-general.svg</normaloff>:/images/menu/cfg-general.svg</iconset>
-   </property>
-   <property name="text">
-    <string>General</string>
-   </property>
-  </action>
-  <action name="actionConfigGraphics">
-   <property name="icon">
-    <iconset resource="../shadLauncher5.qrc">
-     <normaloff>:/images/menu/cfg-graphics.svg</normaloff>:/images/menu/cfg-graphics.svg</iconset>
-   </property>
-   <property name="text">
-    <string>Graphics</string>
-   </property>
-  </action>
-  <action name="actionConfigInput">
-   <property name="icon">
-    <iconset resource="../shadLauncher5.qrc">
-     <normaloff>:/images/ps4_controller.png</normaloff>:/images/ps4_controller.png</iconset>
-   </property>
-   <property name="text">
-    <string>Input</string>
-   </property>
-  </action>
   <action name="actionConfigPaths">
    <property name="icon">
     <iconset resource="../shadLauncher5.qrc">
@@ -772,24 +721,6 @@
     <string>Paths</string>
    </property>
   </action>
-  <action name="actionConfigDebug">
-   <property name="icon">
-    <iconset resource="../shadLauncher5.qrc">
-     <normaloff>:/images/menu/cfg-debug.svg</normaloff>:/images/menu/cfg-debug.svg</iconset>
-   </property>
-   <property name="text">
-    <string>Debug</string>
-   </property>
-  </action>
-  <action name="actionConfigExperimental">
-   <property name="icon">
-    <iconset resource="../shadLauncher5.qrc">
-     <normaloff>:/images/menu/cfg-experimental.svg</normaloff>:/images/menu/cfg-experimental.svg</iconset>
-   </property>
-   <property name="text">
-    <string>Experimental</string>
-   </property>
-  </action>
   <action name="actionConfigLog">
    <property name="icon">
     <iconset resource="../shadLauncher5.qrc">
@@ -797,15 +728,6 @@
    </property>
    <property name="text">
     <string>Log</string>
-   </property>
-  </action>
-  <action name="actionCrypto_Key_Manager">
-   <property name="icon">
-    <iconset resource="../shadLauncher5.qrc">
-     <normaloff>:/images/menu/key.svg</normaloff>:/images/menu/key.svg</iconset>
-   </property>
-   <property name="text">
-    <string>Crypto Key Manager</string>
    </property>
   </action>
   <action name="showLogAct">
@@ -824,30 +746,6 @@
    </property>
    <property name="toolTip">
     <string>Show Game Log</string>
-   </property>
-  </action>
-  <action name="toolbar_keyboard">
-   <property name="icon">
-    <iconset resource="../shadLauncher5.qrc">
-     <normaloff>:/images/keyboard_icon.png</normaloff>:/images/keyboard_icon.png</iconset>
-   </property>
-   <property name="text">
-    <string>Keyboard</string>
-   </property>
-   <property name="toolTip">
-    <string>Configure Keyboard and Mouse</string>
-   </property>
-   <property name="menuRole">
-    <enum>QAction::MenuRole::NoRole</enum>
-   </property>
-  </action>
-  <action name="actionConfigure_Hotkeys">
-   <property name="icon">
-    <iconset resource="../shadLauncher5.qrc">
-     <normaloff>:/images/menu/hotkey.svg</normaloff>:/images/menu/hotkey.svg</iconset>
-   </property>
-   <property name="text">
-    <string>Configure Hotkeys</string>
    </property>
   </action>
   <action name="updaterAct">

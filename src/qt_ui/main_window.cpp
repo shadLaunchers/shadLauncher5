@@ -1,4 +1,5 @@
-// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher5 Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher4 Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -335,25 +336,12 @@ void MainWindow::createConnects() {
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         dlg->open();
     };
-
-    connect(ui->actionConfigGeneral, &QAction::triggered, this,
-            [open_settings]() { open_settings(0); });
-    connect(ui->actionConfigAudio, &QAction::triggered, this,
-            [open_settings]() { open_settings(1); });
     connect(ui->actionConfigGUI, &QAction::triggered, this,
-            [open_settings]() { open_settings(2); });
-    connect(ui->actionConfigGraphics, &QAction::triggered, this,
-            [open_settings]() { open_settings(3); });
-    connect(ui->actionConfigInput, &QAction::triggered, this,
-            [open_settings]() { open_settings(4); });
+            [open_settings]() { open_settings(0); });
     connect(ui->actionConfigPaths, &QAction::triggered, this,
-            [open_settings]() { open_settings(54); });
+            [open_settings]() { open_settings(1); });
     connect(ui->actionConfigLog, &QAction::triggered, this,
-            [open_settings]() { open_settings(6); });
-    connect(ui->actionConfigDebug, &QAction::triggered, this,
-            [open_settings]() { open_settings(7); });
-    connect(ui->actionConfigExperimental, &QAction::triggered, this,
-            [open_settings]() { open_settings(8); });
+            [open_settings]() { open_settings(2); });
 
     connect(ui->bootGameAct, &QAction::triggered, this,
             [this] { MainWindow::StartGameWithArgs({}); });
