@@ -35,7 +35,7 @@ class TrophyViewer : public QMainWindow {
     Q_OBJECT
 public:
     explicit TrophyViewer(
-        std::shared_ptr<GUISettings> gui_settings, QString trophyPath, QString gameTrpPath,
+        std::shared_ptr<GUISettings> gui_settings, QString trophyPath, QString gameUcpPath,
         QString gameName = "",
         const QVector<TrophyGameInfo>& allTrophyGames = QVector<TrophyGameInfo>());
 
