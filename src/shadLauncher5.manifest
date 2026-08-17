@@ -1,19 +1,4 @@
 <?xml version="1.0" encoding="utf-8" standalone="yes"?>
-<!--
-  Explicit application manifest.
-
-  Required because lld-link (clang-cl builds) generates a trustInfo block with
-  namespace-prefixed attributes (ms_asmv1:level instead of level), which the
-  Windows SxS loader rejects with:
-      "The required attribute level is missing from element requestedExecutionLevel"
-  See https://github.com/llvm/llvm-project/issues/120394
-
-  The linker-generated manifest is suppressed via /MANIFEST:NO in CMakeLists.txt;
-  this file is embedded as RT_MANIFEST through src/shadLauncher5.rc instead.
-
-  Note: no dpiAware/dpiAwareness entries here on purpose - Qt 6 sets process DPI
-  awareness itself at startup, and a manifest entry would override it.
--->
 <assembly xmlns="urn:schemas-microsoft-com:asm.v1" manifestVersion="1.0">
 
   <trustInfo xmlns="urn:schemas-microsoft-com:asm.v3">
