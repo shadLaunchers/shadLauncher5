@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=shadLauncher5
+GenericName=PS5 Game Launcher
+Comment=Game launcher for the shadPS5 PlayStation 5 emulator
+Icon=shadLauncher5
+Exec=shadLauncher5
+Terminal=false
+Categories=Game;Emulator;
+Keywords=PS5;PlayStation;emulator;shadPS5;launcher;
