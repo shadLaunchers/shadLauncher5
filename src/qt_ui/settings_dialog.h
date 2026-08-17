@@ -1,4 +1,5 @@
-// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher5 Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher4 Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -29,8 +30,6 @@ public:
                             bool customFromGlobal = false);
     ~SettingsDialog();
     void open() override;
-
-    void GetPhysicalDevices();
 
 signals:
     void GameFoldersChanged();
@@ -71,33 +70,8 @@ private:
     bool IsSettingOverrideable(const char* setting_key, const QString& setting_group) const;
     void DisableNonOverrideableSettings();
     void MapUIControls();
-    void RefreshAudioDevices();
-
-    const QMap<QString, HideCursorState> cursorStateMap = {{tr("Never"), HideCursorState::Never},
-                                                           {tr("Idle"), HideCursorState::Idle},
-                                                           {tr("Always"), HideCursorState::Always}};
-
-    const QMap<QString, UsbBackendType> usbDeviceMap = {
-        {tr("Real USB Device"), UsbBackendType::Real},
-        {tr("Skylander Portal"), UsbBackendType::SkylandersPortal},
-        {tr("Infinity Base"), UsbBackendType::InfinityBase},
-        {tr("Dimensions Toypad"), UsbBackendType::DimensionsToypad}};
-
-    const QMap<QString, QString> presentModeMap = {{tr("Mailbox (Vsync)"), "Mailbox"},
-                                                   {tr("Fifo (Vsync)"), "Fifo"},
-                                                   {tr("Immediate (No Vsync)"), "Immediate"}};
-
-    const QMap<QString, QString> screenModeMap = {
-        {tr("Fullscreen (Borderless)"), "Fullscreen (Borderless)"},
-        {tr("Windowed"), "Windowed"},
-        {tr("Fullscreen"), "Fullscreen"}};
-
-    const QMap<QString, QString> micMap = {{tr("None"), "None"},
-                                           {tr("Default Device"), "Default Device"}};
 
     const QMap<QString, QString> logTypeMap = {{tr("wincolor"), "wincolor"}, {tr("msvc"), "msvc"}};
-
-    const QMap<int, QString> audioBackendMap = {{0, "SDL"}, {1, "OpenAL"}};
 
     // Map UI controls to their setting keys
     QMap<QObject*, std::pair<const char*, QString>> m_uiSettingMap;

@@ -1,4 +1,5 @@
-﻿// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher5 Project
+﻿// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher4 Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <iostream>
@@ -123,8 +124,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<GUISettings> gui_settings,
     } else if (IsGlobal()) {
         this->setWindowTitle(tr("Global Settings"));
         ui->customSettingsLabel->setVisible(false);
-        int index = ui->tabWidgetSettings->indexOf(ui->experimentalTab);
-        ui->tabWidgetSettings->setTabVisible(index, false);
     }
 
     const SettingsDialogHelperTexts helptexts;
@@ -142,27 +141,14 @@ SettingsDialog::SettingsDialog(std::shared_ptr<GUISettings> gui_settings,
     SubscribeHelpText(ui->sysmodulesGroupBox, helptexts.settings.paths_sysmodulesDir);
     SubscribeHelpText(ui->currentSysmodulesPath, helptexts.settings.paths_sysmodulesDir);
     SubscribeHelpText(ui->browseSysmodulesButton, helptexts.settings.paths_sysmodulesDir_browse);
-    SubscribeHelpText(ui->fontsGroupBox, helptexts.settings.paths_fontsDir);
-    SubscribeHelpText(ui->currentFontsPath, helptexts.settings.paths_fontsDir);
-    SubscribeHelpText(ui->browseFontsButton, helptexts.settings.paths_fontsDir_browse);
 
     // General
     SubscribeHelpText(ui->ScanDepthGroupBox, helptexts.settings.general_scan_depth_combo);
     SubscribeHelpText(ui->ScanDepthComboBox, helptexts.settings.general_scan_depth_combo);
-    SubscribeHelpText(ui->showSplashCheckBox, helptexts.settings.general_show_splash);
-    SubscribeHelpText(ui->volumeSliderElement, helptexts.settings.general_volume_slider);
-    SubscribeHelpText(ui->horizontalVolumeSlider, helptexts.settings.general_volume_slider);
-    SubscribeHelpText(ui->disableTrophycheckBox, helptexts.settings.general_disable_trophy_popup);
-    SubscribeHelpText(ui->OpenCustomTrophyLocationButton,
-                      helptexts.settings.general_open_custom_trophy_location);
-    SubscribeHelpText(ui->discordRPCCheckbox, helptexts.settings.general_discord_rpc);
-    SubscribeHelpText(ui->MicGroupBox, helptexts.settings.general_microphone);
-    SubscribeHelpText(ui->micComboBox, helptexts.settings.general_microphone);
     SubscribeHelpText(ui->updaterGroupBox, helptexts.settings.general_updater);
     SubscribeHelpText(ui->updaterCheckBox, helptexts.settings.general_updater_check_startup);
     SubscribeHelpText(ui->changelogCheckBox, helptexts.settings.general_updater_changelog);
     SubscribeHelpText(ui->checkUpdateButton, helptexts.settings.general_updater_check_now);
-    SubscribeHelpText(ui->showFpsCounterCheckBox, helptexts.settings.general_fps_counter);
 
     // Log
     SubscribeHelpText(ui->loggerGroupBox, helptexts.settings.log_section);
@@ -190,12 +176,6 @@ SettingsDialog::SettingsDialog(std::shared_ptr<GUISettings> gui_settings,
     SubscribeHelpText(ui->themeComboBox, helptexts.settings.gui_theme);
 
     // Audio
-    SubscribeHelpText(ui->audioBackendGroupBox, helptexts.settings.audio_backend);
-    SubscribeHelpText(ui->audioBackendComboBox, helptexts.settings.audio_backend);
-    SubscribeHelpText(ui->GenAudioGroupBox, helptexts.settings.audio_general_device);
-    SubscribeHelpText(ui->GenAudioComboBox, helptexts.settings.audio_general_device);
-    SubscribeHelpText(ui->DsSpeakerGroupBox, helptexts.settings.audio_ds4_speaker);
-    SubscribeHelpText(ui->DsAudioComboBox, helptexts.settings.audio_ds4_speaker);
 
     // Compatibility
     SubscribeHelpText(ui->CompatgroupBox, helptexts.settings.compat_section);
@@ -204,86 +184,12 @@ SettingsDialog::SettingsDialog(std::shared_ptr<GUISettings> gui_settings,
     SubscribeHelpText(ui->updateCompatibilityButton, helptexts.settings.compat_update_button);
 
     // GPU / Graphics
-    SubscribeHelpText(ui->readbacksModeComboBox, helptexts.settings.gpu_readback_mode);
-    SubscribeHelpText(ui->groupBox, helptexts.settings.gpu_readback_mode);
-    SubscribeHelpText(ui->graphicsAdapterGroupBox, helptexts.settings.gpu_graphics_adapter);
-    SubscribeHelpText(ui->graphicsAdapterBox, helptexts.settings.gpu_graphics_adapter);
-    SubscribeHelpText(ui->presentModeGroupBox, helptexts.settings.gpu_present_mode);
-    SubscribeHelpText(ui->presentModeComboBox, helptexts.settings.gpu_present_mode);
-    SubscribeHelpText(ui->windowSizeGroupBox, helptexts.settings.gpu_window_size);
-    SubscribeHelpText(ui->widthSpinBox, helptexts.settings.gpu_window_size);
-    SubscribeHelpText(ui->heightSpinBox, helptexts.settings.gpu_window_size);
-    SubscribeHelpText(ui->enableHDRCheckBox, helptexts.settings.gpu_enable_hdr);
-    SubscribeHelpText(ui->heightDivider, helptexts.settings.gpu_vblank_frequency);
-    SubscribeHelpText(ui->vblankSpinBox, helptexts.settings.gpu_vblank_frequency);
-    SubscribeHelpText(ui->readbackLinearImagesCheckBox,
-                      helptexts.settings.gpu_readback_linear_images);
-    SubscribeHelpText(ui->displayOptionsGroupBox, helptexts.settings.gpu_display_options);
-    SubscribeHelpText(ui->displayModeGroupBox, helptexts.settings.gpu_display_mode);
-    SubscribeHelpText(ui->displayModeComboBox, helptexts.settings.gpu_display_mode);
-    SubscribeHelpText(ui->FSRGroupBox, helptexts.settings.gpu_fsr);
-    SubscribeHelpText(ui->FSRCheckBox, helptexts.settings.gpu_fsr_enable);
-    SubscribeHelpText(ui->RCASCheckBox, helptexts.settings.gpu_rcas_enable);
-    SubscribeHelpText(ui->RCASSlider, helptexts.settings.gpu_rcas_attenuation);
 
     // Input
-    SubscribeHelpText(ui->hideCursorGroupBox, helptexts.settings.input_hide_cursor);
-    SubscribeHelpText(ui->hideCursorComboBox, helptexts.settings.input_hide_cursor);
-    SubscribeHelpText(ui->idleTimeoutGroupBox, helptexts.settings.input_idle_timeout);
-    SubscribeHelpText(ui->idleTimeoutSpinBox, helptexts.settings.input_idle_timeout);
-    SubscribeHelpText(ui->motionControlsCheckBox, helptexts.settings.input_motion_controls);
-    SubscribeHelpText(ui->backgroundControllerCheckBox,
-                      helptexts.settings.input_background_controller);
-    SubscribeHelpText(ui->USBDeviceGroupBox, helptexts.settings.input_usb_device);
-    SubscribeHelpText(ui->usbComboBox, helptexts.settings.input_usb_device);
-    SubscribeHelpText(ui->cursorGroupBox, helptexts.settings.input_cursor_section);
-    SubscribeHelpText(ui->ControllerGroupBox, helptexts.settings.input_controller_section);
-    SubscribeHelpText(ui->miceUsedAsMiceCheckBox, helptexts.settings.input_mice_as_mice);
-    SubscribeHelpText(ui->circleEnterCheckBox, helptexts.settings.input_circle_confirm);
-    SubscribeHelpText(ui->imeGroupBox, helptexts.settings.input_ime_section);
-    SubscribeHelpText(ui->imeAccessibilityCheckBox, helptexts.settings.input_ime_accessibility);
-    SubscribeHelpText(ui->imeUrlMailShortPanelCheckBox,
-                      helptexts.settings.input_ime_url_mail_panel);
-    SubscribeHelpText(ui->cameraGroupBox, helptexts.settings.input_camera_device);
-    SubscribeHelpText(ui->cameraComboBox, helptexts.settings.input_camera_device);
 
     // Debug
-    SubscribeHelpText(ui->debugTabGroupBox, helptexts.settings.debug_section);
-    SubscribeHelpText(ui->advancedGroupBox, helptexts.settings.debug_advanced_section);
-    SubscribeHelpText(ui->dumpShadersCheckBox, helptexts.settings.debug_dump_shaders);
-    SubscribeHelpText(ui->debugDump, helptexts.settings.debug_dump);
-    SubscribeHelpText(ui->rdocCheckBox, helptexts.settings.debug_renderdoc);
-    SubscribeHelpText(ui->copyGPUBuffersCheckBox, helptexts.settings.debug_copy_gpu_buffers);
-    SubscribeHelpText(ui->collectShaderCheckBox, helptexts.settings.debug_collect_shaders);
-    SubscribeHelpText(ui->crashDiagnosticsCheckBox, helptexts.settings.debug_crash_diagnostics);
-    SubscribeHelpText(ui->hostMarkersCheckBox, helptexts.settings.debug_host_markers);
-    SubscribeHelpText(ui->guestMarkersCheckBox, helptexts.settings.debug_guest_markers);
-    SubscribeHelpText(ui->vkValidationCheckBox, helptexts.settings.debug_vk_validation);
-    SubscribeHelpText(ui->VkValidationGroupBox, helptexts.settings.debug_vk_validation_section);
-    SubscribeHelpText(ui->vkCoreValidationCheckBox, helptexts.settings.debug_vk_core_validation);
-    SubscribeHelpText(ui->vkSyncValidationCheckBox, helptexts.settings.debug_vk_sync_validation);
-    SubscribeHelpText(ui->vkGpuValidationCheckBox, helptexts.settings.debug_vk_gpu_validation);
 
     // Experimental
-    SubscribeHelpText(ui->experimentalGroupBox, helptexts.settings.experimental_section);
-    SubscribeHelpText(ui->dmaCheckBox, helptexts.settings.experimental_dma);
-    SubscribeHelpText(ui->devkitCheckBox, helptexts.settings.experimental_devkit);
-    SubscribeHelpText(ui->neoCheckBox, helptexts.settings.experimental_neo);
-    SubscribeHelpText(ui->psnSignInCheckBox, helptexts.settings.experimental_shadnet);
-    SubscribeHelpText(ui->networkConnectedCheckBox,
-                      helptexts.settings.experimental_network_connected);
-    SubscribeHelpText(ui->shadNetGroupBox, helptexts.settings.experimental_shadnet_config);
-    SubscribeHelpText(ui->shadNetServerLineEdit, helptexts.settings.experimental_shadnet_server);
-    SubscribeHelpText(ui->shadNetWebApiServerLineEdit,
-                      helptexts.settings.experimental_shadnet_webapi);
-    SubscribeHelpText(ui->signalingInfoLineEdit, helptexts.settings.experimental_shadnet_signaling);
-    SubscribeHelpText(ui->upnpCheckBox, helptexts.settings.experimental_upnp);
-    SubscribeHelpText(ui->shaderCacheGroupBox, helptexts.settings.experimental_shader_cache);
-    SubscribeHelpText(ui->enableShaderCacheCheckBox, helptexts.settings.experimental_shader_cache);
-    SubscribeHelpText(ui->archiveShaderCacheCheckBox,
-                      helptexts.settings.experimental_shader_cache_archive);
-    SubscribeHelpText(ui->dmemGroupBox, helptexts.settings.experimental_dmem);
-    SubscribeHelpText(ui->dmemSpinBox, helptexts.settings.experimental_dmem);
 
     PopulateComboBoxes();
     PathTabConnections();
@@ -522,47 +428,10 @@ void SettingsDialog::PathTabConnections() {
             ui->currentSysmodulesPath->setText(sysmodules_path_string);
         }
     });
-    // -----------Fonts Folder --------------------------------------------------------------
-    connect(ui->browseFontsButton, &QPushButton::clicked, this, [this]() {
-        const auto fonts_path = m_emu_settings->GetFontsDir();
-        QString initial_path;
-        Common::FS::PathToQString(initial_path, fonts_path);
-
-        QString fonts_path_string = QFileDialog::getExistingDirectory(
-            this, tr("Select directory for System fonts"), initial_path);
-
-        auto file_path = Common::FS::PathFromQString(fonts_path_string);
-        if (!file_path.empty()) {
-            ui->currentFontsPath->setText(fonts_path_string);
-        }
-    });
 }
 
 // ---------------------------- Non-Path Connections ----------------------------
 void SettingsDialog::OtherConnections() {
-
-    // ------------------ General tab --------------------------------------------------------
-    connect(ui->horizontalVolumeSlider, &QSlider::valueChanged, [this](int value) {
-        ui->volumeText->setText(QString("%1%").arg(value));
-
-        if (EmulatorState::GetInstance()->IsGameRunning())
-            m_ipc_client->adjustVol(value, !IsGlobal());
-    });
-
-    connect(ui->OpenCustomTrophyLocationButton, &QPushButton::clicked, this, []() {
-        QString userPath;
-        Common::FS::PathToQString(userPath,
-                                  Common::FS::GetUserPath(Common::FS::PathType::CustomTrophy));
-
-        if (!QDir().exists(userPath))
-            QDir().mkpath(userPath);
-
-        QDesktopServices::openUrl(QUrl::fromLocalFile(userPath));
-    });
-
-    // ------------------ Audio tab --------------------------------------------------------
-    connect(ui->audioBackendComboBox, &QComboBox::currentIndexChanged, this,
-            &SettingsDialog::RefreshAudioDevices);
 
     // ------------------ Gui tab --------------------------------------------------------
     connect(ui->BGMVolumeSlider, &QSlider::valueChanged, this,
@@ -576,21 +445,6 @@ void SettingsDialog::OtherConnections() {
 #else
     ui->updaterGroupBox->setVisible(false);
 #endif
-
-    // ------------------ Graphics tab --------------------------------------------------------
-    connect(ui->RCASSlider, &QSlider::valueChanged, [this](int value) {
-        QString RCASValue = QString::number(value / 1000.0, 'f', 3);
-        ui->RCASValue->setText(RCASValue);
-    });
-
-    // ------------------ Input tab --------------------------------------------------------
-    connect(ui->hideCursorComboBox, &QComboBox::currentTextChanged, this, [this](QString text) {
-        if (text == tr("Idle")) {
-            ui->idleTimeoutGroupBox->show();
-        } else {
-            ui->idleTimeoutGroupBox->hide();
-        }
-    });
 
     // ------------------ Log tab --------------------------------------------------------
     connect(ui->logOpenLocationButton, &QPushButton::clicked, this, []() {
@@ -609,42 +463,12 @@ void SettingsDialog::OtherConnections() {
                 [this](const QString& filter) { ui->logFilterLineEdit->setText(filter); });
         dlg->exec();
     });
-
-    // ------------------ Debug --------------------------------------------------------
-    connect(ui->vkValidationCheckBox, &QCheckBox::checkStateChanged, this,
-            [this](Qt::CheckState state) {
-                state ? ui->vkLayersGroupBox->setVisible(true)
-                      : ui->vkLayersGroupBox->setVisible(false);
-            });
 }
 
 // ---------------------------- Load from backend to UI ----------------------------
 void SettingsDialog::LoadValuesFromConfig() {
 
-    // ------------------ General tab --------------------------------------------------------
-    ui->showSplashCheckBox->setChecked(m_emu_settings->IsShowSplash());
-    ui->disableTrophycheckBox->setChecked(m_emu_settings->IsTrophyPopupDisabled());
-    ui->popUpDurationSpinBox->setValue(m_emu_settings->GetTrophyNotificationDuration());
-
-    QString trophy_side = QString::fromStdString(m_emu_settings->GetTrophyNotificationSide());
-    ui->radioButton_Left->setChecked(trophy_side == "left");
-    ui->radioButton_Right->setChecked(trophy_side == "right");
-    ui->radioButton_Top->setChecked(trophy_side == "top");
-    ui->radioButton_Bottom->setChecked(trophy_side == "bottom");
-    ui->showFpsCounterCheckBox->setChecked(m_emu_settings->IsShowFpsCounter());
-
-    // ------------------ Audio tab --------------------------------------------------------
-    ui->horizontalVolumeSlider->setValue(m_emu_settings->GetVolumeSlider());
-    ui->GenAudioComboBox->setCurrentText(
-        QString::fromStdString(m_emu_settings->GetSDLMainOutputDevice()));
-    ui->DsAudioComboBox->setCurrentText(
-        QString::fromStdString(m_emu_settings->GetSDLPadSpkOutputDevice()));
-
-    ui->audioBackendComboBox->setCurrentIndex(EmulatorSettings.GetAudioBackend());
-    RefreshAudioDevices();
-
     // ------------------ GUI tab --------------------------------------------------------
-    ui->discordRPCCheckbox->setChecked(m_emu_settings->IsDiscordRPCEnabled());
     {
         const QString current_theme =
             m_gui_settings->GetValue(GUI::meta_currentStylesheet).toString();
@@ -666,48 +490,6 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->changelogCheckBox->setChecked(
         m_gui_settings->GetValue(GUI::general_show_changelog).toBool());
 #endif
-
-    // ------------------ Graphics tab --------------------------------------------------------
-    // First options is auto selection -1, so gpuId on the GUI will always have to subtract 1
-    // when setting and add 1 when getting to select the correct gpu in Qt
-    ui->graphicsAdapterBox->setCurrentIndex(m_emu_settings->GetGpuId() + 1);
-
-    std::string presentMode = m_emu_settings->GetPresentMode();
-    QString translatedText_PresentMode = presentModeMap.key(QString::fromStdString(presentMode));
-    ui->presentModeComboBox->setCurrentText(translatedText_PresentMode);
-
-    std::string fullscreenMode = m_emu_settings->GetFullScreenMode();
-    QString translatedText_FullscreenMode =
-        screenModeMap.key(QString::fromStdString(fullscreenMode));
-    ui->displayModeComboBox->setCurrentText(translatedText_FullscreenMode);
-
-    ui->nullGpuCheckBox->setChecked(m_emu_settings->IsNullGPU());
-    ui->heightSpinBox->setValue(m_emu_settings->GetWindowHeight());
-    ui->widthSpinBox->setValue(m_emu_settings->GetWindowWidth());
-    ui->enableHDRCheckBox->setChecked(m_emu_settings->IsHdrAllowed());
-
-    ui->FSRCheckBox->setChecked(m_emu_settings->IsFsrEnabled());
-    ui->RCASCheckBox->setChecked(m_emu_settings->IsRcasEnabled());
-    ui->RCASSlider->setValue(m_emu_settings->GetRcasAttenuation());
-
-    // ------------------ Input tab --------------------------------------------------------
-    HideCursorState cursorState = static_cast<HideCursorState>(m_emu_settings->GetCursorState());
-    QString translatedText_cursorState = cursorStateMap.key(cursorState);
-    ui->hideCursorComboBox->setCurrentText(translatedText_cursorState);
-    if (ui->hideCursorComboBox->currentText() != tr("Idle")) {
-        ui->idleTimeoutGroupBox->hide();
-    }
-
-    ui->idleTimeoutSpinBox->setValue(m_emu_settings->GetCursorHideTimeout());
-    ui->usbComboBox->setCurrentIndex(m_emu_settings->GetUsbDeviceBackend());
-    ui->micComboBox->setCurrentText(QString::fromStdString(m_emu_settings->GetSDLMicDevice()));
-    ui->motionControlsCheckBox->setChecked(m_emu_settings->IsMotionControlsEnabled());
-    ui->backgroundControllerCheckBox->setChecked(m_emu_settings->IsBackgroundControllerInput());
-    ui->imeAccessibilityCheckBox->setChecked(m_emu_settings->IsImeAccessibilityEnabled());
-    ui->imeUrlMailShortPanelCheckBox->setChecked(m_emu_settings->IsImeUrlMailShortPanel());
-    ui->circleEnterCheckBox->setChecked(m_emu_settings->IsCircleEnter());
-    ui->miceUsedAsMiceCheckBox->setChecked(m_emu_settings->IsMiceUsedAsMice());
-    ui->cameraComboBox->setCurrentIndex(EmulatorSettings.GetCameraId() + 1);
 
     // ------------------ Log tab --------------------------------------------------------
     ui->logAppendCheckBox->setChecked(EmulatorSettings.IsLogAppend());
@@ -731,51 +513,11 @@ void SettingsDialog::LoadValuesFromConfig() {
     ui->logTypeGroupBox->setVisible(false);
 #endif
 
-    // ------------------ Debug tab --------------------------------------------------------
-    ui->rdocCheckBox->setChecked(m_emu_settings->IsRenderdocEnabled());
-    ui->dumpShadersCheckBox->setChecked(m_emu_settings->IsDumpShaders());
-    ui->debugDump->setChecked(m_emu_settings->IsDebugDump());
-    ui->copyGPUBuffersCheckBox->setChecked(m_emu_settings->IsCopyGpuBuffers());
-
-    ui->vkValidationCheckBox->setChecked(m_emu_settings->IsVkValidationEnabled());
-    ui->vkCoreValidationCheckBox->setChecked(m_emu_settings->IsVkValidationCoreEnabled());
-    ui->vkSyncValidationCheckBox->setChecked(m_emu_settings->IsVkValidationSyncEnabled());
-    ui->vkGpuValidationCheckBox->setChecked(m_emu_settings->IsVkValidationGpuEnabled());
-    ui->vkValidationCheckBox->isChecked() ? ui->vkLayersGroupBox->setVisible(true)
-                                          : ui->vkLayersGroupBox->setVisible(false);
-
-    ui->collectShaderCheckBox->setChecked(m_emu_settings->IsShaderCollect());
-    ui->crashDiagnosticsCheckBox->setChecked(m_emu_settings->IsVkCrashDiagnosticEnabled());
-    ui->hostMarkersCheckBox->setChecked(m_emu_settings->IsVkHostMarkersEnabled());
-    ui->guestMarkersCheckBox->setChecked(m_emu_settings->IsVkGuestMarkersEnabled());
-
-    // ------------------ Experimental tab --------------------------------------------------------
-    ui->readbacksModeComboBox->setCurrentIndex(m_emu_settings->GetReadbacksMode());
-    ui->readbackLinearImagesCheckBox->setChecked(m_emu_settings->IsReadbackLinearImagesEnabled());
-    ui->dmaCheckBox->setChecked(m_emu_settings->IsDirectMemoryAccessEnabled());
-    ui->devkitCheckBox->setChecked(m_emu_settings->IsDevKit());
-    ui->neoCheckBox->setChecked(m_emu_settings->IsNeo());
-    ui->psnSignInCheckBox->setChecked(m_emu_settings->IsShadNetEnabled());
-    ui->networkConnectedCheckBox->setChecked(m_emu_settings->IsConnectedToNetwork());
-
-    // ShadNet
-    ui->shadNetServerLineEdit->setText(QString::fromStdString(m_emu_settings->GetShadNetServer()));
-    ui->shadNetWebApiServerLineEdit->setText(
-        QString::fromStdString(m_emu_settings->GetShadNetWebApiServer()));
-    ui->signalingInfoLineEdit->setText(QString::fromStdString(m_emu_settings->GetSignalingInfo()));
-    ui->upnpCheckBox->setChecked(m_emu_settings->IsUPnPEnabled());
-
-    ui->enableShaderCacheCheckBox->setChecked(m_emu_settings->IsPipelineCacheEnabled());
-    ui->archiveShaderCacheCheckBox->setChecked(m_emu_settings->IsPipelineCacheArchived());
-    ui->dmemSpinBox->setValue(m_emu_settings->GetExtraDmemInMBytes());
-    ui->vblankSpinBox->setValue(m_emu_settings->GetVblankFrequency());
-
     // ------------------ Games Folder --------------------------------------------------------
     ui->gameFoldersListWidget->clear();
     const auto& dirs = m_emu_settings->GetAllGameInstallDirs();
     for (const auto& entry : dirs) {
         QString qpath;
-        // Use existing helper to convert path -> QString; fallback if not available:
         Common::FS::PathToQString(qpath, entry.path);
 
         auto* item = new QListWidgetItem(qpath);
@@ -807,11 +549,6 @@ void SettingsDialog::LoadValuesFromConfig() {
     QString sysmodules_path_string;
     Common::FS::PathToQString(sysmodules_path_string, sysmodules_path);
     ui->currentSysmodulesPath->setText(sysmodules_path_string);
-    // ------------------ Fonts Folder--------------------------------------------------
-    const auto fonts_path = m_emu_settings->GetFontsDir();
-    QString fonts_path_string;
-    Common::FS::PathToQString(fonts_path_string, fonts_path);
-    ui->currentFontsPath->setText(fonts_path_string);
     // ----------GUI Settings --------------------------------------
     ui->ScanDepthComboBox->setCurrentIndex(
         m_gui_settings->GetValue(GUI::general_directory_depth_scanning).toInt() - 1);
@@ -850,48 +587,7 @@ void SettingsDialog::ApplyValuesToBackend() {
     std::vector<GameInstallDir> dirs;
     dirs.reserve(ui->gameFoldersListWidget->count());
 
-    // ------------------ General tab --------------------------------------------------------
-    m_emu_settings->SetShowSplash(ui->showSplashCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetTrophyPopupDisabled(ui->disableTrophycheckBox->isChecked(), is_specific);
-    m_emu_settings->SetTrophyNotificationDuration(ui->popUpDurationSpinBox->value(), is_specific);
-
-    std::string trophy_loc;
-    if (ui->radioButton_Top->isChecked()) {
-        trophy_loc = "top";
-    } else if (ui->radioButton_Left->isChecked()) {
-        trophy_loc = "left";
-    } else if (ui->radioButton_Right->isChecked()) {
-        trophy_loc = "right";
-    } else if (ui->radioButton_Bottom->isChecked()) {
-        trophy_loc = "bottom";
-    }
-    m_emu_settings->SetTrophyNotificationSide(trophy_loc, is_specific);
-    m_emu_settings->SetShowFpsCounter(ui->showFpsCounterCheckBox->isChecked(), is_specific);
-
-    // ------------------ Audio tab --------------------------------------------------------
-    const std::string backend = ui->audioBackendComboBox->currentText().toStdString();
-    EmulatorSettings.SetAudioBackend(ui->audioBackendComboBox->currentIndex());
-
-    if (backend == "SDL") {
-        EmulatorSettings.SetSDLMainOutputDevice(ui->GenAudioComboBox->currentText().toStdString(),
-                                                is_specific);
-        EmulatorSettings.SetSDLPadSpkOutputDevice(ui->DsAudioComboBox->currentText().toStdString(),
-                                                  is_specific);
-        EmulatorSettings.SetSDLMicDevice(ui->micComboBox->currentText().toStdString(), is_specific);
-    } else if (backend == "OpenAL") {
-        EmulatorSettings.SetOpenALMainOutputDevice(
-            ui->GenAudioComboBox->currentText().toStdString(), is_specific);
-        EmulatorSettings.SetOpenALPadSpkOutputDevice(
-            ui->DsAudioComboBox->currentText().toStdString(), is_specific);
-        EmulatorSettings.SetOpenALMicDevice(ui->micComboBox->currentText().toStdString(),
-                                            is_specific);
-    }
-
-    m_emu_settings->SetVolumeSlider(ui->horizontalVolumeSlider->value(), is_specific);
-
     // ------------------ GUI tab --------------------------------------------------------
-    m_emu_settings->SetDiscordRPCEnabled(ui->discordRPCCheckbox->isChecked());
-
     {
         const QString new_theme = ui->themeComboBox->currentData().toString();
         const QString prev_theme = m_gui_settings->GetValue(GUI::meta_currentStylesheet).toString();
@@ -912,43 +608,6 @@ void SettingsDialog::ApplyValuesToBackend() {
     m_gui_settings->SetValue(GUI::general_check_gui_updates, ui->updaterCheckBox->isChecked());
 #endif
 
-    // ------------------ Graphics tab --------------------------------------------------------
-    bool isFullscreen = ui->displayModeComboBox->currentText() != tr("Windowed");
-    m_emu_settings->SetFullScreen(isFullscreen, is_specific);
-    m_emu_settings->SetPresentMode(
-        presentModeMap.value(ui->presentModeComboBox->currentText()).toStdString(), is_specific);
-    m_emu_settings->SetFullScreenMode(
-        screenModeMap.value(ui->displayModeComboBox->currentText()).toStdString(), is_specific);
-
-    m_emu_settings->SetWindowHeight(ui->heightSpinBox->value(), is_specific);
-    m_emu_settings->SetWindowWidth(ui->widthSpinBox->value(), is_specific);
-    m_emu_settings->SetHdrAllowed(ui->enableHDRCheckBox->isChecked(), is_specific);
-
-    m_emu_settings->SetFsrEnabled(ui->FSRCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetRcasEnabled(ui->RCASCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetRcasAttenuation(ui->RCASSlider->value(), is_specific);
-
-    // First options is auto selection -1, so gpuId on the GUI will always have to subtract 1
-    // when setting and add 1 when getting to select the correct gpu in Qt
-    m_emu_settings->SetGpuId(ui->graphicsAdapterBox->currentIndex() - 1, is_specific);
-
-    // ------------------ Input tab --------------------------------------------------------
-    m_emu_settings->SetCursorState(cursorStateMap.value(ui->hideCursorComboBox->currentText()),
-                                   is_specific);
-    m_emu_settings->SetCursorHideTimeout(ui->idleTimeoutSpinBox->value(), is_specific);
-    m_emu_settings->SetSDLMicDevice(ui->micComboBox->currentText().toStdString(), is_specific);
-    m_emu_settings->SetUsbDeviceBackend(ui->usbComboBox->currentIndex(), is_specific);
-    m_emu_settings->SetMotionControlsEnabled(ui->motionControlsCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetBackgroundControllerInput(ui->backgroundControllerCheckBox->isChecked(),
-                                                 is_specific);
-    m_emu_settings->SetImeAccessibilityEnabled(ui->imeAccessibilityCheckBox->isChecked(),
-                                               is_specific);
-    m_emu_settings->SetImeUrlMailShortPanel(ui->imeUrlMailShortPanelCheckBox->isChecked(),
-                                            is_specific);
-    m_emu_settings->SetCircleEnter(ui->circleEnterCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetMiceUsedAsMice(ui->miceUsedAsMiceCheckBox->isChecked(), is_specific);
-    EmulatorSettings.SetCameraId(ui->cameraComboBox->currentIndex() - 1, is_specific);
-
     // ------------------ Log tab --------------------------------------------------------
     m_emu_settings->SetLogAppend(ui->logAppendCheckBox->isChecked(), is_specific);
     m_emu_settings->SetLogEnable(ui->enableLoggingCheckBox->isChecked(), is_specific);
@@ -964,51 +623,6 @@ void SettingsDialog::ApplyValuesToBackend() {
                                is_specific);
 #endif
 
-    // ------------------ Debug tab --------------------------------------------------------
-    m_emu_settings->SetRenderdocEnabled(ui->rdocCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetDumpShaders(ui->dumpShadersCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetDebugDump(ui->debugDump->isChecked(), is_specific);
-    m_emu_settings->SetCopyGpuBuffers(ui->copyGPUBuffersCheckBox->isChecked(), is_specific);
-
-    m_emu_settings->SetVkValidationEnabled(ui->vkValidationCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetVkValidationCoreEnabled(ui->vkCoreValidationCheckBox->isChecked(),
-                                               is_specific);
-    m_emu_settings->SetVkValidationSyncEnabled(ui->vkSyncValidationCheckBox->isChecked(),
-                                               is_specific);
-    m_emu_settings->SetVkValidationGpuEnabled(ui->vkGpuValidationCheckBox->isChecked(),
-                                              is_specific);
-
-    m_emu_settings->SetShaderCollect(ui->collectShaderCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetVkCrashDiagnosticEnabled(ui->crashDiagnosticsCheckBox->isChecked(),
-                                                is_specific);
-    m_emu_settings->SetVkHostMarkersEnabled(ui->hostMarkersCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetVkGuestMarkersEnabled(ui->guestMarkersCheckBox->isChecked(), is_specific);
-
-    // ------------------ Experimental tab --------------------------------------------------------
-    m_emu_settings->SetReadbacksMode(ui->readbacksModeComboBox->currentIndex(), is_specific);
-    m_emu_settings->SetReadbackLinearImagesEnabled(ui->readbackLinearImagesCheckBox->isChecked(),
-                                                   is_specific);
-    m_emu_settings->SetDirectMemoryAccessEnabled(ui->dmaCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetDevKit(ui->devkitCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetNeo(ui->neoCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetShadNetEnabled(ui->psnSignInCheckBox->isChecked(), is_specific);
-    m_emu_settings->SetConnectedToNetwork(ui->networkConnectedCheckBox->isChecked(), is_specific);
-
-    // ShadNet (signaling_info / shadnet_server / shadnet_webapi_server are global-only;
-    // set with the same flag for consistency)
-    m_emu_settings->SetShadNetServer(ui->shadNetServerLineEdit->text().toStdString(), is_specific);
-    m_emu_settings->SetShadNetWebApiServer(ui->shadNetWebApiServerLineEdit->text().toStdString(),
-                                           is_specific);
-    m_emu_settings->SetSignalingInfo(ui->signalingInfoLineEdit->text().toStdString(), is_specific);
-    m_emu_settings->SetUPnPEnabled(ui->upnpCheckBox->isChecked(), is_specific);
-
-    m_emu_settings->SetPipelineCacheEnabled(ui->enableShaderCacheCheckBox->isChecked(),
-                                            is_specific);
-    m_emu_settings->SetPipelineCacheArchived(ui->archiveShaderCacheCheckBox->isChecked(),
-                                             is_specific);
-    m_emu_settings->SetExtraDmemInMBytes(ui->dmemSpinBox->value(), is_specific);
-    m_emu_settings->SetVblankFrequency(ui->vblankSpinBox->value(), is_specific);
-
     // ------------------ Paths tab --------------------------------------------------------
     for (int i = 0; i < ui->gameFoldersListWidget->count(); ++i) {
         auto* item = ui->gameFoldersListWidget->item(i);
@@ -1022,7 +636,6 @@ void SettingsDialog::ApplyValuesToBackend() {
     m_emu_settings->SetHomeDir(Common::FS::PathFromQString(ui->currentHomePath->text()));
     m_emu_settings->SetSysModulesDir(
         Common::FS::PathFromQString(ui->currentSysmodulesPath->text()));
-    m_emu_settings->SetFontsDir(Common::FS::PathFromQString(ui->currentFontsPath->text()));
 }
 
 // ---------------------------- Button box handling ----------------------------
@@ -1153,47 +766,6 @@ void SettingsDialog::HandleButtonBox() {
 }
 
 void SettingsDialog::PopulateComboBoxes() {
-    /* if (m_physical_devices.empty()) {
-        GetPhysicalDevices();
-    }
-    // GPU Devices
-    const int maxNameLength = 100;
-    ui->graphicsAdapterBox->addItem(tr("Auto Select")); // -1, auto selection
-    for (const auto& device : m_physical_devices) {
-        ui->graphicsAdapterBox->addItem(device.left(maxNameLength));
-    }
-
-    // Camera
-    ui->cameraComboBox->addItem(tr("None"));
-    if (!SDL_Init(SDL_INIT_CAMERA)) {
-        LOG_ERROR(Config, "SDL_INIT_CAMERA failed: {}", SDL_GetError());
-    }
-
-    int count = 0;
-    SDL_CameraID* devices = SDL_GetCameras(&count);
-    if (devices) {
-        for (int i = 0; i < count; i++) {
-            const char* name = SDL_GetCameraName(devices[i]);
-            ui->cameraComboBox->addItem(name);
-        }
-        SDL_free(devices);
-    }
-
-    SDL_QuitSubSystem(SDL_INIT_CAMERA);*/
-
-    // Audio Devices
-    RefreshAudioDevices();
-
-    // Other Settings
-    ui->hideCursorComboBox->addItem(tr("Never"));
-    ui->hideCursorComboBox->addItem(tr("Idle"));
-    ui->hideCursorComboBox->addItem(tr("Always"));
-
-    ui->usbComboBox->addItem(tr("Real USB Device"));
-    ui->usbComboBox->addItem(tr("Skylander Portal"));
-    ui->usbComboBox->addItem(tr("Infinity Base"));
-    ui->usbComboBox->addItem(tr("Dimensions Toypad"));
-
     // Themes / stylesheets
     ui->themeComboBox->addItem(tr("Default"), GUI::DefaultStylesheet);
     ui->themeComboBox->addItem(tr("None"), GUI::NoStylesheet);
@@ -1206,235 +778,46 @@ void SettingsDialog::PopulateComboBoxes() {
     }
 }
 
-void SettingsDialog::RefreshAudioDevices() {
-    // prevent device list from refreshing too fast
-    QThread::msleep(100);
-
-    ui->GenAudioComboBox->clear();
-    ui->DsAudioComboBox->clear();
-    ui->micComboBox->clear();
-
-    const QString backend = ui->audioBackendComboBox->currentText();
-
-    QStringList playbackDeviceList;
-    QStringList recordingDeviceList;
-
-    ui->micComboBox->addItem(micMap.key("None"), "None");
-    ui->micComboBox->addItem(micMap.key("Default Device"), "Default Device");
-    ui->GenAudioComboBox->addItem(tr("Default Device"), "Default Device");
-    ui->DsAudioComboBox->addItem(tr("Default Device"), "Default Device");
-    /*
-    if (backend == "SDL") {
-        if (!SDL_Init(SDL_INIT_AUDIO)) {
-            LOG_ERROR(Config, "SDL_INIT_AUDIO failed: {}", SDL_GetError());
-        }
-
-        // Playback
-        int deviceCount;
-        SDL_AudioDeviceID* playbackDevices = SDL_GetAudioPlaybackDevices(&deviceCount);
-
-        if (!playbackDevices) {
-            LOG_ERROR(Config, "Unable to retrieve audio device list {}", SDL_GetError());
-            return;
-        }
-
-        for (int i = 0; i < deviceCount; ++i) {
-            const char* name = SDL_GetAudioDeviceName(playbackDevices[i]);
-            std::string name_string = std::string(name);
-            playbackDeviceList.append(QString::fromStdString(name_string));
-        }
-
-        SDL_free(playbackDevices);
-
-        // Mics
-        int count = 0;
-        SDL_AudioDeviceID* recordingDevices = SDL_GetAudioRecordingDevices(&count);
-        if (recordingDevices) {
-            for (int i = 0; i < count; ++i) {
-                SDL_AudioDeviceID devId = recordingDevices[i];
-                const char* name = SDL_GetAudioDeviceName(devId);
-                if (name) {
-                    QString qname = QString::fromUtf8(name);
-                    ui->micComboBox->addItem(qname, QString::number(devId));
-                }
-            }
-            SDL_free(recordingDevices);
-        } else {
-            qDebug() << "Error SDL_GetAudioRecordingDevices:" << SDL_GetError();
-        }
-    } else if (backend == "OpenAL") {
-        // Playback
-        const ALCchar* playbackdevices = alcGetString(NULL, ALC_ALL_DEVICES_SPECIFIER);
-        if (playbackdevices) {
-            while (*playbackdevices != '\0') {
-                playbackDeviceList.append(QString::fromUtf8(playbackdevices));
-                playbackdevices += strlen(playbackdevices) + 1;
-            }
-        }
-
-        // Mics
-        if (alcIsExtensionPresent(NULL, "ALC_ENUMERATION_EXT") == AL_TRUE) {
-            const ALCchar* recordingDevices = alcGetString(NULL, ALC_CAPTURE_DEVICE_SPECIFIER);
-
-            if (recordingDevices) {
-                while (*recordingDevices != '\0') {
-                    recordingDeviceList.append(QString::fromUtf8(recordingDevices));
-                    recordingDevices += strlen(recordingDevices) + 1;
-                }
-            }
-        }
-
-        SDL_QuitSubSystem(SDL_INIT_AUDIO);
-        SDL_Quit();
-    }*/
-
-    ui->DsAudioComboBox->addItems(playbackDeviceList);
-    ui->GenAudioComboBox->addItems(playbackDeviceList);
-    ui->micComboBox->addItems(recordingDeviceList);
-
-    if (backend == "SDL") {
-        ui->GenAudioComboBox->setCurrentText(
-            QString::fromStdString(EmulatorSettings.GetSDLMainOutputDevice()));
-        ui->DsAudioComboBox->setCurrentText(
-            QString::fromStdString(EmulatorSettings.GetSDLPadSpkOutputDevice()));
-        ui->micComboBox->setCurrentText(QString::fromStdString(EmulatorSettings.GetSDLMicDevice()));
-    } else if (backend == "OpenAL") {
-        ui->GenAudioComboBox->setCurrentText(
-            QString::fromStdString(EmulatorSettings.GetOpenALMainOutputDevice()));
-        ui->DsAudioComboBox->setCurrentText(
-            QString::fromStdString(EmulatorSettings.GetOpenALPadSpkOutputDevice()));
-        ui->micComboBox->setCurrentText(
-            QString::fromStdString(EmulatorSettings.GetOpenALMicDevice()));
-    }
-}
-
 bool SettingsDialog::IsSettingOverrideable(const char* setting_key,
                                            const QString& setting_group) const {
-    // Check if the setting is in the overrideable list for the given group
+    // Check if the setting is in the overrideable list for the given group.
+    // Only the groups the launcher still configures are listed here.
+    const auto contains = [setting_key](const std::vector<OverrideItem>& fields) {
+        for (const auto& item : fields) {
+            if (std::string(item.key) == setting_key) {
+                return true;
+            }
+        }
+        return false;
+    };
+
     if (setting_group == "General") {
-        for (const auto& item : m_emu_settings->GetGeneralOverrideableFields()) {
-            if (std::string(item.key) == setting_key) {
-                return true;
-            }
-        }
-    } else if (setting_group == "Debug") {
-        for (const auto& item : m_emu_settings->GetDebugOverrideableFields()) {
-            if (std::string(item.key) == setting_key) {
-                return true;
-            }
-        }
-    } else if (setting_group == "Input") {
-        for (const auto& item : m_emu_settings->GetInputOverrideableFields()) {
-            if (std::string(item.key) == setting_key) {
-                return true;
-            }
-        }
-    } else if (setting_group == "Audio") {
-        for (const auto& item : m_emu_settings->GetAudioOverrideableFields()) {
-            if (std::string(item.key) == setting_key) {
-                return true;
-            }
-        }
-    } else if (setting_group == "GPU") {
-        for (const auto& item : m_emu_settings->GetGPUOverrideableFields()) {
-            if (std::string(item.key) == setting_key) {
-                return true;
-            }
-        }
-    } else if (setting_group == "Vulkan") {
-        for (const auto& item : m_emu_settings->GetVulkanOverrideableFields()) {
-            if (std::string(item.key) == setting_key) {
-                return true;
-            }
-        }
+        return contains(m_emu_settings->GetGeneralOverrideableFields());
+    }
+    if (setting_group == "Log") {
+        return contains(m_emu_settings->GetLogOverrideableFields());
+    }
+    if (setting_group == "Debug") {
+        return contains(m_emu_settings->GetDebugOverrideableFields());
     }
 
     return false;
 }
 
 void SettingsDialog::MapUIControls() {
-    // General Settings
-    m_uiSettingMap[ui->showSplashCheckBox] = {"show_splash", "General"};
-    m_uiSettingMap[ui->horizontalVolumeSlider] = {"volume_slider", "General"};
-    m_uiSettingMap[ui->disableTrophycheckBox] = {"trophy_popup_disabled", "General"};
-    m_uiSettingMap[ui->popUpDurationSpinBox] = {"trophy_notification_duration", "General"};
-    m_uiSettingMap[ui->radioButton_Top] = {"trophy_notification_side", "General"};
-    m_uiSettingMap[ui->radioButton_Left] = {"trophy_notification_side", "General"};
-    m_uiSettingMap[ui->radioButton_Right] = {"trophy_notification_side", "General"};
-    m_uiSettingMap[ui->radioButton_Bottom] = {"trophy_notification_side", "General"};
-    m_uiSettingMap[ui->showFpsCounterCheckBox] = {"show_fps_counter", "General"};
-    m_uiSettingMap[ui->discordRPCCheckbox] = {"discord_rpc_enabled", "General"};
-
-    // Audio Settings
-    m_uiSettingMap[ui->GenAudioComboBox] = {"main_output_device", "Audio"};
-    m_uiSettingMap[ui->DsAudioComboBox] = {"padSpk_output_device", "Audio"};
-    m_uiSettingMap[ui->micComboBox] = {"mic_device", "Audio"};
-
-    // GPU Settings
-    m_uiSettingMap[ui->graphicsAdapterBox] = {"gpu_id", "Vulkan"}; // Note: This is in Vulkan group
-    m_uiSettingMap[ui->nullGpuCheckBox] = {"null_gpu", "GPU"};
-    m_uiSettingMap[ui->heightSpinBox] = {"window_height", "GPU"};
-    m_uiSettingMap[ui->widthSpinBox] = {"window_width", "GPU"};
-    m_uiSettingMap[ui->enableHDRCheckBox] = {"hdr_allowed", "GPU"};
-    m_uiSettingMap[ui->FSRCheckBox] = {"fsr_enabled", "GPU"};
-    m_uiSettingMap[ui->RCASCheckBox] = {"rcas_enabled", "GPU"};
-    m_uiSettingMap[ui->RCASSlider] = {"rcas_attenuation", "GPU"};
-    m_uiSettingMap[ui->dumpShadersCheckBox] = {"dump_shaders", "GPU"};
-    m_uiSettingMap[ui->copyGPUBuffersCheckBox] = {"copy_gpu_buffers", "GPU"};
-    m_uiSettingMap[ui->displayModeComboBox] = {"full_screen_mode", "GPU"};
-    m_uiSettingMap[ui->presentModeComboBox] = {"present_mode", "GPU"};
-    m_uiSettingMap[ui->readbacksModeComboBox] = {"readbacks_mode", "GPU"};
-    m_uiSettingMap[ui->readbackLinearImagesCheckBox] = {"readback_linear_images_enabled", "GPU"};
-    m_uiSettingMap[ui->dmaCheckBox] = {"direct_memory_access_enabled", "GPU"};
-
-    // Input Settings
-    m_uiSettingMap[ui->hideCursorComboBox] = {"cursor_state", "Input"};
-    m_uiSettingMap[ui->idleTimeoutSpinBox] = {"cursor_hide_timeout", "Input"};
-    m_uiSettingMap[ui->usbComboBox] = {"usb_device_backend", "Input"};
-    m_uiSettingMap[ui->motionControlsCheckBox] = {"motion_controls_enabled", "Input"};
-    m_uiSettingMap[ui->backgroundControllerCheckBox] = {"background_controller_input", "Input"};
-    m_uiSettingMap[ui->imeAccessibilityCheckBox] = {"ime_accessibility_enabled", "Input"};
-    m_uiSettingMap[ui->imeUrlMailShortPanelCheckBox] = {"ime_url_mail_short_panel", "Input"};
-    m_uiSettingMap[ui->circleEnterCheckBox] = {"is_circle_enter", "Input"};
-    m_uiSettingMap[ui->miceUsedAsMiceCheckBox] = {"use_mice_as_mice", "Input"};
-
-    // Log Settings
+    // Log is the only group that still exposes per-game overrides; the other
+    // groups were removed from the launcher's config.
+    m_uiSettingMap[ui->logAppendCheckBox] = {"append", "Log"};
     m_uiSettingMap[ui->enableLoggingCheckBox] = {"enable", "Log"};
     m_uiSettingMap[ui->logFilterLineEdit] = {"filter", "Log"};
-    m_uiSettingMap[ui->separateLogFilesCheckbox] = {"separate", "Log"};
-    m_uiSettingMap[ui->logSyncCheckBox] = {"sync", "Log"};
-    m_uiSettingMap[ui->logSkipDuplicateCheckBox] = {"skip_duplicate", "Log"};
     m_uiSettingMap[ui->logMaxSkipDurationLineEdit] = {"max_skip_duration", "Log"};
+    m_uiSettingMap[ui->separateLogFilesCheckbox] = {"separate", "Log"};
     m_uiSettingMap[ui->logSizeLimitLineEdit] = {"size_limit", "Log"};
-    m_uiSettingMap[ui->logAppendCheckBox] = {"append", "Log"};
-
-#ifdef WIN32
+    m_uiSettingMap[ui->logSkipDuplicateCheckBox] = {"skip_duplicate", "Log"};
+    m_uiSettingMap[ui->logSyncCheckBox] = {"sync", "Log"};
+#ifdef _WIN32
     m_uiSettingMap[ui->logTypeComboBox] = {"type", "Log"};
 #endif
-
-    // Debug Settings
-    m_uiSettingMap[ui->debugDump] = {"debug_dump", "Debug"};
-    m_uiSettingMap[ui->collectShaderCheckBox] = {"shader_collect", "Debug"};
-
-    // Vulkan Settings
-    m_uiSettingMap[ui->rdocCheckBox] = {"renderdoc_enabled", "Vulkan"};
-    m_uiSettingMap[ui->vkValidationCheckBox] = {"vkvalidation_enabled", "Vulkan"};
-    m_uiSettingMap[ui->vkCoreValidationCheckBox] = {"vkvalidation_core_enabled", "Vulkan"};
-    m_uiSettingMap[ui->vkSyncValidationCheckBox] = {"vkvalidation_sync_enabled", "Vulkan"};
-    m_uiSettingMap[ui->vkGpuValidationCheckBox] = {"vkvalidation_gpu_enabled", "Vulkan"};
-    m_uiSettingMap[ui->crashDiagnosticsCheckBox] = {"vkcrash_diagnostic_enabled", "Vulkan"};
-    m_uiSettingMap[ui->hostMarkersCheckBox] = {"vkhost_markers", "Vulkan"};
-    m_uiSettingMap[ui->guestMarkersCheckBox] = {"vkguest_markers", "Vulkan"};
-    m_uiSettingMap[ui->enableShaderCacheCheckBox] = {"pipeline_cache_enabled", "Vulkan"};
-    m_uiSettingMap[ui->archiveShaderCacheCheckBox] = {"pipeline_cache_archived", "Vulkan"};
-
-    // Experimental/Other Settings
-    m_uiSettingMap[ui->devkitCheckBox] = {"dev_kit_mode", "General"};
-    m_uiSettingMap[ui->neoCheckBox] = {"neo_mode", "General"};
-    m_uiSettingMap[ui->psnSignInCheckBox] = {"shad_net_enabled", "General"};
-    m_uiSettingMap[ui->networkConnectedCheckBox] = {"connected_to_network", "General"};
-    m_uiSettingMap[ui->dmemSpinBox] = {"extra_dmem_in_mbytes", "General"};
-    m_uiSettingMap[ui->vblankSpinBox] = {"vblank_frequency", "GPU"};
 }
 
 void SettingsDialog::DisableNonOverrideableSettings() {

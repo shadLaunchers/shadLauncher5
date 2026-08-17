@@ -1,4 +1,5 @@
 ﻿// SPDX-FileCopyrightText: Copyright 2025-2026 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #pragma once
@@ -16,35 +17,10 @@
 
 #define EmulatorSettings (*EmulatorSettingsImpl::GetInstance())
 
-enum HideCursorState : int {
-    Never,
-    Idle,
-    Always,
-};
-
-enum UsbBackendType : int {
-    Real,
-    SkylandersPortal,
-    InfinityBase,
-    DimensionsToypad,
-};
-
-enum GpuReadbacksMode : int {
-    Disabled,
-    Relaxed,
-    Precise,
-};
-
 enum class ConfigMode {
     Default,
     Global,
     Clean,
-};
-
-enum AudioBackend : int {
-    SDL,
-    OpenAL,
-    // Add more backends as needed
 };
 
 template <typename T>
@@ -112,7 +88,7 @@ struct OverrideItem {
 };
 
 template <typename Struct, typename T>
-inline OverrideItem make_override(const char* key, Setting<T> Struct::* member) {
+inline OverrideItem make_override(const char* key, Setting<T> Struct::*member) {
     return OverrideItem{
         key,
         [member, key](void* base, const nlohmann::json& entry, std::vector<std::string>& changed) {
@@ -167,61 +143,17 @@ struct GeneralSettings {
     Setting<std::filesystem::path> addon_install_dir;
     Setting<std::filesystem::path> home_dir;
     Setting<std::filesystem::path> sys_modules_dir;
-    Setting<std::filesystem::path> font_dir;
 
-    Setting<int> volume_slider{100};
-    Setting<bool> neo_mode{false};
-    Setting<bool> dev_kit_mode{false};
-    Setting<int> extra_dmem_in_mbytes{0};
-    Setting<bool> shad_net_enabled{false};
-    Setting<bool> trophy_popup_disabled{false};
-    Setting<double> trophy_notification_duration{6.0};
-    Setting<std::string> trophy_notification_side{"right"};
-    Setting<bool> show_splash{false};
-    Setting<bool> connected_to_network{false};
-    Setting<bool> discord_rpc_enabled{false};
-    Setting<bool> show_fps_counter{false};
     Setting<int> console_language{1};
-    Setting<int> big_picture_scale{1000};
-    Setting<std::string> shadnet_server{"srv.shadps4.net:31313"};
-    Setting<std::string> shadnet_webapi_server{"http://srv.shadps4.net:31315"};
-    Setting<std::string> signaling_info{};
-    Setting<bool> enable_upnp{true};
 
-    // return a vector of override descriptors (runtime, but tiny)
+    // Nothing in this group is overrideable per game yet.
     std::vector<OverrideItem> GetOverrideableFields() const {
-        return std::vector<OverrideItem>{
-            make_override<GeneralSettings>("volume_slider", &GeneralSettings::volume_slider),
-            make_override<GeneralSettings>("neo_mode", &GeneralSettings::neo_mode),
-            make_override<GeneralSettings>("dev_kit_mode", &GeneralSettings::dev_kit_mode),
-            make_override<GeneralSettings>("extra_dmem_in_mbytes",
-                                           &GeneralSettings::extra_dmem_in_mbytes),
-            make_override<GeneralSettings>("shad_net_enabled", &GeneralSettings::shad_net_enabled),
-            make_override<GeneralSettings>("trophy_popup_disabled",
-                                           &GeneralSettings::trophy_popup_disabled),
-            make_override<GeneralSettings>("trophy_notification_duration",
-                                           &GeneralSettings::trophy_notification_duration),
-            make_override<GeneralSettings>("show_splash", &GeneralSettings::show_splash),
-            make_override<GeneralSettings>("trophy_notification_side",
-                                           &GeneralSettings::trophy_notification_side),
-            make_override<GeneralSettings>("connected_to_network",
-                                           &GeneralSettings::connected_to_network),
-            make_override<GeneralSettings>("shadnet_server", &GeneralSettings::shadnet_server),
-            make_override<GeneralSettings>("shadnet_webapi_server",
-                                           &GeneralSettings::shadnet_webapi_server),
-            make_override<GeneralSettings>("signaling_info", &GeneralSettings::signaling_info),
-            make_override<GeneralSettings>("enable_upnp", &GeneralSettings::enable_upnp)};
+        return {};
     }
 };
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GeneralSettings, install_dirs, addon_install_dir, home_dir,
-                                   sys_modules_dir, font_dir, volume_slider, neo_mode, dev_kit_mode,
-                                   extra_dmem_in_mbytes, shad_net_enabled, trophy_popup_disabled,
-                                   trophy_notification_duration, show_splash,
-                                   trophy_notification_side, connected_to_network,
-                                   discord_rpc_enabled, show_fps_counter, console_language,
-                                   big_picture_scale, shadnet_server, shadnet_webapi_server,
-                                   signaling_info, enable_upnp)
+                                   sys_modules_dir, console_language)
 
 // -------------------------------
 // Log settings
@@ -268,193 +200,14 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LogSettings, append, enable, filter, max_skip
 // Debug settings
 // -------------------------------
 struct DebugSettings {
-    Setting<bool> debug_dump{false};         // specific
-    Setting<bool> shader_collect{false};     // specific
     Setting<std::string> config_version{""}; // specific
 
+    // config_version is bookkeeping, not a per-game override.
     std::vector<OverrideItem> GetOverrideableFields() const {
-        return std::vector<OverrideItem>{
-            make_override<DebugSettings>("debug_dump", &DebugSettings::debug_dump),
-            make_override<DebugSettings>("shader_collect", &DebugSettings::shader_collect)};
+        return {};
     }
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DebugSettings, debug_dump, shader_collect, config_version)
-
-// -------------------------------
-// Input settings
-// -------------------------------
-
-struct InputSettings {
-    Setting<int> cursor_state{HideCursorState::Idle};      // specific
-    Setting<int> cursor_hide_timeout{5};                   // specific
-    Setting<int> usb_device_backend{UsbBackendType::Real}; // specific
-    Setting<bool> use_special_pad{false};
-    Setting<int> special_pad_class{1};
-    Setting<bool> motion_controls_enabled{true}; // specific
-    Setting<bool> use_unified_input_config{true};
-    Setting<std::string> default_controller_id{""};
-    Setting<bool> background_controller_input{false}; // specific
-    Setting<bool> ime_accessibility_enabled{false};   // specific
-    Setting<bool> ime_url_mail_short_panel{false};    // specific
-    Setting<bool> is_circle_enter{false};             // specific
-    Setting<s32> camera_id{-1};
-    Setting<bool> use_mice_as_mice{false};
-
-    std::vector<OverrideItem> GetOverrideableFields() const {
-        return std::vector<OverrideItem>{
-            make_override<InputSettings>("cursor_state", &InputSettings::cursor_state),
-            make_override<InputSettings>("cursor_hide_timeout",
-                                         &InputSettings::cursor_hide_timeout),
-            make_override<InputSettings>("usb_device_backend", &InputSettings::usb_device_backend),
-            make_override<InputSettings>("motion_controls_enabled",
-                                         &InputSettings::motion_controls_enabled),
-            make_override<InputSettings>("background_controller_input",
-                                         &InputSettings::background_controller_input),
-            make_override<InputSettings>("ime_accessibility_enabled",
-                                         &InputSettings::ime_accessibility_enabled),
-            make_override<InputSettings>("ime_url_mail_short_panel",
-                                         &InputSettings::ime_url_mail_short_panel),
-            make_override<InputSettings>("is_circle_enter", &InputSettings::is_circle_enter),
-            make_override<InputSettings>("camera_id", &InputSettings::camera_id),
-            make_override<InputSettings>("use_mice_as_mice", &InputSettings::use_mice_as_mice)};
-    }
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(InputSettings, cursor_state, cursor_hide_timeout,
-                                   usb_device_backend, use_special_pad, special_pad_class,
-                                   motion_controls_enabled, use_unified_input_config,
-                                   default_controller_id, background_controller_input,
-                                   ime_accessibility_enabled, ime_url_mail_short_panel, camera_id,
-                                   is_circle_enter, use_mice_as_mice)
-// -------------------------------
-// Audio settings
-// -------------------------------
-struct AudioSettings {
-    Setting<u32> audio_backend{AudioBackend::SDL};
-    Setting<std::string> sdl_mic_device{"Default Device"};
-    Setting<std::string> sdl_main_output_device{"Default Device"};
-    Setting<std::string> sdl_padSpk_output_device{"Default Device"};
-    Setting<std::string> openal_mic_device{"Default Device"};
-    Setting<std::string> openal_main_output_device{"Default Device"};
-    Setting<std::string> openal_padSpk_output_device{"Default Device"};
-
-    std::vector<OverrideItem> GetOverrideableFields() const {
-        return std::vector<OverrideItem>{
-            make_override<AudioSettings>("audio_backend", &AudioSettings::audio_backend),
-            make_override<AudioSettings>("sdl_mic_device", &AudioSettings::sdl_mic_device),
-            make_override<AudioSettings>("sdl_main_output_device",
-                                         &AudioSettings::sdl_main_output_device),
-            make_override<AudioSettings>("sdl_padSpk_output_device",
-                                         &AudioSettings::sdl_padSpk_output_device),
-            make_override<AudioSettings>("openal_mic_device", &AudioSettings::openal_mic_device),
-            make_override<AudioSettings>("openal_main_output_device",
-                                         &AudioSettings::openal_main_output_device),
-            make_override<AudioSettings>("openal_padSpk_output_device",
-                                         &AudioSettings::openal_padSpk_output_device)};
-    }
-};
-
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(AudioSettings, audio_backend, sdl_mic_device,
-                                   sdl_main_output_device, sdl_padSpk_output_device,
-                                   openal_mic_device, openal_main_output_device,
-                                   openal_padSpk_output_device)
-
-// -------------------------------
-// GPU settings
-// -------------------------------
-struct GPUSettings {
-    Setting<u32> window_width{1280};
-    Setting<u32> window_height{720};
-    Setting<u32> internal_screen_width{1280};
-    Setting<u32> internal_screen_height{720};
-    Setting<bool> null_gpu{false};
-    Setting<bool> copy_gpu_buffers{false};
-    Setting<u32> readbacks_mode{GpuReadbacksMode::Disabled};
-    Setting<bool> readback_linear_images_enabled{false};
-    Setting<bool> direct_memory_access_enabled{false};
-    Setting<bool> dump_shaders{false};
-    Setting<bool> patch_shaders{false};
-    Setting<u32> vblank_frequency{60};
-    Setting<bool> full_screen{false};
-    Setting<std::string> full_screen_mode{"Windowed"};
-    Setting<std::string> present_mode{"Mailbox"};
-    Setting<bool> hdr_allowed{false};
-    Setting<bool> fsr_enabled{false};
-    Setting<bool> rcas_enabled{true};
-    Setting<int> rcas_attenuation{250};
-    // TODO add overrides
-    std::vector<OverrideItem> GetOverrideableFields() const {
-        return std::vector<OverrideItem>{
-            make_override<GPUSettings>("null_gpu", &GPUSettings::null_gpu),
-            make_override<GPUSettings>("copy_gpu_buffers", &GPUSettings::copy_gpu_buffers),
-            make_override<GPUSettings>("full_screen", &GPUSettings::full_screen),
-            make_override<GPUSettings>("full_screen_mode", &GPUSettings::full_screen_mode),
-            make_override<GPUSettings>("present_mode", &GPUSettings::present_mode),
-            make_override<GPUSettings>("window_height", &GPUSettings::window_height),
-            make_override<GPUSettings>("window_width", &GPUSettings::window_width),
-            make_override<GPUSettings>("hdr_allowed", &GPUSettings::hdr_allowed),
-            make_override<GPUSettings>("fsr_enabled", &GPUSettings::fsr_enabled),
-            make_override<GPUSettings>("rcas_enabled", &GPUSettings::rcas_enabled),
-            make_override<GPUSettings>("rcas_attenuation", &GPUSettings::rcas_attenuation),
-            make_override<GPUSettings>("dump_shaders", &GPUSettings::dump_shaders),
-            make_override<GPUSettings>("patch_shaders", &GPUSettings::patch_shaders),
-            make_override<GPUSettings>("readbacks_mode", &GPUSettings::readbacks_mode),
-            make_override<GPUSettings>("readback_linear_images_enabled",
-                                       &GPUSettings::readback_linear_images_enabled),
-            make_override<GPUSettings>("direct_memory_access_enabled",
-                                       &GPUSettings::direct_memory_access_enabled),
-            make_override<GPUSettings>("vblank_frequency", &GPUSettings::vblank_frequency),
-        };
-    }
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GPUSettings, window_width, window_height, internal_screen_width,
-                                   internal_screen_height, null_gpu, copy_gpu_buffers,
-                                   readbacks_mode, readback_linear_images_enabled,
-                                   direct_memory_access_enabled, dump_shaders, patch_shaders,
-                                   vblank_frequency, full_screen, full_screen_mode, present_mode,
-                                   hdr_allowed, fsr_enabled, rcas_enabled, rcas_attenuation)
-// -------------------------------
-// Vulkan settings
-// -------------------------------
-struct VulkanSettings {
-    Setting<s32> gpu_id{-1};
-    Setting<bool> renderdoc_enabled{false};
-    Setting<bool> vkvalidation_enabled{false};
-    Setting<bool> vkvalidation_core_enabled{true};
-    Setting<bool> vkvalidation_sync_enabled{false};
-    Setting<bool> vkvalidation_gpu_enabled{false};
-    Setting<bool> vkcrash_diagnostic_enabled{false};
-    Setting<bool> vkhost_markers{false};
-    Setting<bool> vkguest_markers{false};
-    Setting<bool> pipeline_cache_enabled{false};
-    Setting<bool> pipeline_cache_archived{false};
-    std::vector<OverrideItem> GetOverrideableFields() const {
-        return std::vector<OverrideItem>{
-            make_override<VulkanSettings>("gpu_id", &VulkanSettings::gpu_id),
-            make_override<VulkanSettings>("renderdoc_enabled", &VulkanSettings::renderdoc_enabled),
-            make_override<VulkanSettings>("vkvalidation_enabled",
-                                          &VulkanSettings::vkvalidation_enabled),
-            make_override<VulkanSettings>("vkvalidation_core_enabled",
-                                          &VulkanSettings::vkvalidation_core_enabled),
-            make_override<VulkanSettings>("vkvalidation_sync_enabled",
-                                          &VulkanSettings::vkvalidation_sync_enabled),
-            make_override<VulkanSettings>("vkvalidation_gpu_enabled",
-                                          &VulkanSettings::vkvalidation_gpu_enabled),
-            make_override<VulkanSettings>("vkcrash_diagnostic_enabled",
-                                          &VulkanSettings::vkcrash_diagnostic_enabled),
-            make_override<VulkanSettings>("vkhost_markers", &VulkanSettings::vkhost_markers),
-            make_override<VulkanSettings>("vkguest_markers", &VulkanSettings::vkguest_markers),
-            make_override<VulkanSettings>("pipeline_cache_enabled",
-                                          &VulkanSettings::pipeline_cache_enabled),
-            make_override<VulkanSettings>("pipeline_cache_archived",
-                                          &VulkanSettings::pipeline_cache_archived),
-        };
-    }
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(VulkanSettings, gpu_id, renderdoc_enabled, vkvalidation_enabled,
-                                   vkvalidation_core_enabled, vkvalidation_sync_enabled,
-                                   vkvalidation_gpu_enabled, vkcrash_diagnostic_enabled,
-                                   vkhost_markers, vkguest_markers, pipeline_cache_enabled,
-                                   pipeline_cache_archived)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(DebugSettings, config_version)
 
 // -------------------------------
 // Main manager
@@ -470,7 +223,6 @@ public:
     bool Save(const std::string& serial = "");
     bool Load(const std::string& serial = "");
     void SetDefaultValues();
-    bool TransferSettings();
 
     // Config mode
     ConfigMode GetConfigMode() const {
@@ -503,8 +255,6 @@ public:
     void SetHomeDir(const std::filesystem::path& dir);
     std::filesystem::path GetSysModulesDir();
     void SetSysModulesDir(const std::filesystem::path& dir);
-    std::filesystem::path GetFontsDir();
-    void SetFontsDir(const std::filesystem::path& dir);
     std::filesystem::path GetAddonInstallDir();
     void SetAddonInstallDir(const std::filesystem::path& dir);
 
@@ -512,13 +262,7 @@ private:
     GeneralSettings m_general{};
     LogSettings m_log{};
     DebugSettings m_debug{};
-    InputSettings m_input{};
-    AudioSettings m_audio{};
-    GPUSettings m_gpu{};
-    VulkanSettings m_vulkan{};
     ConfigMode m_configMode{ConfigMode::Default};
-
-    bool m_shadnet_session_disabled{false};
 
     bool m_loaded{false};
 
@@ -557,20 +301,11 @@ public:
     std::vector<OverrideItem> GetGeneralOverrideableFields() const {
         return m_general.GetOverrideableFields();
     }
+    std::vector<OverrideItem> GetLogOverrideableFields() const {
+        return m_log.GetOverrideableFields();
+    }
     std::vector<OverrideItem> GetDebugOverrideableFields() const {
         return m_debug.GetOverrideableFields();
-    }
-    std::vector<OverrideItem> GetInputOverrideableFields() const {
-        return m_input.GetOverrideableFields();
-    }
-    std::vector<OverrideItem> GetAudioOverrideableFields() const {
-        return m_audio.GetOverrideableFields();
-    }
-    std::vector<OverrideItem> GetGPUOverrideableFields() const {
-        return m_gpu.GetOverrideableFields();
-    }
-    std::vector<OverrideItem> GetVulkanOverrideableFields() const {
-        return m_vulkan.GetOverrideableFields();
     }
     std::vector<std::string> GetAllOverrideableKeys() const;
 
@@ -594,38 +329,7 @@ public:
     }
 
     // General settings
-    SETTING_FORWARD(m_general, VolumeSlider, volume_slider)
-    SETTING_FORWARD_BOOL(m_general, Neo, neo_mode)
-    SETTING_FORWARD_BOOL(m_general, DevKit, dev_kit_mode)
-    SETTING_FORWARD(m_general, ExtraDmemInMBytes, extra_dmem_in_mbytes)
-    bool IsShadNetEnabled() const {
-        return m_general.shad_net_enabled.get(m_configMode) && !m_shadnet_session_disabled;
-    }
-    void SetShadNetEnabled(bool v, bool specific = false) {
-        m_general.shad_net_enabled.set(v, specific);
-    }
-    bool IsShadNetEnabledSetting() const {
-        return m_general.shad_net_enabled.get(m_configMode);
-    }
-    void SetShadNetSessionDisabled(bool v) {
-        m_shadnet_session_disabled = v;
-    }
-    bool IsShadNetSessionDisabled() const {
-        return m_shadnet_session_disabled;
-    }
-    SETTING_FORWARD_BOOL(m_general, TrophyPopupDisabled, trophy_popup_disabled)
-    SETTING_FORWARD(m_general, TrophyNotificationDuration, trophy_notification_duration)
-    SETTING_FORWARD(m_general, TrophyNotificationSide, trophy_notification_side)
-    SETTING_FORWARD_BOOL(m_general, ShowSplash, show_splash)
-    SETTING_FORWARD_BOOL(m_general, ConnectedToNetwork, connected_to_network)
-    SETTING_FORWARD_BOOL(m_general, DiscordRPCEnabled, discord_rpc_enabled)
-    SETTING_FORWARD_BOOL(m_general, ShowFpsCounter, show_fps_counter)
     SETTING_FORWARD(m_general, ConsoleLanguage, console_language)
-    SETTING_FORWARD(m_general, BigPictureScale, big_picture_scale)
-    SETTING_FORWARD(m_general, ShadNetServer, shadnet_server)
-    SETTING_FORWARD(m_general, ShadNetWebApiServer, shadnet_webapi_server)
-    SETTING_FORWARD(m_general, SignalingInfo, signaling_info)
-    SETTING_FORWARD_BOOL(m_general, UPnPEnabled, enable_upnp)
 
     // Log settings
     SETTING_FORWARD_BOOL(m_log, LogAppend, append)
@@ -640,83 +344,8 @@ public:
     SETTING_FORWARD(m_log, LogType, type)
 #endif
 
-    // Audio settings
-    SETTING_FORWARD(m_audio, AudioBackend, audio_backend)
-    SETTING_FORWARD(m_audio, SDLMicDevice, sdl_mic_device)
-    SETTING_FORWARD(m_audio, SDLMainOutputDevice, sdl_main_output_device)
-    SETTING_FORWARD(m_audio, SDLPadSpkOutputDevice, sdl_padSpk_output_device)
-    SETTING_FORWARD(m_audio, OpenALMicDevice, openal_mic_device)
-    SETTING_FORWARD(m_audio, OpenALMainOutputDevice, openal_main_output_device)
-    SETTING_FORWARD(m_audio, OpenALPadSpkOutputDevice, openal_padSpk_output_device)
-
     // Debug settings
-    SETTING_FORWARD_BOOL(m_debug, DebugDump, debug_dump)
-    SETTING_FORWARD_BOOL(m_debug, ShaderCollect, shader_collect)
     SETTING_FORWARD(m_debug, ConfigVersion, config_version)
-
-    // GPU Settings
-    SETTING_FORWARD_BOOL(m_gpu, NullGPU, null_gpu)
-    SETTING_FORWARD_BOOL(m_gpu, DumpShaders, dump_shaders)
-    SETTING_FORWARD_BOOL(m_gpu, CopyGpuBuffers, copy_gpu_buffers)
-    SETTING_FORWARD_BOOL(m_gpu, FullScreen, full_screen)
-    SETTING_FORWARD(m_gpu, FullScreenMode, full_screen_mode)
-    SETTING_FORWARD(m_gpu, PresentMode, present_mode)
-    SETTING_FORWARD(m_gpu, WindowHeight, window_height)
-    SETTING_FORWARD(m_gpu, WindowWidth, window_width)
-    SETTING_FORWARD(m_gpu, InternalScreenHeight, internal_screen_height)
-    SETTING_FORWARD(m_gpu, InternalScreenWidth, internal_screen_width)
-    SETTING_FORWARD_BOOL(m_gpu, HdrAllowed, hdr_allowed)
-    SETTING_FORWARD_BOOL(m_gpu, FsrEnabled, fsr_enabled)
-    SETTING_FORWARD_BOOL(m_gpu, RcasEnabled, rcas_enabled)
-    SETTING_FORWARD(m_gpu, RcasAttenuation, rcas_attenuation)
-    SETTING_FORWARD(m_gpu, ReadbacksMode, readbacks_mode)
-    SETTING_FORWARD_BOOL(m_gpu, ReadbackLinearImagesEnabled, readback_linear_images_enabled)
-    SETTING_FORWARD_BOOL(m_gpu, DirectMemoryAccessEnabled, direct_memory_access_enabled)
-    SETTING_FORWARD_BOOL_READONLY(m_gpu, PatchShaders, patch_shaders)
-
-    u32 GetVblankFrequency() {
-        if (m_gpu.vblank_frequency.value < 30) {
-            return 30;
-        }
-        return m_gpu.vblank_frequency.get();
-    }
-    void SetVblankFrequency(const u32& v, bool is_specific = false) {
-        u32 val = v < 30 ? 30 : v;
-        if (is_specific) {
-            m_gpu.vblank_frequency.game_specific_value = val;
-        } else {
-            m_gpu.vblank_frequency.value = val;
-        }
-    }
-
-    // Input Settings
-    SETTING_FORWARD(m_input, CursorState, cursor_state)
-    SETTING_FORWARD(m_input, CursorHideTimeout, cursor_hide_timeout)
-    SETTING_FORWARD(m_input, UsbDeviceBackend, usb_device_backend)
-    SETTING_FORWARD_BOOL(m_input, MotionControlsEnabled, motion_controls_enabled)
-    SETTING_FORWARD_BOOL(m_input, BackgroundControllerInput, background_controller_input)
-    SETTING_FORWARD_BOOL(m_input, ImeAccessibilityEnabled, ime_accessibility_enabled)
-    SETTING_FORWARD_BOOL(m_input, ImeUrlMailShortPanel, ime_url_mail_short_panel)
-    SETTING_FORWARD(m_input, DefaultControllerId, default_controller_id)
-    SETTING_FORWARD_BOOL(m_input, UsingSpecialPad, use_special_pad)
-    SETTING_FORWARD(m_input, SpecialPadClass, special_pad_class)
-    SETTING_FORWARD_BOOL(m_input, UseUnifiedInputConfig, use_unified_input_config)
-    SETTING_FORWARD(m_input, CameraId, camera_id)
-    SETTING_FORWARD_BOOL(m_input, CircleEnter, is_circle_enter)
-    SETTING_FORWARD_BOOL(m_input, MiceUsedAsMice, use_mice_as_mice)
-
-    // Vulkan settings
-    SETTING_FORWARD(m_vulkan, GpuId, gpu_id)
-    SETTING_FORWARD_BOOL(m_vulkan, RenderdocEnabled, renderdoc_enabled)
-    SETTING_FORWARD_BOOL(m_vulkan, VkValidationEnabled, vkvalidation_enabled)
-    SETTING_FORWARD_BOOL(m_vulkan, VkValidationCoreEnabled, vkvalidation_core_enabled)
-    SETTING_FORWARD_BOOL(m_vulkan, VkValidationSyncEnabled, vkvalidation_sync_enabled)
-    SETTING_FORWARD_BOOL(m_vulkan, VkValidationGpuEnabled, vkvalidation_gpu_enabled)
-    SETTING_FORWARD_BOOL(m_vulkan, VkCrashDiagnosticEnabled, vkcrash_diagnostic_enabled)
-    SETTING_FORWARD_BOOL(m_vulkan, VkHostMarkersEnabled, vkhost_markers)
-    SETTING_FORWARD_BOOL(m_vulkan, VkGuestMarkersEnabled, vkguest_markers)
-    SETTING_FORWARD_BOOL(m_vulkan, PipelineCacheEnabled, pipeline_cache_enabled)
-    SETTING_FORWARD_BOOL(m_vulkan, PipelineCacheArchived, pipeline_cache_archived)
 
 #undef SETTING_FORWARD
 #undef SETTING_FORWARD_BOOL
