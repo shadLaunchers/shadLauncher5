@@ -1,0 +1,59 @@
+version = 1
+
+[[annotations]]
+path = [
+    "REUSE.toml",
+    "CMakeSettings.json",
+    "CMakePresets.json",
+    "CMakeWindowsPresets.json",
+    "src/shadLauncher5.rc",
+    ".github/workflows/scripts/update_translation.sh",
+    ".github/workflows/scripts/update_version.sh",
+    ".github/workflows/update_translation.yml",
+    ".gitignore",
+    ".gitmodules",
+    "README.md",
+    "crowdin.yml",
+    "src/images/shadLauncher5.ico",
+    "src/images/shadLauncher5.png",
+    "src/images/grid.png",
+    "src/images/list.png",
+    "src/images/refresh.png",
+    "src/images/play.png",
+    "src/images/stop.png",
+    "src/images/settings.png",
+    "src/images/fullscreen.png",
+    "src/images/controllers.png",
+    "src/images/restart.png",
+    "src/images/pause.png",
+    "src/qt_ui/translations/update_translation.sh",
+    "src/qt_ui/main_window.ui",
+    "src/shadLauncher5.qrc",
+    "src/images/*.*",
+    "src/images/menu/*.*",
+    "src/qt_ui/settings_dialog.ui",
+    "src/qt_ui/game_install_dialog.ui",
+    "src/qt_ui/cheats_patches_dialog.ui",
+    "dist/themes/*.*",
+    "dist/themes/icons/*.*",
+    "dist/net.shadps4.shadLauncher4.desktop"
+]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "shadLauncher5 Project"
+SPDX-License-Identifier = "GPL-2.0-or-later"
+
+[[annotations]]
+path = "externals/cmake-modules/**"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2009-2010 Iowa State University"
+SPDX-License-Identifier = "BSL-1.0"
+
+[[annotations]]
+path = "dist/qt.conf"
+SPDX-FileCopyrightText = "shadLauncher4 Project"
+SPDX-License-Identifier = "GPL-2.0-or-later"
+
+[[annotations]]
+path = "cmake/CMakeRC.cmake"
+SPDX-FileCopyrightText = "Copyright (c) 2017 vector-of-bool <vectorofbool@gmail.com>"
+SPDX-License-Identifier = "MIT"

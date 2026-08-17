@@ -13,6 +13,13 @@ env:
   BUILD_TYPE: Release
 
 jobs:
+  reuse:
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v5
+      - uses: fsfe/reuse-action@v5
+
   clang-format:
     runs-on: ubuntu-24.04
     continue-on-error: true
