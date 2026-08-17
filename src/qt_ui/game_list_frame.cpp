@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2025 RPCS3 Project
-// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher5 Project
+// SPDX-FileCopyrightText: Copyright 2025-2026 shadLauncher4 Project
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
@@ -844,11 +845,6 @@ void GameListFrame::OnParsingFinished() {
         m_path_entries.end());
 
     const s32 language_index = GUIApplication::getLanguageId();
-    // sce_sys may ship a per-language icon next to the default icon0.png.
-    // PS5 dumps name their sce_sys assets in lowercase; the uppercase
-    // PS4-style spelling is kept as a second candidate so case-sensitive
-    // filesystems match either layout. If neither exists we fall back to
-    // icon0.png, which every title has.
     const std::array<std::string, 2> localized_icons = {
         fmt::format("icon0_{:02}.png", language_index),
         fmt::format("ICON0_{:02}.PNG", language_index),
@@ -1082,9 +1078,6 @@ void GameListFrame::OnRefreshFinished() {
     }
 
     const s32 language_index = GUIApplication::getLanguageId();
-    // Icon names an overlay may carry, best first: per-language then default,
-    // each in the lowercase spelling PS5 dumps use and the uppercase PS4-style
-    // one, so either layout matches on a case-sensitive filesystem.
     const std::array<std::string, 4> icon_candidates = {
         fmt::format("icon0_{:02}.png", language_index),
         fmt::format("ICON0_{:02}.PNG", language_index),
@@ -1472,10 +1465,6 @@ void GameListFrame::PopulateFromCacheInstantly() {
 
 void GameListFrame::LoadPlayTimeData() {
     m_play_times.clear();
-
-    // shadPS4 writes one line per game here: "<serial> <H:MM:SS>
-    // <unix_timestamp>", updated roughly every 60 seconds while a game is
-    // running and once more when it exits (see Emulator::UpdatePlayTime).
     const auto file_path = Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "play_time.txt";
     std::ifstream in(file_path);
     if (!in) {
@@ -1514,10 +1503,6 @@ GameListFrame::PlayTimeEntry GameListFrame::GetPlayTimeEntry(const std::string& 
 void GameListFrame::Refresh(const bool from_drive,
                             const std::vector<std::string>& serials_to_remove,
                             const bool scroll_after) {
-    // Cheap: a single small text file. Reloaded on every refresh (including
-    // the lightweight from_drive=false ones) so Last Played/Time Played
-    // reflect whatever shadPS4 itself most recently wrote, e.g. right
-    // after a game session ends.
     LoadPlayTimeData();
 
     if (from_drive) {
