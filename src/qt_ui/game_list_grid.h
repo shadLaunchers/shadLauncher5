@@ -29,6 +29,7 @@ public:
 
     bool eventFilter(QObject* watched, QEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
 
 public Q_SLOTS:
     void FocusAndSelectFirstEntryIfNoneIs();

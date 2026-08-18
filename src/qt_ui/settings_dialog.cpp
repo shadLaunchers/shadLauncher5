@@ -169,6 +169,10 @@ SettingsDialog::SettingsDialog(std::shared_ptr<GUISettings> gui_settings,
     SubscribeHelpText(ui->logTypeComboBox, helptexts.settings.log_type);
 
     // GUI
+    SubscribeHelpText(ui->GUIBackgroundImageGroupBox, helptexts.settings.gui_background_image);
+    SubscribeHelpText(ui->backgroundImageOpacitySlider, helptexts.settings.gui_background_image);
+    SubscribeHelpText(ui->showBackgroundImageCheckBox,
+                      helptexts.settings.gui_show_background_image);
     SubscribeHelpText(ui->GUIMusicGroupBox, helptexts.settings.gui_music);
     SubscribeHelpText(ui->playBGMCheckBox, helptexts.settings.gui_music);
     SubscribeHelpText(ui->BGMVolumeSlider, helptexts.settings.gui_music_volume);
@@ -482,6 +486,10 @@ void SettingsDialog::LoadValuesFromConfig() {
     }
     ui->playBGMCheckBox->setChecked(m_gui_settings->GetValue(GUI::game_list_play_bg).toBool());
     ui->BGMVolumeSlider->setValue(m_gui_settings->GetValue(GUI::game_list_bg_volume).toInt());
+    ui->showBackgroundImageCheckBox->setChecked(
+        m_gui_settings->GetValue(GUI::game_list_showBackgroundImage).toBool());
+    ui->backgroundImageOpacitySlider->setValue(
+        m_gui_settings->GetValue(GUI::game_list_backgroundImageOpacity).toInt());
     ui->checkCompatibilityOnStartupCheckBox->setChecked(
         m_gui_settings->GetValue(GUI::compatibility_check_on_startup).toBool());
 #ifdef ENABLE_UPDATER
@@ -601,6 +609,10 @@ void SettingsDialog::ApplyValuesToBackend() {
                              ui->ScanDepthComboBox->currentIndex() + 1);
     m_gui_settings->SetValue(GUI::game_list_play_bg, ui->playBGMCheckBox->isChecked());
     m_gui_settings->SetValue(GUI::game_list_bg_volume, ui->BGMVolumeSlider->value());
+    m_gui_settings->SetValue(GUI::game_list_showBackgroundImage,
+                             ui->showBackgroundImageCheckBox->isChecked());
+    m_gui_settings->SetValue(GUI::game_list_backgroundImageOpacity,
+                             ui->backgroundImageOpacitySlider->value());
     m_gui_settings->SetValue(GUI::compatibility_check_on_startup,
                              ui->checkCompatibilityOnStartupCheckBox->isChecked());
 #ifdef ENABLE_UPDATER
@@ -865,9 +877,14 @@ void SettingsDialog::DisableNonOverrideableSettings() {
 
     // Special handling for controls not directly mapped
     // GUI-only controls (not in emulator settings)
-    QList<QObject*> guiOnlyControls = {
-        ui->playBGMCheckBox, ui->BGMVolumeSlider,   ui->checkCompatibilityOnStartupCheckBox,
-        ui->updaterCheckBox, ui->changelogCheckBox, ui->ScanDepthComboBox};
+    QList<QObject*> guiOnlyControls = {ui->playBGMCheckBox,
+                                       ui->BGMVolumeSlider,
+                                       ui->showBackgroundImageCheckBox,
+                                       ui->backgroundImageOpacitySlider,
+                                       ui->checkCompatibilityOnStartupCheckBox,
+                                       ui->updaterCheckBox,
+                                       ui->changelogCheckBox,
+                                       ui->ScanDepthComboBox};
 
     for (QObject* control : guiOnlyControls) {
         QWidget* widget = qobject_cast<QWidget*>(control);

@@ -344,6 +344,11 @@ void GameListFrame::CreateConnections() {
             item && item->isSelected()) {
             game = GetGameInfoByMode(item);
             PlayBackgroundMusic(game);
+            QImage bg(QString::fromUtf8(game->info.pic_path.c_str()));
+            if (!bg.isNull()) {
+                backgroundImage = bg;
+                m_game_list->update();
+            }
         }
         Q_EMIT NotifyGameSelection(game);
     });
@@ -354,6 +359,11 @@ void GameListFrame::CreateConnections() {
             QOverload<const game_info&>::of(&GameListFrame::DoubleClickedSlot));
     connect(m_game_grid, &GameListGrid::ItemSelectionChanged, this, [this](game_info game) {
         PlayBackgroundMusic(game);
+        QImage bg(QString::fromUtf8(game->info.pic_path.c_str()));
+        if (!bg.isNull()) {
+            backgroundImage = bg;
+            m_game_grid->update();
+        }
         Q_EMIT NotifyGameSelection(game);
     });
 
@@ -980,6 +990,18 @@ void GameListFrame::OnParsingFinished() {
                     }
                 }
 
+                // Background artwork. PS5 titles ship it as pic0.png, where PS4
+                // used pic1.png.
+                if (game.info.pic_path.empty()) {
+                    if (const auto resolved =
+                            Core::FileSys::ResolveGameFilePath(entry_path, "sce_sys/pic0.png")) {
+                        game.info.pic_path = resolved->string();
+                    } else if (const auto resolved_upper = Core::FileSys::ResolveGameFilePath(
+                                   entry_path, "sce_sys/PIC0.PNG")) {
+                        game.info.pic_path = resolved_upper->string();
+                    }
+                }
+
                 if (game.info.snd0_path.empty()) {
                     if (const auto resolved =
                             Core::FileSys::ResolveGameFilePath(entry_path, "sce_sys/snd0.at9")) {
@@ -997,6 +1019,16 @@ void GameListFrame::OnParsingFinished() {
                     }
                     if (game.info.icon_path.empty()) {
                         game.info.icon_path = param_dir + "/icon0.png";
+                    }
+                }
+
+                // Unlike the icon there is no sensible placeholder for a missing
+                // background, so only set it when the file is really there.
+                if (game.info.pic_path.empty()) {
+                    if (std::filesystem::is_regular_file(param_dir + "/pic0.png")) {
+                        game.info.pic_path = param_dir + "/pic0.png";
+                    } else if (std::filesystem::is_regular_file(param_dir + "/PIC0.PNG")) {
+                        game.info.pic_path = param_dir + "/PIC0.PNG";
                     }
                 }
 
@@ -1143,6 +1175,10 @@ void GameListFrame::OnRefreshFinished() {
                     std::filesystem::is_regular_file(other->info.icon_path))
                     entry->info.icon_path = other->info.icon_path;
 
+                if (!other->info.pic_path.empty() &&
+                    std::filesystem::is_regular_file(other->info.pic_path))
+                    entry->info.pic_path = other->info.pic_path;
+
                 if (!other->info.snd0_path.empty() &&
                     std::filesystem::is_regular_file(other->info.snd0_path))
                     entry->info.snd0_path = other->info.snd0_path;
@@ -1155,6 +1191,11 @@ void GameListFrame::OnRefreshFinished() {
                         break;
                     }
                 }
+
+                // --- Replace background artwork if the update ships its own ---
+                if (std::string pic_path = other->info.path + "/sce_sys/pic0.png";
+                    std::filesystem::is_regular_file(pic_path))
+                    entry->info.pic_path = std::move(pic_path);
 
                 // --- Replace sound path if available ---
                 if (std::string snd0_path = other->info.path + "/sce_sys/snd0.at9";

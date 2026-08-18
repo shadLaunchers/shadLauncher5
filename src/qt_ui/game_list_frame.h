@@ -11,6 +11,7 @@
 #include "game_list.h"
 
 #include <QFutureWatcher>
+#include <QImage>
 #include <QMainWindow>
 #include <QSet>
 #include <QSplitter>
@@ -110,6 +111,9 @@ public:
     }
     /** Drops every custom title and goes back to the names from param.json. */
     void ResetCustomTitles();
+
+    /** pic0.png of the selected game, painted behind the list and the grid. */
+    QImage backgroundImage;
 
 public Q_SLOTS:
     void SetListMode(const bool& is_list);

@@ -17,6 +17,7 @@ struct GameInfo {
     std::string path; // root path of game directory (normaly directory that contains eboot.bin)
     std::string icon_path;   // path of icon0.png
     std::string update_path; // path of update directory if any
+    std::string pic_path;    // path of pic0.png, used as the game list background
     std::string snd0_path;   // path of snd0.at9
     std::string name;
     std::string serial;
@@ -104,6 +105,7 @@ static GameInfo readGameInfo(const std::filesystem::path& filePath) {
     Param param;
     if (!param_path.empty() && param.Open(param_path)) {
         SceUpdateChecker("icon0.png", game.icon_path, game_update_path, game_patch_path, game.path);
+        SceUpdateChecker("pic0.png", game.pic_path, game_update_path, game_patch_path, game.path);
         SceUpdateChecker("snd0.at9", game.snd0_path, game_update_path, game_patch_path, game.path);
 
         game.name = param.title;

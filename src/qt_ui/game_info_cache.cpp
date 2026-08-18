@@ -78,7 +78,7 @@ public:
                                "fingerprint INTEGER NOT NULL,"
                                "serial TEXT, name TEXT, category TEXT, app_ver TEXT, sdk_ver TEXT,"
                                "fw TEXT, region TEXT,"
-                               "icon_path TEXT, snd0_path TEXT, np_comm_ids TEXT,"
+                               "icon_path TEXT, pic_path TEXT, snd0_path TEXT, np_comm_ids TEXT,"
                                "size_on_disk INTEGER, size_fingerprint INTEGER,"
                                "icon_blob BLOB, icon_fingerprint INTEGER)"))) {
             LOG_ERROR(Frontend, "GameInfoCache: failed to create schema: {}",
@@ -175,7 +175,8 @@ std::optional<GameInfo> GameInfoCache::Get(const std::string& game_path, s64 fin
     QSqlQuery query(conn.Db());
     query.prepare(
         QStringLiteral("SELECT fingerprint, serial, name, category, app_ver, sdk_ver, fw, region,"
-                       " icon_path, snd0_path, np_comm_ids FROM game_cache WHERE path = ?"));
+                       " icon_path, pic_path, snd0_path, np_comm_ids"
+                       " FROM game_cache WHERE path = ?"));
     query.addBindValue(QString::fromStdString(game_path));
 
     if (!query.exec() || !query.next()) {
@@ -195,8 +196,9 @@ std::optional<GameInfo> GameInfoCache::Get(const std::string& game_path, s64 fin
     info.fw = query.value(6).toString().toStdString();
     info.region = query.value(7).toString().toStdString();
     info.icon_path = query.value(8).toString().toStdString();
-    info.snd0_path = query.value(9).toString().toStdString();
-    info.np_comm_ids = SplitNpCommIds(query.value(10).toString());
+    info.pic_path = query.value(9).toString().toStdString();
+    info.snd0_path = query.value(10).toString().toStdString();
+    info.np_comm_ids = SplitNpCommIds(query.value(11).toString());
     return info;
 }
 
@@ -210,7 +212,7 @@ std::unordered_map<std::string, GameInfoCache::CachedEntry> GameInfoCache::GetAl
     query.setForwardOnly(true);
     if (!query.exec(QStringLiteral(
             "SELECT path, fingerprint, serial, name, category, app_ver, sdk_ver, fw, region,"
-            " icon_path, snd0_path, np_comm_ids FROM game_cache"))) {
+            " icon_path, pic_path, snd0_path, np_comm_ids FROM game_cache"))) {
         LOG_ERROR(Frontend, "GameInfoCache: failed to bulk-load cache: {}",
                   query.lastError().text().toStdString());
         return {};
@@ -229,8 +231,9 @@ std::unordered_map<std::string, GameInfoCache::CachedEntry> GameInfoCache::GetAl
         entry.info.fw = query.value(7).toString().toStdString();
         entry.info.region = query.value(8).toString().toStdString();
         entry.info.icon_path = query.value(9).toString().toStdString();
-        entry.info.snd0_path = query.value(10).toString().toStdString();
-        entry.info.np_comm_ids = SplitNpCommIds(query.value(11).toString());
+        entry.info.pic_path = query.value(10).toString().toStdString();
+        entry.info.snd0_path = query.value(11).toString().toStdString();
+        entry.info.np_comm_ids = SplitNpCommIds(query.value(12).toString());
         std::string key = entry.info.path;
         results.emplace(std::move(key), std::move(entry));
     }
@@ -246,7 +249,7 @@ std::vector<GameInfo> GameInfoCache::GetAllForInstantList() {
     QSqlQuery query(conn.Db());
     if (!query.exec(
             QStringLiteral("SELECT path, serial, name, category, app_ver, sdk_ver, fw, region,"
-                           " icon_path, snd0_path, np_comm_ids FROM game_cache"
+                           " icon_path, pic_path, snd0_path, np_comm_ids FROM game_cache"
                            " WHERE serial != '' AND category != 'ac'"
                            " AND path NOT LIKE '%-UPDATE' AND path NOT LIKE '%-patch'"
                            " GROUP BY serial ORDER BY name COLLATE NOCASE"))) {
@@ -267,8 +270,9 @@ std::vector<GameInfo> GameInfoCache::GetAllForInstantList() {
         info.fw = query.value(6).toString().toStdString();
         info.region = query.value(7).toString().toStdString();
         info.icon_path = query.value(8).toString().toStdString();
-        info.snd0_path = query.value(9).toString().toStdString();
-        info.np_comm_ids = SplitNpCommIds(query.value(10).toString());
+        info.pic_path = query.value(9).toString().toStdString();
+        info.snd0_path = query.value(10).toString().toStdString();
+        info.np_comm_ids = SplitNpCommIds(query.value(11).toString());
         results.push_back(std::move(info));
     }
     return results;
@@ -582,13 +586,13 @@ void GameInfoCache::PutMany(const std::vector<std::pair<GameInfo, s64>>& entries
     QSqlQuery query(db);
     query.prepare(QStringLiteral(
         "INSERT INTO game_cache (path, fingerprint, serial, name, category, app_ver, sdk_ver,"
-        " fw, region, icon_path, snd0_path, np_comm_ids)"
-        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        " fw, region, icon_path, pic_path, snd0_path, np_comm_ids)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         " ON CONFLICT(path) DO UPDATE SET"
         " fingerprint=excluded.fingerprint, serial=excluded.serial, name=excluded.name,"
         " category=excluded.category, app_ver=excluded.app_ver, sdk_ver=excluded.sdk_ver,"
         " fw=excluded.fw, region=excluded.region,"
-        " icon_path=excluded.icon_path,"
+        " icon_path=excluded.icon_path, pic_path=excluded.pic_path,"
         " snd0_path=excluded.snd0_path, np_comm_ids=excluded.np_comm_ids"));
 
     db.transaction();
@@ -603,6 +607,7 @@ void GameInfoCache::PutMany(const std::vector<std::pair<GameInfo, s64>>& entries
         query.addBindValue(QString::fromStdString(info.fw));
         query.addBindValue(QString::fromStdString(info.region));
         query.addBindValue(QString::fromStdString(info.icon_path));
+        query.addBindValue(QString::fromStdString(info.pic_path));
         query.addBindValue(QString::fromStdString(info.snd0_path));
         query.addBindValue(JoinNpCommIds(info.np_comm_ids));
 
