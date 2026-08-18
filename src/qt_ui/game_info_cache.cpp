@@ -85,28 +85,6 @@ public:
                       setup.lastError().text().toStdString());
             return;
         }
-
-        // A cache written before pic_path existed keeps its old layout, because
-        // CREATE TABLE IF NOT EXISTS leaves an existing table alone. Add the
-        // column before anything tries to select it.
-        {
-            bool has_pic_path = false;
-            QSqlQuery columns(db);
-            if (columns.exec(QStringLiteral("PRAGMA table_info(game_cache)"))) {
-                while (columns.next()) {
-                    if (columns.value(1).toString() == QStringLiteral("pic_path")) {
-                        has_pic_path = true;
-                        break;
-                    }
-                }
-            }
-            if (!has_pic_path &&
-                !setup.exec(QStringLiteral("ALTER TABLE game_cache ADD COLUMN pic_path TEXT"))) {
-                LOG_ERROR(Frontend, "GameInfoCache: failed to add pic_path column: {}",
-                          setup.lastError().text().toStdString());
-                return;
-            }
-        }
         if (!setup.exec(QStringLiteral("CREATE TABLE IF NOT EXISTS game_notes ("
                                        "path TEXT PRIMARY KEY,"
                                        "notes TEXT NOT NULL)"))) {
