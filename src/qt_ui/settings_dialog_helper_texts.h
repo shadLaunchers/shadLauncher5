@@ -48,6 +48,8 @@ public:
         const QString gui_music = tr("Play Title Music:\\nIf a game supports it, enable playing special music when selecting the game in the GUI.");
         const QString gui_music_volume = tr("Music Volume:\\nAdjust the volume of the background/title music played in the GUI.");
         const QString gui_theme = tr("Theme:\\nChoose the stylesheet used for the launcher's interface. Drop .qss stylesheet files into the \"themes\" folder inside your user data directory to add custom themes.");
+        const QString gui_background_image = tr("Background Image:\\nControl the opacity of the game background image.");
+        const QString gui_show_background_image = tr("Show Background Image:\\nDisplay a background image behind the game list. Use the Opacity slider below to control how visible it is.");
         //compatibility
         const QString compat_section = tr("Compatibility:\\nSettings for displaying and updating the game compatibility database.");
         const QString compat_check_on_startup = tr("Update Compatibility On Startup:\\nAutomatically update the compatibility database when shadPS4 starts.");

@@ -4,6 +4,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QApplication>
+#include <QPainter>
 #include <QStringBuilder>
 
 #include "game_list_grid.h"
@@ -186,4 +187,24 @@ void GameListGrid::keyPressEvent(QKeyEvent* event) {
     }
 
     FlowWidget::keyPressEvent(event);
+}
+
+void GameListGrid::paintEvent(QPaintEvent* event) {
+    QPainter painter(this);
+    float opacity = static_cast<float>(
+        m_gui_settings->GetValue(GUI::game_list_backgroundImageOpacity).toInt() / 100.f);
+    painter.setOpacity(opacity);
+
+    // Draw background first
+    if (!m_game_list_frame->backgroundImage.isNull() &&
+        m_gui_settings->GetValue(GUI::game_list_showBackgroundImage).toBool()) {
+        QPixmap scaledPixmap =
+            QPixmap::fromImage(m_game_list_frame->backgroundImage)
+                .scaled(rect().size(), Qt::KeepAspectRatioByExpanding, Qt::SmoothTransformation);
+        int x = (rect().width() - scaledPixmap.width()) / 2;
+        int y = (rect().height() - scaledPixmap.height()) / 2;
+        painter.drawPixmap(x, y, scaledPixmap);
+    }
+
+    QWidget::paintEvent(event);
 }

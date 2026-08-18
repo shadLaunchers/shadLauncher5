@@ -5,6 +5,7 @@
 
 #include <string_view>
 #include <QHeaderView>
+#include <QPainter>
 #include <QScrollBar>
 #include <QStringBuilder>
 #include <QTimer>
@@ -509,4 +510,26 @@ void GameListTable::RepaintIcons(std::vector<game_info>& game_data, const QColor
                                  const QSize& icon_size, qreal device_pixel_ratio) {
     GameListBase::RepaintIcons(game_data, icon_color, icon_size, device_pixel_ratio);
     adjustIconColumn();
+}
+
+void GameListTable::paintEvent(QPaintEvent* event) {
+    QPainter painter(viewport()); // <-- paint directly on the visible viewport
+    float opacity = static_cast<float>(
+        m_gui_settings->GetValue(GUI::game_list_backgroundImageOpacity).toInt() / 100.f);
+    painter.setOpacity(opacity);
+
+    // Draw background first
+    if (!m_game_list_frame->backgroundImage.isNull() &&
+        m_gui_settings->GetValue(GUI::game_list_showBackgroundImage).toBool()) {
+        QPixmap scaledPixmap = QPixmap::fromImage(m_game_list_frame->backgroundImage)
+                                   .scaled(viewport()->size(), Qt::KeepAspectRatioByExpanding,
+                                           Qt::SmoothTransformation);
+
+        int x = (viewport()->width() - scaledPixmap.width()) / 2;
+        int y = (viewport()->height() - scaledPixmap.height()) / 2;
+        painter.drawPixmap(x, y, scaledPixmap);
+    }
+
+    // Now draw the table contents on top
+    QTableWidget::paintEvent(event);
 }

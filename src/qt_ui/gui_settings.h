@@ -118,6 +118,8 @@ const GUISave game_list_current_category = GUISave(game_list, "current_category"
 const GUISave game_list_draw_compat = GUISave(game_list, "draw_compat", false);
 const GUISave game_list_play_bg = GUISave(game_list, "play_bg", true);
 const GUISave game_list_bg_volume = GUISave(game_list, "bg_volume", 100);
+const GUISave game_list_showBackgroundImage = GUISave(game_list, "showBackgroundImage", true);
+const GUISave game_list_backgroundImageOpacity = GUISave(game_list, "backgroundImageOpacity", 50);
 
 // meta settings
 const GUISave meta_enableUIColors = GUISave(meta, "enableUIColors", false);
