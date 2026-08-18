@@ -82,27 +82,42 @@ std::optional<fs::path> FindGameByID(const fs::path& dir, const std::string& gam
         return std::nullopt;
     }
 
+    // A game lives either in a folder named <game_id> or in a "<game_id>.zar"
+    // archive holding that same layout. HasParamFile() looks for
+    // sce_sys/param.json through the game backend, so the packed game is
+    // recognised the same way the unpacked one is.
+
     // Check if this is the game we're looking for
-    if (dir.filename() == game_id && FindParamPath(dir / "sce_sys").has_value()) {
-        auto eboot_path = dir / "eboot.bin";
-        if (fs::exists(eboot_path)) {
-            return eboot_path;
-        }
+    if (dir.filename() == game_id && Core::FileSys::HasParamFile(dir)) {
+        return dir;
     }
 
-    // Also check for a same-named ZArchive sibling ("<game_id>.zar"), which packs
-    // the whole game folder (including sce_sys/param.json) into a single
-    // read-only file instead of a directory.
-    if (const auto zar_candidate = dir / (game_id + ".zar");
-        Core::FileSys::IsZArchiveFile(zar_candidate) &&
-        Core::FileSys::HasParamFile(zar_candidate)) {
-        return zar_candidate;
+    // Look for the game as a child of this directory. An unpacked "<game_id>/"
+    // folder is preferred over a packed "<game_id>.zar" sibling: converting a
+    // game to an archive offers to keep the original, so both can be present,
+    // and only the folder can accept an update merged into it.
+    {
+        std::error_code dir_ec;
+        if (const auto folder_candidate = dir / game_id;
+            fs::is_directory(folder_candidate, dir_ec) && !dir_ec &&
+            Core::FileSys::HasParamFile(folder_candidate)) {
+            return folder_candidate;
+        }
+
+        // The ZArchive packs the whole game folder (including sce_sys/param.json)
+        // into a single read-only file instead of a directory.
+        if (const auto zar_candidate = dir / (game_id + ".zar");
+            Core::FileSys::IsZArchiveFile(zar_candidate) &&
+            Core::FileSys::HasParamFile(zar_candidate)) {
+            return zar_candidate;
+        }
     }
 
     // Recursively search subdirectories
     std::error_code ec;
     for (const auto& entry : fs::directory_iterator(dir, ec)) {
-        if (!entry.is_directory()) {
+        std::error_code entry_ec;
+        if (!entry.is_directory(entry_ec) || entry_ec) {
             continue;
         }
         if (auto found = FindGameByID(entry.path(), game_id, max_depth - 1)) {
