@@ -2093,6 +2093,18 @@ This will remove all game-specific overrides.</source>
         <source>Path settings cannot be overridden per-game. Use global settings to change them.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Background Image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show Background Image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Opacity</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialogHelperTexts</name>
@@ -2222,6 +2234,14 @@ This will remove all game-specific overrides.</source>
     </message>
     <message>
         <source>Update Compatibility Database:\nImmediately update the compatibility database.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Background Image:\nControl the opacity of the game background image.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show Background Image:\nDisplay a background image behind the game list. Use the Opacity slider below to control how visible it is.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
