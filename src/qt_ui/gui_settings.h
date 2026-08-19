@@ -84,10 +84,10 @@ const GUISave compatibility_etag = GUISave(compatibility, "etag", "");
 const GUISave compatibility_last_modified = GUISave(compatibility, "last_modified", "");
 const GUISave compatibility_json_url =
     GUISave(compatibility, "json_url",
-            "https://github.com/shadps5/shadps5-game-compatibility/releases/latest/"
+            "https://github.com/shadps5-emu/shadps5-game-compatibility/releases/latest/"
             "download/compatibility_data.json");
-const GUISave compatibility_issues_url =
-    GUISave(compatibility, "issues_url", "https://github.com/shadps5/shadps5-game-compatibility/");
+const GUISave compatibility_issues_url = GUISave(
+    compatibility, "issues_url", "https://github.com/shadps5-emu/shadps5-game-compatibility/");
 
 // main window settings
 const GUISave main_window_gamelist = GUISave(main_window, "gamelistVisible", true);

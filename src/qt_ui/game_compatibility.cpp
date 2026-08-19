@@ -162,7 +162,13 @@ bool GameCompatibility::ReadJSON(const QJsonObject& json_data, bool after_downlo
             if (normalized.startsWith("Unknown")) {
                 normalized = "NoResult";
             }
-            Compat::Status status = m_status_data.at(normalized);
+            const auto status_it = m_status_data.find(normalized);
+            if (status_it == m_status_data.end()) {
+                qDebug() << "Database Error - Unknown status:"
+                         << platform_obj.value("status").toString() << "for game ID:" << game_id;
+                continue;
+            }
+            Compat::Status status = status_it->second;
 
             QString isoDate = platform_obj.value("last_tested").toString();
             QDateTime dt = QDateTime::fromString(isoDate, Qt::ISODate);
