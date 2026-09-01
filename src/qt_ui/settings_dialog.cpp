@@ -492,6 +492,11 @@ void SettingsDialog::LoadValuesFromConfig() {
         m_gui_settings->GetValue(GUI::game_list_backgroundImageOpacity).toInt());
     ui->checkCompatibilityOnStartupCheckBox->setChecked(
         m_gui_settings->GetValue(GUI::compatibility_check_on_startup).toBool());
+    {
+        const int stored_id = m_emu_settings->GetConsoleLanguage();
+        const int row = static_cast<int>(consoleLanguageIds.indexOf(stored_id));
+        ui->consoleLanguageComboBox->setCurrentIndex(row >= 0 ? row : 0);
+    }
 #ifdef ENABLE_UPDATER
     ui->updaterCheckBox->setChecked(
         m_gui_settings->GetValue(GUI::general_check_gui_updates).toBool());
@@ -615,6 +620,10 @@ void SettingsDialog::ApplyValuesToBackend() {
                              ui->backgroundImageOpacitySlider->value());
     m_gui_settings->SetValue(GUI::compatibility_check_on_startup,
                              ui->checkCompatibilityOnStartupCheckBox->isChecked());
+    if (const int row = ui->consoleLanguageComboBox->currentIndex();
+        row >= 0 && row < consoleLanguageIds.size()) {
+        m_emu_settings->SetConsoleLanguage(consoleLanguageIds[row], is_specific);
+    }
 #ifdef ENABLE_UPDATER
     m_gui_settings->SetValue(GUI::general_show_changelog, ui->changelogCheckBox->isChecked());
     m_gui_settings->SetValue(GUI::general_check_gui_updates, ui->updaterCheckBox->isChecked());
@@ -778,6 +787,13 @@ void SettingsDialog::HandleButtonBox() {
 }
 
 void SettingsDialog::PopulateComboBoxes() {
+    // Console language - the language games run in, independent of the UI language.
+    // Searchable, since the list is long.
+    ui->consoleLanguageComboBox->addItems(consoleLanguageNames);
+    auto* console_language_completer = new QCompleter(consoleLanguageNames, this);
+    console_language_completer->setCaseSensitivity(Qt::CaseInsensitive);
+    ui->consoleLanguageComboBox->setCompleter(console_language_completer);
+
     // Themes / stylesheets
     ui->themeComboBox->addItem(tr("Default"), GUI::DefaultStylesheet);
     ui->themeComboBox->addItem(tr("None"), GUI::NoStylesheet);

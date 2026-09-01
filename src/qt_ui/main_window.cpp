@@ -29,6 +29,7 @@
 #include "progress_dialog.h"
 #include "qt_ui/check_update.h"
 #include "settings_dialog.h"
+#include "setup_wizard.h"
 #include "ui_main_window.h"
 #include "user_manager_dialog.h"
 #include "version.h"
@@ -192,6 +193,19 @@ void MainWindow::createConnects() {
                                   tr("Restore the original name of %n renamed game(s)?", "", count),
                                   QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
             m_game_list_frame->ResetCustomTitles();
+        }
+    });
+
+    connect(ui->actionSetup_Wizard, &QAction::triggered, this, [this] {
+        SetupWizard wizard(m_gui_settings, m_emu_settings, this);
+        connect(&wizard, &SetupWizard::requestLanguageChange, this,
+                &MainWindow::requestLanguageChange);
+        connect(&wizard, &SetupWizard::requestThemeChange, this,
+                &MainWindow::RequestGlobalStylesheetChange);
+        if (wizard.exec() == QDialog::Accepted) {
+            if (m_game_list_frame) {
+                m_game_list_frame->Refresh(true);
+            }
         }
     });
 

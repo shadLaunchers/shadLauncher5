@@ -23,6 +23,7 @@ public:
     void Sync();
 
     QString GetSettingsDir() const;
+    QString GetSettingsFilePath() const;
 
     QVariant GetValue(const QString& key, const QString& name, const QVariant& def) const;
     QVariant GetValue(const GUISave& entry) const;

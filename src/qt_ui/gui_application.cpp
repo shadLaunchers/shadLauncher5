@@ -22,6 +22,7 @@
 #include "gui_application.h"
 #include "gui_settings.h"
 #include "main_window.h"
+#include "setup_wizard.h"
 #include "stylesheets.h"
 
 s32 GUIApplication::m_language_id =
@@ -41,6 +42,9 @@ bool GUIApplication::init(QString emulator_arg, QString game_arg, QStringList pa
     Common::Log::Setup("shadLauncher5.log");
 
     m_gui_settings = std::make_shared<GUISettings>();
+
+    const bool is_first_run = !QFile::exists(m_gui_settings->GetSettingsFilePath());
+
     m_emu_settings = std::make_shared<EmulatorSettingsImpl>();
     m_emu_settings->Load();
     m_ipc_client = std::make_shared<IpcClient>();
@@ -61,7 +65,13 @@ bool GUIApplication::init(QString emulator_arg, QString game_arg, QStringList pa
     // Create connects to propagate events throughout Gui.
     InitializeConnects();
 
-    if (m_emu_settings->GetGameInstallDirs().empty()) {
+    if (is_first_run) {
+        SetupWizard wizard(m_gui_settings, m_emu_settings);
+        connect(&wizard, &SetupWizard::requestLanguageChange, this, &GUIApplication::loadLanguage);
+        connect(&wizard, &SetupWizard::requestThemeChange, this,
+                &GUIApplication::OnChangeStyleSheetRequest);
+        wizard.exec();
+    } else if (m_emu_settings->GetGameInstallDirs().empty()) {
         GameInstallDialog dlg(m_gui_settings, m_emu_settings);
         dlg.exec();
     }
@@ -134,8 +144,6 @@ void GUIApplication::loadLanguage(const QString& language_code) {
     m_gui_settings->SetValue(GUI::localization_language, m_language_code);
 
     qDebug() << "Current language changed to" << locale_name << "(" << language_code << ")";
-    EmulatorSettings.SetConsoleLanguage(m_language_id);
-    EmulatorSettings.Save();
 }
 
 QStringList GUIApplication::getAvailableLanguageCodes() {

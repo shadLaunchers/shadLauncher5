@@ -180,6 +180,35 @@
                 </widget>
                </item>
                <item>
+                <widget class="QGroupBox" name="consoleLanguageGroupBox">
+                 <property name="title">
+                  <string>Console Language</string>
+                 </property>
+                 <layout class="QHBoxLayout" name="consoleLanguageLayout">
+                  <item>
+                   <widget class="QLabel" name="consoleLanguageLabel">
+                    <property name="text">
+                     <string>Game Language:</string>
+                    </property>
+                   </widget>
+                  </item>
+                  <item>
+                   <widget class="QComboBox" name="consoleLanguageComboBox">
+                    <property name="sizePolicy">
+                     <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+                      <horstretch>0</horstretch>
+                      <verstretch>0</verstretch>
+                     </sizepolicy>
+                    </property>
+                    <property name="toolTip">
+                     <string>The language games run in, independent of the shadLauncher5 interface language.</string>
+                    </property>
+                   </widget>
+                  </item>
+                 </layout>
+                </widget>
+               </item>
+               <item>
                 <widget class="QGroupBox" name="GUIMusicGroupBox">
                  <property name="sizePolicy">
                   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">

@@ -79,7 +79,7 @@ const GUISave general_check_gui_updates = GUISave(general, "check_gui_updates", 
 const GUISave general_directory_depth_scanning = GUISave(general, "directory_depth_scanning", 1);
 
 // compatibility settings
-const GUISave compatibility_check_on_startup = GUISave(compatibility, "check_on_startup", true);
+const GUISave compatibility_check_on_startup = GUISave(compatibility, "check_on_startup", false);
 const GUISave compatibility_etag = GUISave(compatibility, "etag", "");
 const GUISave compatibility_last_modified = GUISave(compatibility, "last_modified", "");
 const GUISave compatibility_json_url =

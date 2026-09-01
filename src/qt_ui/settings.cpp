@@ -21,6 +21,10 @@ QString Settings::GetSettingsDir() const {
     return m_settings_dir.absolutePath();
 }
 
+QString Settings::GetSettingsFilePath() const {
+    return m_settings ? m_settings->fileName() : QString();
+}
+
 QString Settings::ComputeSettingsDir() {
     const auto config_dir = Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 

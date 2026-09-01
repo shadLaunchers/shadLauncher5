@@ -254,6 +254,8 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/settings_dialog.ui
           src/qt_ui/settings_dialog_helper_texts.cpp
           src/qt_ui/settings_dialog_helper_texts.h
+          src/qt_ui/setup_wizard.cpp
+          src/qt_ui/setup_wizard.h
           src/qt_ui/version_dialog.cpp
           src/qt_ui/version_dialog.h
           src/qt_ui/version_dialog.ui

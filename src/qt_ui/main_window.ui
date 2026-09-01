@@ -202,6 +202,7 @@
     </property>
     <addaction name="actionExport_GameList"/>
     <addaction name="actionReset_Custom_Titles"/>
+    <addaction name="actionSetup_Wizard"/>
    </widget>
    <widget class="QMenu" name="menuView">
     <property name="title">
@@ -710,6 +711,14 @@
    </property>
    <property name="toolTip">
     <string>Restores the original name of every game you renamed in the game list</string>
+   </property>
+  </action>
+  <action name="actionSetup_Wizard">
+   <property name="text">
+    <string>Setup Wizard...</string>
+   </property>
+   <property name="toolTip">
+    <string>Re-run the first-time setup wizard to reconfigure your language, theme, folders, and emulator version</string>
    </property>
   </action>
   <action name="actionConfigPaths">
