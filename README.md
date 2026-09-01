@@ -3,6 +3,42 @@ Proof Of Concept Launcher
 
 A Qt-based game launcher for a someday ps5 emulator. shadLauncher5 manages your PS5 game library, tracks metadata and playtime, and launches titles with per-game or global emulator settings — without needing to touch the command line.
 
+<h1 align="center">
+ <a href="https://discord.gg/agmZvBqwPv">
+  <img src="https://img.shields.io/badge/Discord-shadLaunchers-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="shadLaunchers Discord">
+</a>
+ <a href="https://shadlaunchers.com">
+        <img src="https://img.shields.io/badge/shadLaunchers-website-8A2BE2" width="150">
+ <a href="https://github.com/shadLaunchers/shadLauncher5/stargazers">
+        <img src="https://img.shields.io/github/stars/shadLaunchers/shadLauncher5" width="120">
+
+</h1>
+
+## Screenshots
+
+<table align="center">
+  <tr>
+    <td align="center">
+      <strong>Game List Dark</strong><br>
+      <img src="docs/screenshots/list_dark.png" width="300" alt="Game List Dark mode">
+    </td>
+    <td align="center">
+      <strong>Game List White</strong><br>
+      <img src="docs/screenshots/list_white.png" width="300" alt="Game List White mode">
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <strong>Param.json viewer</strong><br>
+      <img src="docs/screenshots/param_viewer.png" width="300" alt="Param.json viewer">
+    </td>
+    <td align="center">
+      <strong>Trophy Viewer</strong><br>
+      <img src="docs/screenshots/trophy_viewer.png" width="300" alt="Trophy viewer">
+    </td>
+  </tr>
+</table>
+
 ## Features
 
 ### First-time setup
