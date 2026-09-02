@@ -37,6 +37,10 @@ path = [
     "src/qt_ui/settings_dialog.ui",
     "src/qt_ui/game_install_dialog.ui",
     "src/qt_ui/cheats_patches_dialog.ui",
+    "docs/screenshots/list_dark.png",
+    "docs/screenshots/list_white.png",
+    "docs/screenshots/param_viewer.png",
+    "docs/screenshots/trophy_viewer.png",
     "dist/themes/*.*",
     "dist/themes/icons/*.*",
     "dist/net.shadps4.shadLauncher4.desktop"
