@@ -1476,6 +1476,14 @@ Select an emulator version from the right panel.</source>
         <source>Invalid game argument provided</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Setup Wizard...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Re-run the first-time setup wizard to reconfigure your language, theme, folders, and emulator version</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>NpBindDialog</name>
@@ -2105,6 +2113,18 @@ This will remove all game-specific overrides.</source>
         <source>Opacity</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Console Language</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game Language:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The language games run in, independent of the shadLauncher5 interface language.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>SettingsDialogHelperTexts</name>
@@ -2242,6 +2262,195 @@ This will remove all game-specific overrides.</source>
     </message>
     <message>
         <source>Show Background Image:\nDisplay a background image behind the game list. Use the Opacity slider below to control how visible it is.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SetupWizard</name>
+    <message>
+        <source>shadLauncher5 Setup</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SetupWizardConclusionPage</name>
+    <message>
+        <source>All set</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Review your choices and finish.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>shadLauncher5 is ready to use. Everything below can be changed later in Settings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(none)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(none selected)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Games:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>DLC:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Emulator versions:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selected version:</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SetupWizardFoldersPage</name>
+    <message>
+        <source>Directory with your dumped games</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Directory with your dumped DLCs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Directory to install emulator versions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The chosen location for dumped games is not valid.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The chosen location for dumped DLCs is not valid.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The DLC dump location could not be created.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The location for installing emulator versions is not valid.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The emulator version location could not be created.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Folders</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tell shadLauncher5 where to find your games and where to put everything else.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Games:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>DLC:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Emulator versions:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The games folder must already exist. The DLC and emulator version folders are created if they are missing. More library folders can be added later under Settings - Paths.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SetupWizardIntroPage</name>
+    <message>
+        <source>Default</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> (missing)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Welcome to shadLauncher5</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This short setup gets your library and emulator ready.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>shadLauncher5 manages your PS5 game library and launches it with shadPS5.
+
+The next steps ask where your games live and which emulator version to use. You can change any of this later in Settings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Language:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Theme:</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>SetupWizardVersionPage</name>
+    <message>
+        <source>Release</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pre-release</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Local</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unknown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Emulator version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>shadLauncher5 runs your games with shadPS5. Pick the version to use.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select an installed version below, or open the Version Manager to download one.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No emulator versions are installed yet. Open the Version Manager to download one - you can also do this later from the main window.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open Version Manager...</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
