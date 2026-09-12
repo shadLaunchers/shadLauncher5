@@ -1,9 +1,3 @@
-[submodule "extternals/libdeflate"]
-	path = extternals/libdeflate
-	url = https://github.com/shadexternals/libdeflate.git
-[submodule "externals/libdeflate"]
-	path = externals/libdeflate
-	url = https://github.com/shadexternals/libdeflate.git
 [submodule "externals/zstd"]
 	path = externals/zstd
 	url = https://github.com/shadexternals/zstd.git
@@ -18,5 +12,8 @@
 	url = https://github.com/shadexternals/fmt.git
 [submodule "externals/spdlog"]
 	path = externals/spdlog
-	url = https://github.com/gabime/spdlog.git
+	url = https://github.com/shadexternals/spdlog.git
 	branch = v2.x
+[submodule "externals/libdeflate"]
+	path = externals/libdeflate
+	url = https://github.com/shadexternals/libdeflate.git
