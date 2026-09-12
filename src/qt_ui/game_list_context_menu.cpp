@@ -27,6 +27,7 @@
 #include <core/user_settings.h>
 #include <fmt/core.h>
 #include "background_music_player.h"
+#include "cheats_patches_dialog.h"
 #include "common/path_util.h"
 #include "common/singleton.h"
 #include "core/emulator_settings.h"
@@ -1073,6 +1074,23 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
         }
         NpBindDialog dialog(frame, npbind_path);
         dialog.exec();
+    });
+
+    QAction* cheats_view = addAction(tr("&Cheats & Patches"));
+    connect(cheats_view, &QAction::triggered, frame, [frame, current_game] {
+        QString gameName = QString::fromStdString(current_game.name);
+        QString gameSerial = QString::fromStdString(current_game.serial);
+        QString gameVersion = QString::fromStdString(current_game.app_ver);
+        QString gameSize = GUI::Utils::FormatByteSize(current_game.size_on_disk);
+        QString iconPath;
+        Common::FS::PathToQString(iconPath, current_game.icon_path);
+        QPixmap gameImage(iconPath);
+        CheatsPatches* cheatsPatches =
+            new CheatsPatches(frame->m_gui_settings, frame->m_ipc_client, gameName, gameSerial,
+                              gameVersion, gameSize, gameImage);
+        cheatsPatches->show();
+        connect(frame, &QWidget::destroyed, cheatsPatches,
+                [cheatsPatches]() { cheatsPatches->deleteLater(); });
     });
 
     QAction* trophy_viewer = addAction(tr("&Trophy Viewer"));

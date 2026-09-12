@@ -261,6 +261,10 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/version_dialog.ui
           src/qt_ui/npbind_dialog.cpp
           src/qt_ui/npbind_dialog.h
+          src/qt_ui/cheats_patches_dialog.cpp
+          src/qt_ui/cheats_patches_dialog.h
+          src/qt_ui/cheats_patches_dialog.ui
+          src/qt_ui/cheats_patches_repository_config.h
           src/qt_ui/background_music_player.cpp
           src/qt_ui/background_music_player.h
           src/qt_ui/log_presets_dialog.cpp
