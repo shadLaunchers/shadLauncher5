@@ -15,6 +15,9 @@ struct User {
     u32 user_color = 1;
     int player_index = 0; // 1-4
     bool logged_in = false;
+    std::string device_guid = "";
+    std::string device_serial = "";
+    std::string device_path = "";
 };
 
 struct Users {
@@ -22,7 +25,8 @@ struct Users {
     std::string commit_hash{};
 };
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(User, user_id, user_color, user_name, player_index)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(User, user_id, user_color, user_name, player_index,
+                                                device_guid, device_serial, device_path)
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Users, user, commit_hash)
 
 using LoggedInUsers = std::array<User*, 4>;
