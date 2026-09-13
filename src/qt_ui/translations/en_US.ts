@@ -47,6 +47,252 @@
     </message>
 </context>
 <context>
+    <name>CheatsPatches</name>
+    <message>
+        <source>Cheats / Patches for </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cheats/Patches are experimental.\nUse with caution.\n\nDownload cheats individually by selecting the repository and clicking the download button.\nIn the Patches tab, you can download all patches at once, choose which ones you want to use, and save your selection.\n\nSince we do not develop the Cheats/Patches,\nplease report issues to the cheat author.\n\nCreated a new cheat? Visit:\n</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No Cheats found for this game in this version of the selected repository,try another repository or a different version of the game.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>You have successfully downloaded the cheats for this version of the game from the selected repository. You can try downloading from another repository, if it is available it will also be possible to use it by selecting the file from the list.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Patches Downloaded Successfully! All Patches available for all games have been downloaded, there is no need to download them individually for each game as happens in Cheats. If the patch does not appear, it may be that it does not exist for the specific serial and version of the game.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No Image Available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Serial: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Size: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete File</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No files selected.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>You can delete the cheats you don&apos;t want after downloading them.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Do you want to delete the selected file?\n%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No patch selected.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to open files.json for reading.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No patch file found for the current serial.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to open the file for reading.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unable to open the file for writing.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to parse XML: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Success</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Options saved successfully.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invalid Source</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selected repository does not support cheats.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download Error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cheats Not Found</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Downloading cheat index...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selected repository does not support patches.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download Complete</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Downloading patches...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to open file:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>XML ERROR:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The game is in version: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The downloaded patch only works on version: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>You may need to update your game.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Incompatibility Notice</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to open files.json for writing</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Author: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Directory does not exist:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to open files.json for reading.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Can&apos;t apply cheats before the game is started</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>CheatsPatchesDialog</name>
+    <message>
+        <source>Cheats / Patches</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No Image Available</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Serial: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Size: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cheats/Patches are experimental. Use with caution...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cheats</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select Cheat File:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Repository:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download Cheats</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Delete File</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Patches</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select Patch File:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download Patches</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>CheckUpdate</name>
     <message>
         <source>Auto Updater - GUI</source>
@@ -795,6 +1041,10 @@ Leave empty to use the original name.</source>
     </message>
     <message>
         <source>Edit Tooltip Notes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Cheats &amp; Patches</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
