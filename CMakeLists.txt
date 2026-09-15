@@ -350,6 +350,23 @@ else ()
     target_link_libraries(shadLauncher5 PRIVATE OpenSSL::Crypto atomic)
 endif()
 
+if(WIN32)
+    find_program(QT_WINDEPLOYQT NAMES windeployqt PATHS "${Qt6_DIR}/../../../bin")
+    if(NOT QT_WINDEPLOYQT)
+    	message(FATAL_ERROR "Could not find windeployqt")
+    endif()
+	add_custom_command(TARGET shadLauncher5 POST_BUILD
+		COMMAND ${QT_WINDEPLOYQT} $<TARGET_FILE:shadLauncher5>
+			--no-compiler-runtime
+			--no-system-d3d-compiler
+			--no-system-dxc-compiler
+			--no-opengl-sw
+			--no-translations
+		COMMENT "Deploying Qt runtime and TLS plugins"
+		VERBATIM
+	)
+endif()
+
 set_target_properties(shadLauncher5 PROPERTIES
    WIN32_EXECUTABLE ON
 #   MACOSX_BUNDLE ON
