@@ -68,3 +68,10 @@ if (NOT TARGET zarchive)
     target_compile_features(zarchive PRIVATE cxx_std_20)
     add_library(ZArchive::zarchive ALIAS zarchive)
 endif()
+
+# SDL3
+if (NOT TARGET SDL3::SDL3)
+    set(SDL_TEST_LIBRARY OFF)
+    set(SDL_PIPEWIRE OFF)
+    add_subdirectory(sdl3)
+endif()

@@ -17,3 +17,6 @@
 [submodule "externals/libdeflate"]
 	path = externals/libdeflate
 	url = https://github.com/shadexternals/libdeflate.git
+[submodule "externals/sdl3"]
+	path = externals/sdl3
+	url = https://github.com/shadexternals/sdl3.git

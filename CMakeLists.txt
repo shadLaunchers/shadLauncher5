@@ -154,6 +154,9 @@ set(CORE src/core/user_manager.cpp
           src/core/emulator_state.h
           src/core/ipc/ipc_client.cpp
           src/core/ipc/ipc_client.h
+          src/core/input/input_ids.h
+          src/core/input/hotkeys_config.cpp
+          src/core/input/hotkeys_config.h
 )
 
 set(FILEFORMAT src/core/file_format/param.cpp
@@ -189,6 +192,8 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/main_window.cpp
           src/qt_ui/main_window.h
           src/qt_ui/main_window.ui
+          src/qt_ui/hotkeys_editor_dialog.cpp
+          src/qt_ui/hotkeys_editor_dialog.h
           src/qt_ui/custom_dock_widget.h
           src/qt_ui/game_item_base.h
           src/qt_ui/game_item_base.cpp
@@ -298,8 +303,8 @@ cmrc_add_resource_library(embedded-resources
         src/images/silver.png)
 
 target_link_libraries(shadLauncher5 PRIVATE res::embedded)
-target_link_libraries(shadLauncher5 PRIVATE fmt::fmt spdlog::spdlog)
-target_link_libraries(shadLauncher5 PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Svg Qt6::Multimedia Qt6::Sql nlohmann_json::nlohmann_json libdeflate_static ZArchive::zarchive)
+target_link_libraries(shadLauncher5 PRIVATE fmt::fmt spdlog::spdlog SDL3::SDL3)
+target_link_libraries(shadLauncher5 PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Svg Qt6::Multimedia Qt6::Sql nlohmann_json::nlohmann_json libdeflate_static ZArchive::zarchive SDL3::SDL3)
 
 if (ENABLE_UPDATER)
     add_definitions(-DENABLE_UPDATER)

@@ -202,6 +202,7 @@
     </property>
     <addaction name="actionExport_GameList"/>
     <addaction name="actionReset_Custom_Titles"/>
+    <addaction name="actionHotkeys"/>
     <addaction name="actionSetup_Wizard"/>
    </widget>
    <widget class="QMenu" name="menuView">
@@ -719,6 +720,14 @@
    </property>
    <property name="toolTip">
     <string>Re-run the first-time setup wizard to reconfigure your language, theme, folders, and emulator version</string>
+   </property>
+  </action>
+  <action name="actionHotkeys">
+   <property name="text">
+    <string>Hotkeys...</string>
+   </property>
+   <property name="toolTip">
+    <string>Rebind the emulator's keyboard, mouse, and pad hotkeys</string>
    </property>
   </action>
   <action name="actionConfigPaths">

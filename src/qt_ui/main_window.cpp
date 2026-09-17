@@ -5,6 +5,7 @@
 // Note: there are a few TODO here to take care
 #include <algorithm>
 #include <functional>
+#include <QFutureWatcher>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -25,6 +26,7 @@
 #include "game_list_exporter.h"
 #include "game_list_frame.h"
 #include "gui_settings.h"
+#include "hotkeys_editor_dialog.h"
 #include "main_window.h"
 #include "progress_dialog.h"
 #include "qt_ui/check_update.h"
@@ -194,6 +196,11 @@ void MainWindow::createConnects() {
                                   QMessageBox::Yes | QMessageBox::No) == QMessageBox::Yes) {
             m_game_list_frame->ResetCustomTitles();
         }
+    });
+
+    connect(ui->actionHotkeys, &QAction::triggered, this, [this] {
+        HotkeysEditorDialog dialog(this);
+        dialog.exec();
     });
 
     connect(ui->actionSetup_Wizard, &QAction::triggered, this, [this] {
