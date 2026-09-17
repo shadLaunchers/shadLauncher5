@@ -157,6 +157,8 @@ set(CORE src/core/user_manager.cpp
           src/core/input/input_ids.h
           src/core/input/hotkeys_config.cpp
           src/core/input/hotkeys_config.h
+          src/core/input/bindings_config.cpp
+          src/core/input/bindings_config.h
 )
 
 set(FILEFORMAT src/core/file_format/param.cpp
@@ -278,6 +280,8 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/trophy_viewer.h
           src/qt_ui/zarchive_viewer_dialog.cpp
           src/qt_ui/zarchive_viewer_dialog.h
+          src/qt_ui/input_bindings_dialog.cpp
+          src/qt_ui/input_bindings_dialog.h
           ${UPDATER}
 )
 

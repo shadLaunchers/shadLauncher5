@@ -132,4 +132,102 @@ inline constexpr std::string_view kUnmapped = "unmapped";
     return false;
 }
 
+// ---------------------------------------------------------------------
+// Pad controls (input-bindings.md section 7, "Outputs -- pad controls" and
+// "Inputs -- pad")
+// ---------------------------------------------------------------------
+
+// Button-shaped outputs. Also valid on the input side (section 7: "Everything
+// in the output button list above works as an input").
+inline constexpr std::array<std::string_view, 13> kPadButtonNames{{
+    "triangle", "circle", "cross", "square", "l1", "r1", "l3", "r3", "pad_up",
+    "pad_down", "pad_left", "pad_right", "options",
+}};
+
+// Output only -- all three press the one touchpad the guest sees; they never
+// arrive as an input (section 7 explicitly: touchpad_left/right "will never
+// arrive as inputs").
+inline constexpr std::array<std::string_view, 3> kTouchpadOutputNames{{
+    "touchpad_left", "touchpad_center", "touchpad_right",
+}};
+// touchpad_center doubles as an input (a real touchpad press).
+inline constexpr std::string_view kTouchpadCenterInput = "touchpad_center";
+
+// Digital-edge axis outputs, plus l2/r2 (axes, not buttons -- the button bits
+// are derived from how far the trigger is pulled).
+inline constexpr std::array<std::string_view, 10> kAxisEdgeOutputNames{{
+    "axis_left_x_plus", "axis_left_x_minus", "axis_left_y_plus", "axis_left_y_minus",
+    "axis_right_x_plus", "axis_right_x_minus", "axis_right_y_plus", "axis_right_y_minus",
+    "l2", "r2",
+}};
+
+// Analog-to-analog outputs: only valid when the *input* is also an axis, so
+// the stick keeps its range instead of being pushed fully over.
+inline constexpr std::array<std::string_view, 4> kAnalogToAnalogOutputNames{{
+    "axis_left_x", "axis_left_y", "axis_right_x", "axis_right_y",
+}};
+
+// Named in the emulator's table but not implemented -- binding one logs an
+// error and does nothing (section 7). Never offer these in the editor.
+inline constexpr std::array<std::string_view, 3> kNotImplementedOutputNames{{
+    "leftjoystick_halfmode", "rightjoystick_halfmode", "mouse_gyro_roll_mode",
+}};
+
+// Input-only pad names: not valid as an output.
+inline constexpr std::array<std::string_view, 6> kPadInputOnlyNames{{
+    "back", "share", "qam", "lpaddle_high", "lpaddle_low", "rpaddle_high",
+}};
+inline constexpr std::array<std::string_view, 3> kPadInputOnlyNamesContinued{{
+    "rpaddle_low", "l4", "l5",
+}};
+inline constexpr std::array<std::string_view, 2> kPadInputOnlyNamesTail{{
+    "r4", "r5",
+}};
+
+[[nodiscard]] inline bool IsKnownPadControlOutput(std::string_view name) {
+    for (const auto& n : kPadButtonNames) {
+        if (n == name) return true;
+    }
+    for (const auto& n : kTouchpadOutputNames) {
+        if (n == name) return true;
+    }
+    for (const auto& n : kAxisEdgeOutputNames) {
+        if (n == name) return true;
+    }
+    for (const auto& n : kAnalogToAnalogOutputNames) {
+        if (n == name) return true;
+    }
+    return false;
+}
+
+[[nodiscard]] inline bool IsKnownPadInputName(std::string_view name) {
+    if (name == kTouchpadCenterInput) {
+        return true;
+    }
+    for (const auto& n : kPadButtonNames) {
+        if (n == name) return true;
+    }
+    for (const auto& n : kAxisEdgeOutputNames) {
+        if (n == name) return true;
+    }
+    for (const auto& n : kAnalogToAnalogOutputNames) {
+        if (n == name) return true;
+    }
+    for (const auto& n : kPadInputOnlyNames) {
+        if (n == name) return true;
+    }
+    for (const auto& n : kPadInputOnlyNamesContinued) {
+        if (n == name) return true;
+    }
+    for (const auto& n : kPadInputOnlyNamesTail) {
+        if (n == name) return true;
+    }
+    return false;
+}
+
+// Any input this build's vocabulary knows -- keyboard, mouse, or pad.
+[[nodiscard]] inline bool IsKnownInput(std::string_view name) {
+    return IsKnownKeyboardOrMouseInput(name) || IsKnownPadInputName(name);
+}
+
 } // namespace Core::Input

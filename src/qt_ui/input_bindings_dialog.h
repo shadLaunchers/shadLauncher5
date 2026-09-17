@@ -1,0 +1,104 @@
+// SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Emulator Project
+// SPDX-License-Identifier: GPL-2.0-or-later
+//
+// The full pad-control binding editor (docs/input-bindings.md), as opposed
+// to hotkeys_editor_dialog.h which only handles hotkeys.json. One QTabWidget
+// page per port (1-4); a port's page is only editable once its "this port
+// is assigned" checkbox is on.
+//
+// FIRST PASS -- scope deliberately narrower than the full spec for now:
+//  - Edits exactly one target file, passed to the constructor (defaults to
+//    global.json's path -- see bindings_config.h's file comment for why
+//    global.json rather than default.json). Picking between global.json and
+//    a specific game's input_config/<title id>.json is not built yet.
+//  - A port's bindings are the ones scoped to it via the "gamepad" field
+//    (bindings_config.h's PortedBinding); the *other* way a file can name a
+//    port -- an ":n" suffix on "output" itself -- is read and preserved if
+//    already present, but this editor doesn't offer writing one. See
+//    PortedBinding's comment for why.
+//  - "Port assigned" is this editor's own concept, not read from the
+//    emulator: docs/multi-user.md (which this editor hasn't been given)
+//    covers how a *device* actually gets a port at runtime. Here it just
+//    means "show and let me edit this port's bindings" -- unchecking it
+//    does not delete anything already saved for that port, it only hides
+//    the tab's controls.
+
+#pragma once
+
+#include <QDialog>
+#include <QListWidget>
+#include <array>
+#include <filesystem>
+#include <memory>
+
+#include "core/input/bindings_config.h"
+
+class QCheckBox;
+class QLabel;
+class QPushButton;
+class QTabWidget;
+
+// One port's page: an output list on the left, that output's ways-to-press
+// on the right, gated by an "assigned" checkbox. Mirrors
+// HotkeysEditorDialog's layout in hotkeys_editor_dialog.h.
+class PortBindingsPage : public QWidget {
+    Q_OBJECT
+public:
+    PortBindingsPage(int port_number, Core::Input::BindingsConfig* config, QWidget* parent = nullptr);
+
+    [[nodiscard]] int PortNumber() const {
+        return m_port_number;
+    }
+    [[nodiscard]] bool IsAssigned() const;
+
+signals:
+    // Emitted after a way-to-press is added or removed, so the dialog can
+    // refresh conflict detection (which needs every port's bindings, not
+    // just this page's).
+    void BindingsChanged();
+
+private slots:
+    void OnAddWay();
+    void OnRemoveSelected();
+
+private:
+    void PopulateOutputList();
+    void RefreshBindingsList();
+    void UpdateEnabledState();
+    [[nodiscard]] std::string CurrentOutputName() const;
+    [[nodiscard]] static QString DisplayChord(const std::vector<std::string>& input);
+
+    int m_port_number;
+    Core::Input::BindingsConfig* m_config; // not owned
+
+    QCheckBox* m_assigned_check = nullptr;
+    QListWidget* m_output_list = nullptr;
+    QListWidget* m_bindings_list = nullptr;
+    QLabel* m_hint_label = nullptr;
+    QPushButton* m_add_btn = nullptr;
+    QPushButton* m_remove_btn = nullptr;
+};
+
+class InputBindingsDialog : public QDialog {
+    Q_OBJECT
+public:
+    // targetFile: the bindings file this dialog edits directly (global.json
+    // by default -- see the file comment above). Never pass default.json's
+    // path here (section 3).
+    explicit InputBindingsDialog(const std::filesystem::path& targetFile,
+                                 QWidget* parent = nullptr);
+    explicit InputBindingsDialog(QWidget* parent = nullptr);
+
+private slots:
+    void OnSave();
+    void RefreshConflicts();
+
+private:
+    void BuildUi();
+
+    std::unique_ptr<Core::Input::BindingsConfig> m_config;
+    QTabWidget* m_tabs = nullptr;
+    std::array<PortBindingsPage*, 4> m_pages{};
+    QListWidget* m_conflicts_list = nullptr;
+    QLabel* m_conflicts_summary = nullptr;
+};
