@@ -9,6 +9,7 @@
 
 #include "bindings_config.h"
 #include "common/logging/log.h"
+#include "text_preserving_json.h"
 
 namespace Core::Input {
 
@@ -98,15 +99,34 @@ std::optional<BindingsConfig::FlatBinding> ParseBindingEntry(const nlohmann::ord
     return BindingsConfig::FlatBinding{base_output, std::move(binding)};
 }
 
+// One binding's entry text, plain-formatted (no comments -- this is only
+// used for entries an edit is actively adding/replacing this session).
+std::string FormatBindingEntry(const std::string& output, const PortedBinding& binding) {
+    nlohmann::ordered_json entry;
+    entry["output"] = output;
+    entry["input"] = binding.input.size() == 1 ? nlohmann::ordered_json(binding.input.front())
+                                               : nlohmann::ordered_json(binding.input);
+    if (binding.port != 0) {
+        entry["gamepad"] = binding.port;
+    }
+    return entry.dump();
+}
+
+constexpr const char* kFreshFileTemplate =
+    "{\n    \"version\": 1,\n\n    \"bindings\": [\n    ]\n}\n";
+
 } // namespace
 
 bool BindingsConfig::Load(const std::filesystem::path& path) {
     m_path = path;
     m_bindings_cache.clear();
     m_dirty_names.clear();
+    m_mouse_dirty = false;
+    m_deadzones_dirty = false;
     m_valid = false;
 
     if (!std::filesystem::exists(m_path)) {
+        m_raw_text = kFreshFileTemplate;
         m_root = nlohmann::ordered_json::object();
         m_root["version"] = 1;
         m_root["bindings"] = nlohmann::ordered_json::array();
@@ -121,9 +141,10 @@ bool BindingsConfig::Load(const std::filesystem::path& path) {
     }
     std::ostringstream ss;
     ss << file.rdbuf();
+    m_raw_text = ss.str();
 
     try {
-        m_root = nlohmann::ordered_json::parse(ss.str(), /*cb=*/nullptr, /*allow_exceptions=*/true,
+        m_root = nlohmann::ordered_json::parse(m_raw_text, /*cb=*/nullptr, /*allow_exceptions=*/true,
                                                 /*ignore_comments=*/true);
     } catch (const nlohmann::json::exception& e) {
         LOG_ERROR(Common_Filesystem, "Failed to parse {}: {}", m_path.string(), e.what());
@@ -174,13 +195,101 @@ bool BindingsConfig::IsDirty(const std::string& output_name) const {
            m_dirty_names.end();
 }
 
+MouseSettings BindingsConfig::GetMouseSettings(bool* present) const {
+    if (m_mouse_dirty) {
+        if (present) *present = true;
+        return m_mouse_edit;
+    }
+    MouseSettings s;
+    if (present) *present = false;
+    if (!m_valid || !m_root.contains("mouse") || !m_root["mouse"].is_object()) {
+        return s;
+    }
+    if (present) *present = true;
+    const auto& m = m_root["mouse"];
+    if (const auto it = m.find("to_joystick"); it != m.end() && it->is_string()) {
+        const std::string v = it->get<std::string>();
+        // section 8: an unrecognized value keeps the default and warns --
+        // it does not fall through to "none".
+        if (v == "right" || v == "left" || v == "none") {
+            s.to_joystick = v;
+        } else {
+            LOG_WARNING(Common_Filesystem, "mouse.to_joystick '{}' is not recognized, keeping "
+                                           "default",
+                       v);
+        }
+    }
+    if (const auto it = m.find("deadzone_offset"); it != m.end() && it->is_number()) {
+        s.deadzone_offset = it->get<double>();
+    }
+    if (const auto it = m.find("speed"); it != m.end() && it->is_number()) {
+        s.speed = it->get<double>();
+    }
+    if (const auto it = m.find("speed_offset"); it != m.end() && it->is_number()) {
+        s.speed_offset = it->get<double>();
+    }
+    return s;
+}
+
+void BindingsConfig::SetMouseSettings(const MouseSettings& settings) {
+    m_mouse_edit = settings;
+    m_mouse_dirty = true;
+}
+
+namespace {
+DeadzoneRange ParseDeadzoneRange(const nlohmann::ordered_json& obj, const DeadzoneRange& fallback) {
+    DeadzoneRange r = fallback;
+    if (!obj.is_object()) {
+        return r;
+    }
+    if (const auto it = obj.find("min"); it != obj.end() && it->is_number_integer()) {
+        r.min = it->get<int>();
+    }
+    if (const auto it = obj.find("max"); it != obj.end() && it->is_number_integer()) {
+        r.max = it->get<int>();
+    }
+    return r;
+}
+} // namespace
+
+DeadzoneSettings BindingsConfig::GetDeadzoneSettings(bool* present) const {
+    if (m_deadzones_dirty) {
+        if (present) *present = true;
+        return m_deadzones_edit;
+    }
+    DeadzoneSettings s;
+    if (present) *present = false;
+    if (!m_valid || !m_root.contains("deadzones") || !m_root["deadzones"].is_object()) {
+        return s;
+    }
+    if (present) *present = true;
+    const auto& d = m_root["deadzones"];
+    if (const auto it = d.find("left_stick"); it != d.end()) {
+        s.left_stick = ParseDeadzoneRange(*it, s.left_stick);
+    }
+    if (const auto it = d.find("right_stick"); it != d.end()) {
+        s.right_stick = ParseDeadzoneRange(*it, s.right_stick);
+    }
+    if (const auto it = d.find("left_trigger"); it != d.end()) {
+        s.left_trigger = ParseDeadzoneRange(*it, s.left_trigger);
+    }
+    if (const auto it = d.find("right_trigger"); it != d.end()) {
+        s.right_trigger = ParseDeadzoneRange(*it, s.right_trigger);
+    }
+    return s;
+}
+
+void BindingsConfig::SetDeadzoneSettings(const DeadzoneSettings& settings) {
+    m_deadzones_edit = settings;
+    m_deadzones_dirty = true;
+}
+
 std::vector<BindingsConfig::FlatBinding> BindingsConfig::GetAllBindings() const {
     std::vector<FlatBinding> result;
     if (!m_valid) {
         return result;
     }
 
-    // Non-dirty outputs: parse straight from the loaded file.
     std::set<std::string> dirty_set(m_dirty_names.begin(), m_dirty_names.end());
     if (m_root.contains("bindings") && m_root["bindings"].is_array()) {
         for (const auto& entry : m_root["bindings"]) {
@@ -191,7 +300,6 @@ std::vector<BindingsConfig::FlatBinding> BindingsConfig::GetAllBindings() const 
         }
     }
 
-    // Dirty outputs: reflect this session's edits, not what's on disk.
     for (const auto& name : m_dirty_names) {
         const auto cache_it = m_bindings_cache.find(name);
         if (cache_it == m_bindings_cache.end()) {
@@ -213,56 +321,120 @@ bool BindingsConfig::Save() const {
                   m_path.string());
         return false;
     }
-    if (m_dirty_names.empty()) {
-        return true;
+    if (m_dirty_names.empty() && !m_mouse_dirty && !m_deadzones_dirty) {
+        return true; // nothing to do
     }
 
-    nlohmann::ordered_json new_bindings = nlohmann::ordered_json::array();
+    std::string text = m_raw_text;
 
-    if (m_root.contains("bindings") && m_root["bindings"].is_array()) {
-        for (const auto& entry : m_root["bindings"]) {
-            if (!entry.is_object()) {
+    if (!m_dirty_names.empty()) {
+        const TextJson::RootScan root = TextJson::ScanRoot(text);
+        if (!root.ok) {
+            LOG_ERROR(Common_Filesystem, "{}: couldn't re-locate its own structure to edit it "
+                                         "safely",
+                     m_path.string());
+            return false;
+        }
+
+        // Locate the existing "bindings" array's inner content (between the
+        // brackets), if there is one.
+        std::string inner;
+        bool had_array = false;
+        for (const auto& e : root.entries) {
+            if (e.key == "bindings") {
+                const std::string value_text = text.substr(e.value_start, e.value_end - e.value_start);
+                if (value_text.size() >= 2 && value_text.front() == '[' && value_text.back() == ']') {
+                    inner = value_text.substr(1, value_text.size() - 2);
+                    had_array = true;
+                }
+                break;
+            }
+        }
+        TextJson::ArrayContent existing = had_array ? TextJson::SplitArray(inner) : TextJson::ArrayContent{};
+        if (had_array && !existing.ok) {
+            LOG_ERROR(Common_Filesystem, "{}: couldn't parse its own \"bindings\" array structure "
+                                         "to edit it safely",
+                     m_path.string());
+            return false;
+        }
+
+        const std::set<std::string> dirty_set(m_dirty_names.begin(), m_dirty_names.end());
+
+        // Keep every existing element whose output isn't one we're touching
+        // this session, verbatim (leading trivia -- including any comment --
+        // and all).
+        std::string rebuilt;
+        bool first = true;
+        for (const auto& elem : existing.elements) {
+            nlohmann::ordered_json parsed_elem;
+            std::string base_output;
+            try {
+                parsed_elem = nlohmann::ordered_json::parse(elem.text, nullptr, true, true);
+                if (parsed_elem.is_object() && parsed_elem.contains("output") &&
+                    parsed_elem["output"].is_string()) {
+                    base_output = SplitPortSuffix(parsed_elem["output"].get<std::string>()).first;
+                }
+            } catch (const nlohmann::json::exception&) {
+                // Unparseable element -- can't identify it, so it's never
+                // something we'd be replacing; keep it verbatim.
+            }
+            if (!base_output.empty() && dirty_set.count(base_output)) {
+                continue; // dropped -- replaced by fresh entries below
+            }
+            rebuilt += elem.leading;
+            rebuilt += elem.text;
+            first = false;
+        }
+
+        // Append fresh entries for every output actually edited this session.
+        for (const auto& name : m_dirty_names) {
+            const auto cache_it = m_bindings_cache.find(name);
+            if (cache_it == m_bindings_cache.end()) {
                 continue;
             }
-            const auto output_it = entry.find("output");
-            const std::string base_output =
-                (output_it != entry.end() && output_it->is_string())
-                    ? SplitPortSuffix(output_it->get<std::string>()).first
-                    : std::string{};
-            const bool touched_this_session =
-                std::find(m_dirty_names.begin(), m_dirty_names.end(), base_output) !=
-                m_dirty_names.end();
-            if (!touched_this_session) {
-                new_bindings.push_back(entry);
+            for (const auto& binding : cache_it->second) {
+                if (binding.input.empty()) {
+                    continue;
+                }
+                if (!first) {
+                    rebuilt += ",\n        ";
+                } else {
+                    rebuilt += "\n        ";
+                    first = false;
+                }
+                rebuilt += FormatBindingEntry(name, binding);
             }
         }
+        if (!rebuilt.empty()) {
+            rebuilt += "\n    ";
+        }
+
+        const std::string new_array_text = "[" + rebuilt + "]";
+        text = TextJson::ReplaceOrInsertTopLevelValue(text, "bindings", new_array_text);
     }
 
-    for (const auto& name : m_dirty_names) {
-        const auto cache_it = m_bindings_cache.find(name);
-        if (cache_it == m_bindings_cache.end()) {
-            continue;
-        }
-        for (const auto& binding : cache_it->second) {
-            if (binding.input.empty()) {
-                continue;
-            }
-            nlohmann::ordered_json entry;
-            entry["output"] = name;
-            entry["input"] = binding.input.size() == 1
-                                  ? nlohmann::ordered_json(binding.input.front())
-                                  : nlohmann::ordered_json(binding.input);
-            if (binding.port != 0) {
-                entry["gamepad"] = binding.port;
-            }
-            new_bindings.push_back(std::move(entry));
-        }
+    if (m_mouse_dirty) {
+        nlohmann::ordered_json m;
+        m["to_joystick"] = m_mouse_edit.to_joystick;
+        m["deadzone_offset"] = m_mouse_edit.deadzone_offset;
+        m["speed"] = m_mouse_edit.speed;
+        m["speed_offset"] = m_mouse_edit.speed_offset;
+        text = TextJson::ReplaceOrInsertTopLevelValue(text, "mouse", m.dump(4));
     }
 
-    nlohmann::ordered_json out = m_root;
-    out["bindings"] = std::move(new_bindings);
-    if (!out.contains("version")) {
-        out["version"] = 1;
+    if (m_deadzones_dirty) {
+        auto range_json = [](const DeadzoneRange& r) {
+            nlohmann::ordered_json j;
+            j["min"] = r.min;
+            j["max"] = r.max;
+            return j;
+        };
+        nlohmann::ordered_json d;
+        d["left_stick"] = range_json(m_deadzones_edit.left_stick);
+        d["right_stick"] = range_json(m_deadzones_edit.right_stick);
+        d["left_trigger"] = range_json(m_deadzones_edit.left_trigger);
+        d["right_trigger"] = range_json(m_deadzones_edit.right_trigger);
+        text = TextJson::ReplaceOrInsertTopLevelValue(text, "deadzones", d.dump(4));
     }
 
     std::error_code ec;
@@ -273,28 +445,20 @@ bool BindingsConfig::Save() const {
         LOG_ERROR(Common_Filesystem, "Failed to write {}", m_path.string());
         return false;
     }
-    file << out.dump(4);
+    file << text;
     return static_cast<bool>(file);
 }
 
 namespace {
 
-// Whether a and b's port scopes could ever both be "live" for the same
-// event: 0 means "every port" (the engine's own per-port copies), so it
-// overlaps with anything; two specific ports only overlap with each other.
 bool PortsOverlap(int a, int b) {
     return a == 0 || b == 0 || a == b;
 }
 
-// The port a collision between a and b actually happens at, for reporting.
 int CollisionPort(int a, int b) {
-    if (a != 0) {
-        return a;
-    }
-    if (b != 0) {
-        return b;
-    }
-    return 0; // both unqualified -- collides at every port
+    if (a != 0) return a;
+    if (b != 0) return b;
+    return 0;
 }
 
 } // namespace
@@ -304,8 +468,6 @@ std::vector<BindingConflict> FindConflicts(const std::vector<BindingsConfig::Fla
 
     for (size_t i = 0; i < all_bindings.size(); i++) {
         const auto& a = all_bindings[i];
-        // "unmapped" is section 6's "deliberately unbound" marker -- by
-        // definition it never matches an event, so it can never conflict.
         if (a.binding.input.size() == 1 && a.binding.input.front() == "unmapped") {
             continue;
         }
@@ -314,14 +476,11 @@ std::vector<BindingConflict> FindConflicts(const std::vector<BindingsConfig::Fla
         for (size_t j = i + 1; j < all_bindings.size(); j++) {
             const auto& b = all_bindings[j];
             if (a.output == b.output) {
-                continue; // same output, not "different outputs" -- not this rule
+                continue;
             }
             if (b.binding.input.size() == 1 && b.binding.input.front() == "unmapped") {
                 continue;
             }
-            // Section 6: same KEY COUNT and same keys. A different count
-            // (lctrl+f9 vs f9) is explicitly not a conflict, even though
-            // f9's keys are a subset of lctrl+f9's.
             if (a.binding.input.size() != b.binding.input.size()) {
                 continue;
             }

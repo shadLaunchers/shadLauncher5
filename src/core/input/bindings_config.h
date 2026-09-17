@@ -39,6 +39,27 @@ struct PortedBinding {
     int port = 0;
 };
 
+// section 8: applies while mouse-to-joystick is switched on.
+struct MouseSettings {
+    std::string to_joystick = "right"; // "right" | "left" | "none"
+    double deadzone_offset = 0.5;
+    double speed = 1.0;
+    double speed_offset = 0.125;
+};
+
+struct DeadzoneRange {
+    int min = 1;
+    int max = 127;
+};
+
+// section 8: four sticks/triggers, each an independent {min, max}.
+struct DeadzoneSettings {
+    DeadzoneRange left_stick;
+    DeadzoneRange right_stick;
+    DeadzoneRange left_trigger;
+    DeadzoneRange right_trigger;
+};
+
 class BindingsConfig {
 public:
     // Loads path. A missing file is not an error -- every output simply has
@@ -56,10 +77,20 @@ public:
 
     [[nodiscard]] bool IsDirty(const std::string& output_name) const;
 
-    // Writes the file: every output touched by SetBindings() this session
-    // gets its entries replaced; every other entry (other outputs never
-    // edited, and anything with an unrecognized "output") is carried
-    // through exactly as loaded, same as hotkeys_config.h.
+    // section 8. present=false if the file has no "mouse" block at all (the
+    // returned values are then the built-in defaults, for display only --
+    // Save() will not write a block nobody asked to change).
+    [[nodiscard]] MouseSettings GetMouseSettings(bool* present = nullptr) const;
+    void SetMouseSettings(const MouseSettings& settings);
+
+    [[nodiscard]] DeadzoneSettings GetDeadzoneSettings(bool* present = nullptr) const;
+    void SetDeadzoneSettings(const DeadzoneSettings& settings);
+
+    // Writes the file by editing its ORIGINAL TEXT in place (section 3: a
+    // full JSON re-serialize destroys every comment). Only the specific
+    // pieces actually touched this session -- individual bindings entries,
+    // and/or the whole "mouse"/"deadzones" blocks -- are replaced; every
+    // other byte of the file, comments included, survives untouched.
     bool Save() const;
 
     [[nodiscard]] const std::filesystem::path& FilePath() const {
@@ -82,10 +113,16 @@ public:
 
 private:
     std::filesystem::path m_path;
-    nlohmann::ordered_json m_root;
+    std::string m_raw_text; // the file's original text, or a fresh template if it didn't exist
+    nlohmann::ordered_json m_root; // parsed from m_raw_text; used for reads only, never for Save()
     bool m_valid = false;
     std::vector<std::string> m_dirty_names;
     mutable std::map<std::string, std::vector<PortedBinding>> m_bindings_cache;
+
+    bool m_mouse_dirty = false;
+    MouseSettings m_mouse_edit;
+    bool m_deadzones_dirty = false;
+    DeadzoneSettings m_deadzones_edit;
 
     static std::vector<PortedBinding> ParseBindingsFor(const nlohmann::ordered_json& bindings_array,
                                                         const std::string& output_name);

@@ -3,16 +3,34 @@
 
 #include <algorithm>
 #include <fstream>
+#include <set>
 #include <sstream>
 
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "hotkeys_config.h"
+#include "text_preserving_json.h"
 
 namespace Core::Input {
 
 using Common::FS::GetUserPath;
 using Common::FS::PathType;
+
+namespace {
+constexpr const char* kFreshFileTemplate =
+    "{\n    \"version\": 1,\n\n    \"bindings\": [\n    ]\n}\n";
+
+std::string FormatHotkeyEntry(const std::string& name, const HotkeyBinding& binding) {
+    nlohmann::ordered_json entry;
+    entry["output"] = name;
+    entry["input"] = binding.input.size() == 1 ? nlohmann::ordered_json(binding.input.front())
+                                               : nlohmann::ordered_json(binding.input);
+    if (binding.gamepad != 0) {
+        entry["gamepad"] = binding.gamepad;
+    }
+    return entry.dump();
+}
+} // namespace
 
 bool HotkeysConfig::Load() {
     m_path = GetUserPath(PathType::UserDir) / "hotkeys.json";
@@ -23,6 +41,7 @@ bool HotkeysConfig::Load() {
     if (!std::filesystem::exists(m_path)) {
         // Not an error: the emulator writes this file itself on first run.
         // Every known hotkey just has no bindings loaded yet.
+        m_raw_text = kFreshFileTemplate;
         m_root = nlohmann::ordered_json::object();
         m_root["version"] = 1;
         m_root["bindings"] = nlohmann::ordered_json::array();
@@ -37,14 +56,12 @@ bool HotkeysConfig::Load() {
     }
     std::ostringstream ss;
     ss << file.rdbuf();
-    const std::string text = ss.str();
+    m_raw_text = ss.str();
 
     try {
         // ignore_comments: matches the emulator's own tolerant parser
-        // (docs/input-bindings.md section 4). Trailing-comma tolerance
-        // there is a property of the emulator's vendored nlohmann::json;
-        // this parse call does not additionally guarantee it.
-        m_root = nlohmann::ordered_json::parse(text, /*cb=*/nullptr, /*allow_exceptions=*/true,
+        // (docs/input-bindings.md section 4).
+        m_root = nlohmann::ordered_json::parse(m_raw_text, /*cb=*/nullptr, /*allow_exceptions=*/true,
                                                /*ignore_comments=*/true);
     } catch (const nlohmann::json::exception& e) {
         LOG_ERROR(Common_Filesystem, "Failed to parse {}: {}", m_path.string(), e.what());
@@ -91,10 +108,9 @@ std::vector<HotkeyBinding> HotkeysConfig::ParseBindingsFor(
                 continue; // "input array is empty, or has no usable name" -> skip
             }
             if (binding.input.size() > 3) {
-                // "input names more than 3 keys" -> keep the first 3, warn
-                LOG_WARNING(Common_Filesystem, "{}: hotkey '{}' chord has more than 3 keys, "
-                                               "keeping the first 3",
-                           "hotkeys.json", hotkey_name);
+                LOG_WARNING(Common_Filesystem, "hotkeys.json: hotkey '{}' chord has more than 3 "
+                                               "keys, keeping the first 3",
+                           hotkey_name);
                 binding.input.resize(3);
             }
         } else {
@@ -142,30 +158,57 @@ bool HotkeysConfig::Save() const {
         return true; // nothing to do
     }
 
-    nlohmann::ordered_json new_bindings = nlohmann::ordered_json::array();
-
-    // Carry through every existing entry whose output isn't one of the
-    // hotkeys this session touched -- other known hotkeys never edited,
-    // AND any entry with an output we don't recognize at all (section 7).
-    if (m_root.contains("bindings") && m_root["bindings"].is_array()) {
-        for (const auto& entry : m_root["bindings"]) {
-            if (!entry.is_object()) {
-                continue;
-            }
-            const auto output_it = entry.find("output");
-            const std::string output = (output_it != entry.end() && output_it->is_string())
-                                           ? output_it->get<std::string>()
-                                           : std::string{};
-            const bool touched_this_session =
-                std::find(m_dirty_names.begin(), m_dirty_names.end(), output) !=
-                m_dirty_names.end();
-            if (!touched_this_session) {
-                new_bindings.push_back(entry);
-            }
-        }
+    const TextJson::RootScan root = TextJson::ScanRoot(m_raw_text);
+    if (!root.ok) {
+        LOG_ERROR(Common_Filesystem, "{}: couldn't re-locate its own structure to edit it safely",
+                 m_path.string());
+        return false;
     }
 
-    // Append fresh entries for every hotkey actually edited this session.
+    std::string inner;
+    bool had_array = false;
+    for (const auto& e : root.entries) {
+        if (e.key == "bindings") {
+            const std::string value_text = m_raw_text.substr(e.value_start, e.value_end - e.value_start);
+            if (value_text.size() >= 2 && value_text.front() == '[' && value_text.back() == ']') {
+                inner = value_text.substr(1, value_text.size() - 2);
+                had_array = true;
+            }
+            break;
+        }
+    }
+    TextJson::ArrayContent existing = had_array ? TextJson::SplitArray(inner) : TextJson::ArrayContent{};
+    if (had_array && !existing.ok) {
+        LOG_ERROR(Common_Filesystem, "{}: couldn't parse its own \"bindings\" array structure to "
+                                     "edit it safely",
+                 m_path.string());
+        return false;
+    }
+
+    const std::set<std::string> dirty_set(m_dirty_names.begin(), m_dirty_names.end());
+
+    std::string rebuilt;
+    bool first = true;
+    for (const auto& elem : existing.elements) {
+        std::string output;
+        try {
+            const auto parsed_elem = nlohmann::ordered_json::parse(elem.text, nullptr, true, true);
+            if (parsed_elem.is_object() && parsed_elem.contains("output") &&
+                parsed_elem["output"].is_string()) {
+                output = parsed_elem["output"].get<std::string>();
+            }
+        } catch (const nlohmann::json::exception&) {
+            // Unparseable -- can't identify it, so never something we'd
+            // replace; keep it verbatim below.
+        }
+        if (!output.empty() && dirty_set.count(output)) {
+            continue; // dropped -- replaced by fresh entries below
+        }
+        rebuilt += elem.leading;
+        rebuilt += elem.text;
+        first = false;
+    }
+
     for (const auto& name : m_dirty_names) {
         const auto cache_it = m_bindings_cache.find(name);
         if (cache_it == m_bindings_cache.end()) {
@@ -175,23 +218,21 @@ bool HotkeysConfig::Save() const {
             if (binding.input.empty()) {
                 continue;
             }
-            nlohmann::ordered_json entry;
-            entry["output"] = name;
-            entry["input"] =
-                binding.input.size() == 1 ? nlohmann::ordered_json(binding.input.front())
-                                          : nlohmann::ordered_json(binding.input);
-            if (binding.gamepad != 0) {
-                entry["gamepad"] = binding.gamepad;
+            if (!first) {
+                rebuilt += ",\n        ";
+            } else {
+                rebuilt += "\n        ";
+                first = false;
             }
-            new_bindings.push_back(std::move(entry));
+            rebuilt += FormatHotkeyEntry(name, binding);
         }
     }
-
-    nlohmann::ordered_json out = m_root;
-    out["bindings"] = std::move(new_bindings);
-    if (!out.contains("version")) {
-        out["version"] = 1;
+    if (!rebuilt.empty()) {
+        rebuilt += "\n    ";
     }
+
+    const std::string new_array_text = "[" + rebuilt + "]";
+    const std::string new_text = TextJson::ReplaceOrInsertTopLevelValue(m_raw_text, "bindings", new_array_text);
 
     std::error_code ec;
     std::filesystem::create_directories(m_path.parent_path(), ec);
@@ -201,7 +242,7 @@ bool HotkeysConfig::Save() const {
         LOG_ERROR(Common_Filesystem, "Failed to write {}", m_path.string());
         return false;
     }
-    file << out.dump(4);
+    file << new_text;
     return static_cast<bool>(file);
 }
 

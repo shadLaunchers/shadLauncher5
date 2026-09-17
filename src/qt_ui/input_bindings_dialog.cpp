@@ -2,18 +2,25 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <QCheckBox>
+#include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QFont>
+#include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPushButton>
+#include <QSpinBox>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
 #include "common/path_util.h"
 #include "core/input/input_ids.h"
+#include "gamepad_diagram_widget.h"
 #include "hotkeys_editor_dialog.h" // reuses KeyCaptureDialog
 #include "input_bindings_dialog.h"
+#include "qt_utils.h"
 
 namespace {
 
@@ -58,46 +65,76 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
                                    QWidget* parent)
     : QWidget(parent), m_port_number(port_number), m_config(config) {
     auto* outer = new QVBoxLayout(this);
+    outer->setContentsMargins(10, 10, 10, 10);
+    outer->setSpacing(10);
 
     m_assigned_check =
         new QCheckBox(tr("This port is assigned (edit its bindings)"), this);
+    QFont check_font = m_assigned_check->font();
+    check_font.setBold(true);
+    m_assigned_check->setFont(check_font);
     // Port 1 on by default -- the common single-player case; the person
     // turns on more as they actually use them.
     m_assigned_check->setChecked(port_number == 1);
     connect(m_assigned_check, &QCheckBox::toggled, this, &PortBindingsPage::UpdateEnabledState);
     outer->addWidget(m_assigned_check);
 
+    auto* diagram_box = new QGroupBox(tr("Layout"), this);
+    auto* diagram_layout = new QVBoxLayout(diagram_box);
+    m_diagram = new GamepadDiagramWidget(diagram_box);
+    diagram_layout->addWidget(m_diagram);
+    auto* diagram_hint = new QLabel(
+        tr("Click a control on the diagram, or pick one from the list below."), diagram_box);
+    diagram_hint->setStyleSheet("color: palette(placeholder-text);");
+    diagram_hint->setAlignment(Qt::AlignCenter);
+    diagram_layout->addWidget(diagram_hint);
+    connect(m_diagram, &GamepadDiagramWidget::OutputClicked, this,
+            [this](const QString& output) {
+                for (int i = 0; i < m_output_list->count(); i++) {
+                    auto* item = m_output_list->item(i);
+                    if (item->data(Qt::UserRole).toString() == output) {
+                        m_output_list->setCurrentRow(i);
+                        break;
+                    }
+                }
+            });
+    outer->addWidget(diagram_box);
+
     auto* main_layout = new QHBoxLayout();
+    main_layout->setSpacing(12);
 
-    auto* left_layout = new QVBoxLayout();
-    left_layout->addWidget(new QLabel(tr("Pad control"), this));
-    m_output_list = new QListWidget(this);
+    auto* output_box = new QGroupBox(tr("Pad Control"), this);
+    auto* left_layout = new QVBoxLayout(output_box);
+    m_output_list = new QListWidget(output_box);
     left_layout->addWidget(m_output_list);
-    main_layout->addLayout(left_layout, 1);
+    main_layout->addWidget(output_box, 1);
 
-    auto* right_layout = new QVBoxLayout();
-    right_layout->addWidget(new QLabel(tr("Ways to press it"), this));
-    m_bindings_list = new QListWidget(this);
+    auto* ways_box = new QGroupBox(tr("Ways to Press It"), this);
+    auto* right_layout = new QVBoxLayout(ways_box);
+    m_bindings_list = new QListWidget(ways_box);
     right_layout->addWidget(m_bindings_list);
 
-    m_hint_label = new QLabel(this);
+    m_hint_label = new QLabel(ways_box);
     m_hint_label->setWordWrap(true);
+    m_hint_label->setStyleSheet("color: palette(placeholder-text);");
     right_layout->addWidget(m_hint_label);
 
     auto* row_buttons = new QHBoxLayout();
-    m_add_btn = new QPushButton(tr("Add a way..."), this);
-    m_remove_btn = new QPushButton(tr("Remove selected"), this);
+    m_add_btn = new QPushButton(tr("Add a way..."), ways_box);
+    m_remove_btn = new QPushButton(tr("Remove selected"), ways_box);
     connect(m_add_btn, &QPushButton::clicked, this, &PortBindingsPage::OnAddWay);
     connect(m_remove_btn, &QPushButton::clicked, this, &PortBindingsPage::OnRemoveSelected);
     row_buttons->addWidget(m_add_btn);
     row_buttons->addWidget(m_remove_btn);
     right_layout->addLayout(row_buttons);
 
-    main_layout->addLayout(right_layout, 2);
+    main_layout->addWidget(ways_box, 2);
     outer->addLayout(main_layout);
 
-    connect(m_output_list, &QListWidget::currentRowChanged, this,
-            [this](int) { RefreshBindingsList(); });
+    connect(m_output_list, &QListWidget::currentRowChanged, this, [this](int) {
+        RefreshBindingsList();
+        m_diagram->SetHighlightedOutput(QString::fromStdString(CurrentOutputName()));
+    });
 
     PopulateOutputList();
     UpdateEnabledState();
@@ -254,39 +291,79 @@ InputBindingsDialog::InputBindingsDialog(QWidget* parent)
 void InputBindingsDialog::BuildUi() {
     setWindowTitle(tr("Input Bindings -- %1").arg(
         QString::fromStdString(m_config->FilePath().filename().string())));
-    resize(760, 560);
+    setWindowIcon(GUI::Utils::TintIcon(QIcon(":/images/menu/gamepad.svg"), GUI::Utils::ThemeTextColor()));
+    resize(800, 600);
 
     auto* outer = new QVBoxLayout(this);
+    outer->setContentsMargins(16, 16, 16, 16);
+    outer->setSpacing(12);
+
+    // Header: icon + title + which file this session edits.
+    auto* header = new QHBoxLayout();
+    auto* icon_label = new QLabel(this);
+    icon_label->setPixmap(
+        GUI::Utils::TintIcon(QIcon(":/images/menu/gamepad.svg"), GUI::Utils::ThemeTextColor())
+            .pixmap(32, 32));
+    header->addWidget(icon_label);
+
+    auto* title_layout = new QVBoxLayout();
+    auto* title_label = new QLabel(tr("Input Bindings"), this);
+    QFont title_font = title_label->font();
+    title_font.setPointSize(title_font.pointSize() + 4);
+    title_font.setBold(true);
+    title_label->setFont(title_font);
+    title_layout->addWidget(title_label);
+
+    auto* subtitle_label =
+        new QLabel(tr("Editing %1").arg(QString::fromStdString(m_config->FilePath().string())), this);
+    subtitle_label->setStyleSheet("color: palette(placeholder-text);");
+    title_layout->addWidget(subtitle_label);
+    header->addLayout(title_layout);
+    header->addStretch();
+    outer->addLayout(header);
 
     if (!m_config->IsLoaded()) {
-        outer->addWidget(new QLabel(
+        auto* warning = new QLabel(
             tr("Couldn't read %1 -- it may not be valid JSON. Editing is disabled to avoid "
               "overwriting whatever's actually in it.")
                 .arg(QString::fromStdString(m_config->FilePath().string())),
-            this));
+            this);
+        warning->setWordWrap(true);
+        warning->setStyleSheet("color: #E05555; font-weight: bold;");
+        outer->addWidget(warning);
     }
 
     m_tabs = new QTabWidget(this);
+    const QIcon tab_icon =
+        GUI::Utils::TintIcon(QIcon(":/images/menu/gamepad.svg"), GUI::Utils::ThemeTextColor());
     for (int port = 1; port <= 4; port++) {
         auto* page = new PortBindingsPage(port, m_config.get(), this);
         m_pages[static_cast<size_t>(port - 1)] = page;
-        m_tabs->addTab(page, tr("Port %1").arg(port));
+        m_tabs->addTab(page, tab_icon, tr("Port %1").arg(port));
         page->setEnabled(m_config->IsLoaded());
         connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshConflicts);
     }
+    m_tabs->addTab(BuildSettingsPage(), tr("Settings"));
     outer->addWidget(m_tabs, 3);
 
-    m_conflicts_summary = new QLabel(this);
+    auto* conflicts_box = new QGroupBox(tr("Conflicts"), this);
+    auto* conflicts_layout = new QVBoxLayout(conflicts_box);
+    m_conflicts_summary = new QLabel(conflicts_box);
     m_conflicts_summary->setWordWrap(true);
-    outer->addWidget(m_conflicts_summary);
-    m_conflicts_list = new QListWidget(this);
-    m_conflicts_list->setMaximumHeight(120);
-    outer->addWidget(m_conflicts_list, 1);
+    conflicts_layout->addWidget(m_conflicts_summary);
+    m_conflicts_list = new QListWidget(conflicts_box);
+    m_conflicts_list->setMaximumHeight(110);
+    m_conflicts_list->setAlternatingRowColors(true);
+    conflicts_layout->addWidget(m_conflicts_list);
+    outer->addWidget(conflicts_box, 1);
     RefreshConflicts();
 
     auto* buttons = new QHBoxLayout();
     auto* save_btn = new QPushButton(tr("Save"), this);
+    save_btn->setDefault(true);
+    save_btn->setMinimumWidth(100);
     auto* close_btn = new QPushButton(tr("Close"), this);
+    close_btn->setMinimumWidth(100);
     save_btn->setEnabled(m_config->IsLoaded());
     connect(save_btn, &QPushButton::clicked, this, &InputBindingsDialog::OnSave);
     connect(close_btn, &QPushButton::clicked, this, &QDialog::accept);
@@ -305,11 +382,13 @@ void InputBindingsDialog::RefreshConflicts() {
 
     const auto conflicts = Core::Input::FindConflicts(m_config->GetAllBindings());
     if (conflicts.empty()) {
-        m_conflicts_summary->setText(tr("No conflicts: no two bindings share the exact same "
-                                       "keys for different controls."));
+        m_conflicts_summary->setText(tr("\u2713 No conflicts: no two bindings share the exact "
+                                       "same keys for different controls."));
+        m_conflicts_summary->setStyleSheet("color: #4CAF50;");
         return;
     }
 
+    m_conflicts_summary->setStyleSheet("color: #E0A030; font-weight: bold;");
     m_conflicts_summary->setText(
         tr("%n conflict(s): these bindings press the same keys but drive different "
           "controls -- both fire together, which is probably not what you want.",
@@ -322,11 +401,13 @@ void InputBindingsDialog::RefreshConflicts() {
         }
         const QString port_text =
             c.port == 0 ? tr("every port") : tr("port %1").arg(c.port);
-        m_conflicts_list->addItem(tr("%1 vs %2: both use %3 (%4)")
-                                      .arg(QString::fromStdString(c.output_a))
-                                      .arg(QString::fromStdString(c.output_b))
-                                      .arg(keys.join(" + "))
-                                      .arg(port_text));
+        auto* item = new QListWidgetItem(tr("%1 vs %2: both use %3 (%4)")
+                                             .arg(QString::fromStdString(c.output_a))
+                                             .arg(QString::fromStdString(c.output_b))
+                                             .arg(keys.join(" + "))
+                                             .arg(port_text));
+        item->setForeground(QColor("#E0A030"));
+        m_conflicts_list->addItem(item);
     }
 }
 
@@ -338,4 +419,106 @@ void InputBindingsDialog::OnSave() {
         return;
     }
     QMessageBox::information(this, tr("Input Bindings"), tr("Saved."));
+}
+
+QWidget* InputBindingsDialog::BuildSettingsPage() {
+    auto* page = new QWidget(this);
+    auto* layout = new QVBoxLayout(page);
+
+    // --- Mouse to Joystick (section 8) ---
+    auto* mouse_box = new QGroupBox(tr("Mouse to Joystick"), page);
+    auto* mouse_form = new QFormLayout(mouse_box);
+    m_mouse_to_joystick = new QComboBox(mouse_box);
+    m_mouse_to_joystick->addItem(tr("Right stick"), QStringLiteral("right"));
+    m_mouse_to_joystick->addItem(tr("Left stick"), QStringLiteral("left"));
+    m_mouse_to_joystick->addItem(tr("Off"), QStringLiteral("none"));
+    m_mouse_deadzone_offset = new QDoubleSpinBox(mouse_box);
+    m_mouse_deadzone_offset->setRange(0.0, 1.0);
+    m_mouse_deadzone_offset->setSingleStep(0.05);
+    m_mouse_speed = new QDoubleSpinBox(mouse_box);
+    m_mouse_speed->setRange(0.01, 10.0);
+    m_mouse_speed->setSingleStep(0.1);
+    m_mouse_speed_offset = new QDoubleSpinBox(mouse_box);
+    m_mouse_speed_offset->setRange(0.0, 5.0);
+    m_mouse_speed_offset->setSingleStep(0.05);
+    mouse_form->addRow(tr("Drives:"), m_mouse_to_joystick);
+    mouse_form->addRow(tr("Deadzone offset:"), m_mouse_deadzone_offset);
+    mouse_form->addRow(tr("Speed:"), m_mouse_speed);
+    mouse_form->addRow(tr("Speed offset:"), m_mouse_speed_offset);
+    layout->addWidget(mouse_box);
+
+    bool mouse_present = false;
+    const auto mouse = m_config->GetMouseSettings(&mouse_present);
+    const int mouse_idx =
+        m_mouse_to_joystick->findData(QString::fromStdString(mouse.to_joystick));
+    m_mouse_to_joystick->setCurrentIndex(mouse_idx >= 0 ? mouse_idx : 0);
+    m_mouse_deadzone_offset->setValue(mouse.deadzone_offset);
+    m_mouse_speed->setValue(mouse.speed);
+    m_mouse_speed_offset->setValue(mouse.speed_offset);
+    if (!mouse_present) {
+        mouse_box->setTitle(tr("Mouse to Joystick (not set in this file -- showing defaults)"));
+    }
+
+    auto commit_mouse = [this] {
+        Core::Input::MouseSettings s;
+        s.to_joystick = m_mouse_to_joystick->currentData().toString().toStdString();
+        s.deadzone_offset = m_mouse_deadzone_offset->value();
+        s.speed = m_mouse_speed->value();
+        s.speed_offset = m_mouse_speed_offset->value();
+        m_config->SetMouseSettings(s);
+    };
+    connect(m_mouse_to_joystick, qOverload<int>(&QComboBox::currentIndexChanged), this, commit_mouse);
+    connect(m_mouse_deadzone_offset, qOverload<double>(&QDoubleSpinBox::valueChanged), this,
+            commit_mouse);
+    connect(m_mouse_speed, qOverload<double>(&QDoubleSpinBox::valueChanged), this, commit_mouse);
+    connect(m_mouse_speed_offset, qOverload<double>(&QDoubleSpinBox::valueChanged), this,
+            commit_mouse);
+
+    // --- Deadzones (section 8) ---
+    auto* dz_box = new QGroupBox(tr("Deadzones"), page);
+    auto* dz_form = new QFormLayout(dz_box);
+    bool dz_present = false;
+    const auto dz = m_config->GetDeadzoneSettings(&dz_present);
+    const std::array<std::pair<QString, Core::Input::DeadzoneRange>, 4> rows{{
+        {tr("Left stick"), dz.left_stick},
+        {tr("Right stick"), dz.right_stick},
+        {tr("Left trigger"), dz.left_trigger},
+        {tr("Right trigger"), dz.right_trigger},
+    }};
+    size_t spin_idx = 0;
+    for (const auto& [label, range] : rows) {
+        auto* row_layout = new QHBoxLayout();
+        auto* min_spin = new QSpinBox(dz_box);
+        min_spin->setRange(0, 255);
+        min_spin->setValue(range.min);
+        auto* max_spin = new QSpinBox(dz_box);
+        max_spin->setRange(0, 255);
+        max_spin->setValue(range.max);
+        row_layout->addWidget(new QLabel(tr("min"), dz_box));
+        row_layout->addWidget(min_spin);
+        row_layout->addWidget(new QLabel(tr("max"), dz_box));
+        row_layout->addWidget(max_spin);
+        dz_form->addRow(label, row_layout);
+        m_deadzone_spins[spin_idx++] = min_spin;
+        m_deadzone_spins[spin_idx++] = max_spin;
+    }
+    if (!dz_present) {
+        dz_box->setTitle(tr("Deadzones (not set in this file -- showing defaults)"));
+    }
+    layout->addWidget(dz_box);
+    layout->addStretch();
+
+    auto commit_deadzones = [this] {
+        Core::Input::DeadzoneSettings s;
+        s.left_stick = {m_deadzone_spins[0]->value(), m_deadzone_spins[1]->value()};
+        s.right_stick = {m_deadzone_spins[2]->value(), m_deadzone_spins[3]->value()};
+        s.left_trigger = {m_deadzone_spins[4]->value(), m_deadzone_spins[5]->value()};
+        s.right_trigger = {m_deadzone_spins[6]->value(), m_deadzone_spins[7]->value()};
+        m_config->SetDeadzoneSettings(s);
+    };
+    for (auto* spin : m_deadzone_spins) {
+        connect(spin, qOverload<int>(&QSpinBox::valueChanged), this, commit_deadzones);
+    }
+
+    return page;
 }

@@ -37,6 +37,7 @@ class QCheckBox;
 class QLabel;
 class QPushButton;
 class QTabWidget;
+class GamepadDiagramWidget;
 
 // One port's page: an output list on the left, that output's ways-to-press
 // on the right, gated by an "assigned" checkbox. Mirrors
@@ -72,6 +73,7 @@ private:
     Core::Input::BindingsConfig* m_config; // not owned
 
     QCheckBox* m_assigned_check = nullptr;
+    GamepadDiagramWidget* m_diagram = nullptr;
     QListWidget* m_output_list = nullptr;
     QListWidget* m_bindings_list = nullptr;
     QLabel* m_hint_label = nullptr;
@@ -95,10 +97,19 @@ private slots:
 
 private:
     void BuildUi();
+    QWidget* BuildSettingsPage();
 
     std::unique_ptr<Core::Input::BindingsConfig> m_config;
     QTabWidget* m_tabs = nullptr;
     std::array<PortBindingsPage*, 4> m_pages{};
     QListWidget* m_conflicts_list = nullptr;
     QLabel* m_conflicts_summary = nullptr;
+
+    // Settings tab (section 8: mouse-to-joystick and per-stick/trigger
+    // deadzones -- global.json-level settings, not per-output bindings).
+    class QComboBox* m_mouse_to_joystick = nullptr;
+    class QDoubleSpinBox* m_mouse_deadzone_offset = nullptr;
+    class QDoubleSpinBox* m_mouse_speed = nullptr;
+    class QDoubleSpinBox* m_mouse_speed_offset = nullptr;
+    std::array<class QSpinBox*, 8> m_deadzone_spins{}; // {ls_min,ls_max,rs_min,rs_max,lt_min,lt_max,rt_min,rt_max}
 };

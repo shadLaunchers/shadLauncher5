@@ -55,10 +55,10 @@ public:
     // True if hotkey_name was edited via SetBindings() this session.
     [[nodiscard]] bool IsDirty(const std::string& hotkey_name) const;
 
-    // Writes hotkeys.json: every hotkey touched by SetBindings() this
-    // session gets its entries replaced; everything else in the file (other
-    // known hotkeys never edited, and any entry whose "output" isn't one of
-    // kKnownHotkeys) is written back exactly as loaded.
+    // Writes hotkeys.json by editing its ORIGINAL TEXT in place (section 3:
+    // a full JSON re-serialize destroys every comment). Only the specific
+    // hotkey entries touched this session are replaced; every other byte
+    // of the file, comments included, survives untouched.
     bool Save() const;
 
     // Deletes hotkeys.json so the emulator regenerates all ten defaults on
@@ -71,7 +71,8 @@ public:
 
 private:
     std::filesystem::path m_path;
-    nlohmann::ordered_json m_root; // full parsed file; unknown content lives here untouched
+    std::string m_raw_text; // the file's original text, or a fresh template if it didn't exist
+    nlohmann::ordered_json m_root; // parsed from m_raw_text; used for reads only, never for Save()
     bool m_valid = false;
     std::vector<std::string> m_dirty_names;
     mutable std::map<std::string, std::vector<HotkeyBinding>> m_bindings_cache;
