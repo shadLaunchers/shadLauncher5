@@ -159,6 +159,8 @@ set(CORE src/core/user_manager.cpp
           src/core/input/hotkeys_config.h
           src/core/input/bindings_config.cpp
           src/core/input/bindings_config.h
+          src/core/input/text_preserving_json.cpp
+          src/core/input/text_preserving_json.h
 )
 
 set(FILEFORMAT src/core/file_format/param.cpp
@@ -196,6 +198,10 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/main_window.ui
           src/qt_ui/hotkeys_editor_dialog.cpp
           src/qt_ui/hotkeys_editor_dialog.h
+          src/qt_ui/input_bindings_dialog.cpp
+          src/qt_ui/input_bindings_dialog.h
+          src/qt_ui/gamepad_diagram_widget.cpp
+          src/qt_ui/gamepad_diagram_widget.h
           src/qt_ui/custom_dock_widget.h
           src/qt_ui/game_item_base.h
           src/qt_ui/game_item_base.cpp
@@ -280,8 +286,6 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/trophy_viewer.h
           src/qt_ui/zarchive_viewer_dialog.cpp
           src/qt_ui/zarchive_viewer_dialog.h
-          src/qt_ui/input_bindings_dialog.cpp
-          src/qt_ui/input_bindings_dialog.h
           ${UPDATER}
 )
 

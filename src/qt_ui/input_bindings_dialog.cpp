@@ -4,23 +4,27 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
+#include <QFileDialog>
 #include <QFont>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPainter>
 #include <QPushButton>
 #include <QSpinBox>
+#include <QStyleHints>
 #include <QTabWidget>
 #include <QVBoxLayout>
 
 #include "common/path_util.h"
 #include "core/input/input_ids.h"
+#include "game_info.h"
 #include "gamepad_diagram_widget.h"
 #include "hotkeys_editor_dialog.h" // reuses KeyCaptureDialog
 #include "input_bindings_dialog.h"
-#include "qt_utils.h"
 
 namespace {
 
@@ -53,6 +57,36 @@ void AddOutputRow(QListWidget* list, std::string_view name) {
     auto* item = new QListWidgetItem("    " + FriendlyOutputName(id));
     item->setData(Qt::UserRole, QString::fromStdString(id));
     list->addItem(item);
+}
+
+// Recolors the gamepad tab/window icon (drawn white, like every
+// images/menu/*.svg resource) so it reads against both PS5_Dark and
+// PS5_White. Self-contained rather than relying on qt_utils.h having a
+// matching helper, since that can't be assumed present in every checkout.
+QIcon TintedGamepadIcon() {
+    const QIcon source(":/images/menu/gamepad.svg");
+    const bool dark = QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;
+    const QColor color = dark ? QColor(0xF5, 0xF5, 0xF7) : QColor(0x1D, 0x1D, 0x1F);
+
+    QIcon out;
+    const QList<QSize> sizes = source.availableSizes();
+    const QList<QSize> render_sizes = sizes.isEmpty() ? QList<QSize>{QSize(64, 64)} : sizes;
+    for (const QSize& size : render_sizes) {
+        QPixmap pm = source.pixmap(size);
+        if (pm.isNull()) {
+            continue;
+        }
+        QPixmap tinted(pm.size());
+        tinted.setDevicePixelRatio(pm.devicePixelRatio());
+        tinted.fill(Qt::transparent);
+        QPainter p(&tinted);
+        p.drawPixmap(0, 0, pm);
+        p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        p.fillRect(tinted.rect(), color);
+        p.end();
+        out.addPixmap(tinted);
+    }
+    return out;
 }
 
 } // namespace
@@ -196,6 +230,15 @@ QString PortBindingsPage::DisplayChord(const std::vector<std::string>& input) {
     return parts.join(" + ");
 }
 
+void PortBindingsPage::SetGlobalOverlay(Core::Input::BindingsConfig* overlay) {
+    m_global_overlay = overlay;
+    RefreshBindingsList();
+}
+
+void PortBindingsPage::Reload() {
+    RefreshBindingsList();
+}
+
 void PortBindingsPage::RefreshBindingsList() {
     m_bindings_list->clear();
     if (!IsAssigned()) {
@@ -219,15 +262,38 @@ void PortBindingsPage::RefreshBindingsList() {
             shown++;
         }
     }
-    m_hint_label->setText(
-        shown > 0
-            ? tr("Showing this port's own bindings for %1. Bindings with no port named also "
-                "drive this port and aren't listed here.")
-                  .arg(FriendlyOutputName(name))
-            : tr("No binding scoped specifically to port %1 for %2 yet -- it may still work "
-                "via a binding that names no port.")
-                  .arg(m_port_number)
-                  .arg(FriendlyOutputName(name)));
+
+    // Section 2: the game's own file and global.json are concatenated at
+    // runtime, so global.json's bindings for this output are just as
+    // "active" as this file's own -- show them, clearly marked, even though
+    // this page can't edit them (switch the file picker to global.json for
+    // that).
+    int shown_global = 0;
+    if (m_global_overlay) {
+        for (const auto& binding : m_global_overlay->GetBindings(name)) {
+            if (binding.port == 0 || binding.port == m_port_number) {
+                auto* item = new QListWidgetItem(
+                    tr("(from global.json) %1").arg(DisplayChord(binding.input)));
+                item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
+                item->setForeground(palette().color(QPalette::PlaceholderText));
+                m_bindings_list->addItem(item);
+                shown_global++;
+            }
+        }
+    }
+
+    if (shown > 0 || shown_global > 0) {
+        m_hint_label->setText(
+            tr("Showing this port's own bindings for %1. Bindings with no port named also "
+              "drive this port and aren't listed here.")
+                .arg(FriendlyOutputName(name)));
+    } else {
+        m_hint_label->setText(
+            tr("No binding scoped specifically to port %1 for %2 yet -- it may still work "
+              "via a binding that names no port.")
+                .arg(m_port_number)
+                .arg(FriendlyOutputName(name)));
+    }
 }
 
 void PortBindingsPage::OnAddWay() {
@@ -279,8 +345,14 @@ void PortBindingsPage::OnRemoveSelected() {
 // ---------------------------------------------------------------------
 
 InputBindingsDialog::InputBindingsDialog(const std::filesystem::path& targetFile, QWidget* parent)
-    : QDialog(parent), m_config(std::make_unique<Core::Input::BindingsConfig>()) {
+    : QDialog(parent), m_global_json_path(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
+                                          "global.json"),
+      m_config(std::make_unique<Core::Input::BindingsConfig>()) {
     m_config->Load(targetFile);
+    if (targetFile != m_global_json_path) {
+        m_global_overlay = std::make_unique<Core::Input::BindingsConfig>();
+        m_global_overlay->Load(m_global_json_path);
+    }
     BuildUi();
 }
 
@@ -291,7 +363,7 @@ InputBindingsDialog::InputBindingsDialog(QWidget* parent)
 void InputBindingsDialog::BuildUi() {
     setWindowTitle(tr("Input Bindings -- %1").arg(
         QString::fromStdString(m_config->FilePath().filename().string())));
-    setWindowIcon(GUI::Utils::TintIcon(QIcon(":/images/menu/gamepad.svg"), GUI::Utils::ThemeTextColor()));
+    setWindowIcon(TintedGamepadIcon());
     resize(800, 600);
 
     auto* outer = new QVBoxLayout(this);
@@ -301,9 +373,7 @@ void InputBindingsDialog::BuildUi() {
     // Header: icon + title + which file this session edits.
     auto* header = new QHBoxLayout();
     auto* icon_label = new QLabel(this);
-    icon_label->setPixmap(
-        GUI::Utils::TintIcon(QIcon(":/images/menu/gamepad.svg"), GUI::Utils::ThemeTextColor())
-            .pixmap(32, 32));
+    icon_label->setPixmap(TintedGamepadIcon().pixmap(32, 32));
     header->addWidget(icon_label);
 
     auto* title_layout = new QVBoxLayout();
@@ -314,13 +384,26 @@ void InputBindingsDialog::BuildUi() {
     title_label->setFont(title_font);
     title_layout->addWidget(title_label);
 
-    auto* subtitle_label =
+    m_subtitle_label =
         new QLabel(tr("Editing %1").arg(QString::fromStdString(m_config->FilePath().string())), this);
-    subtitle_label->setStyleSheet("color: palette(placeholder-text);");
-    title_layout->addWidget(subtitle_label);
+    m_subtitle_label->setStyleSheet("color: palette(placeholder-text);");
+    title_layout->addWidget(m_subtitle_label);
     header->addLayout(title_layout);
     header->addStretch();
     outer->addLayout(header);
+
+    // File picker (section 2): global.json, or a specific game's own file.
+    auto* picker_row = new QHBoxLayout();
+    picker_row->addWidget(new QLabel(tr("Editing:"), this));
+    m_file_picker = new QComboBox(this);
+    picker_row->addWidget(m_file_picker, 1);
+    auto* browse_btn = new QPushButton(tr("Browse for a Game..."), this);
+    connect(browse_btn, &QPushButton::clicked, this, &InputBindingsDialog::OnBrowseForGame);
+    picker_row->addWidget(browse_btn);
+    outer->addLayout(picker_row);
+    PopulateFilePicker();
+    connect(m_file_picker, qOverload<int>(&QComboBox::currentIndexChanged), this,
+            &InputBindingsDialog::OnFilePickerChanged);
 
     if (!m_config->IsLoaded()) {
         auto* warning = new QLabel(
@@ -334,11 +417,11 @@ void InputBindingsDialog::BuildUi() {
     }
 
     m_tabs = new QTabWidget(this);
-    const QIcon tab_icon =
-        GUI::Utils::TintIcon(QIcon(":/images/menu/gamepad.svg"), GUI::Utils::ThemeTextColor());
+    const QIcon tab_icon = TintedGamepadIcon();
     for (int port = 1; port <= 4; port++) {
         auto* page = new PortBindingsPage(port, m_config.get(), this);
         m_pages[static_cast<size_t>(port - 1)] = page;
+        page->SetGlobalOverlay(m_global_overlay.get());
         m_tabs->addTab(page, tab_icon, tr("Port %1").arg(port));
         page->setEnabled(m_config->IsLoaded());
         connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshConflicts);
@@ -380,7 +463,15 @@ void InputBindingsDialog::RefreshConflicts() {
         return;
     }
 
-    const auto conflicts = Core::Input::FindConflicts(m_config->GetAllBindings());
+    // Section 2: the game's own file and global.json are concatenated at
+    // runtime, so a real conflict can exist only once both are merged --
+    // checking this file alone would miss it.
+    auto all = m_config->GetAllBindings();
+    if (m_global_overlay && m_global_overlay->IsLoaded()) {
+        auto global_bindings = m_global_overlay->GetAllBindings();
+        all.insert(all.end(), global_bindings.begin(), global_bindings.end());
+    }
+    const auto conflicts = Core::Input::FindConflicts(all);
     if (conflicts.empty()) {
         m_conflicts_summary->setText(tr("\u2713 No conflicts: no two bindings share the exact "
                                        "same keys for different controls."));
@@ -419,6 +510,120 @@ void InputBindingsDialog::OnSave() {
         return;
     }
     QMessageBox::information(this, tr("Input Bindings"), tr("Saved."));
+}
+
+void InputBindingsDialog::PopulateFilePicker() {
+    m_file_picker->blockSignals(true);
+    m_file_picker->clear();
+    m_file_picker->addItem(tr("Global (global.json)"),
+                           QString::fromStdString(m_global_json_path.string()));
+
+    // List games that already have a custom file -- game_list_frame.cpp
+    // checks for exactly this: CustomInputConfigs / "<serial>.json".
+    const auto configs_dir = Common::FS::GetUserPath(Common::FS::PathType::CustomInputConfigs);
+    std::error_code ec;
+    if (std::filesystem::exists(configs_dir, ec) && !ec) {
+        for (const auto& entry : std::filesystem::directory_iterator(configs_dir, ec)) {
+            if (entry.path().extension() != ".json") {
+                continue;
+            }
+            const QString serial = QString::fromStdString(entry.path().stem().string());
+            m_file_picker->addItem(tr("Game: %1").arg(serial),
+                                   QString::fromStdString(entry.path().string()));
+        }
+    }
+
+    // Select whichever the dialog is currently editing.
+    const QString current_path = QString::fromStdString(m_config->FilePath().string());
+    const int idx = m_file_picker->findData(current_path);
+    if (idx >= 0) {
+        m_file_picker->setCurrentIndex(idx);
+    } else {
+        // Editing a game with no file yet (picked via Browse, or a fresh
+        // per-game path passed to the constructor) -- add it so the picker
+        // reflects reality instead of silently defaulting to something else.
+        const QString label =
+            m_config->FilePath() == m_global_json_path
+                ? tr("Global (global.json)")
+                : tr("Game: %1").arg(QString::fromStdString(m_config->FilePath().stem().string()));
+        m_file_picker->addItem(label, current_path);
+        m_file_picker->setCurrentIndex(m_file_picker->count() - 1);
+    }
+    m_file_picker->blockSignals(false);
+}
+
+void InputBindingsDialog::OnFilePickerChanged(int index) {
+    if (index < 0) {
+        return;
+    }
+    const std::filesystem::path path =
+        Common::FS::PathFromQString(m_file_picker->itemData(index).toString());
+    if (path == m_config->FilePath()) {
+        return;
+    }
+    SwitchTarget(path);
+}
+
+void InputBindingsDialog::OnBrowseForGame() {
+    const QString dir = QFileDialog::getExistingDirectory(this, tr("Select a Game Folder"));
+    if (dir.isEmpty()) {
+        return;
+    }
+    const GameInfo info = GameInfoTools::readGameInfo(Common::FS::PathFromQString(dir));
+    if (info.serial.empty()) {
+        QMessageBox::warning(this, tr("Input Bindings"),
+                             tr("Couldn't read a title ID from that folder."));
+        return;
+    }
+    const auto target =
+        Common::FS::GetUserPath(Common::FS::PathType::CustomInputConfigs) / (info.serial + ".json");
+    SwitchTarget(target);
+}
+
+void InputBindingsDialog::SwitchTarget(const std::filesystem::path& path) {
+    m_config->Load(path);
+    if (path != m_global_json_path) {
+        if (!m_global_overlay) {
+            m_global_overlay = std::make_unique<Core::Input::BindingsConfig>();
+        }
+        m_global_overlay->Load(m_global_json_path);
+    } else {
+        m_global_overlay.reset();
+    }
+
+    setWindowTitle(
+        tr("Input Bindings -- %1").arg(QString::fromStdString(path.filename().string())));
+    m_subtitle_label->setText(tr("Editing %1").arg(QString::fromStdString(path.string())));
+
+    for (auto* page : m_pages) {
+        page->SetGlobalOverlay(m_global_overlay.get());
+        page->setEnabled(m_config->IsLoaded());
+        page->Reload();
+    }
+    ReloadSettingsTab();
+    RefreshConflicts();
+    PopulateFilePicker();
+}
+
+void InputBindingsDialog::ReloadSettingsTab() {
+    bool mouse_present = false;
+    const auto mouse = m_config->GetMouseSettings(&mouse_present);
+    const int mouse_idx = m_mouse_to_joystick->findData(QString::fromStdString(mouse.to_joystick));
+    m_mouse_to_joystick->setCurrentIndex(mouse_idx >= 0 ? mouse_idx : 0);
+    m_mouse_deadzone_offset->setValue(mouse.deadzone_offset);
+    m_mouse_speed->setValue(mouse.speed);
+    m_mouse_speed_offset->setValue(mouse.speed_offset);
+
+    bool dz_present = false;
+    const auto dz = m_config->GetDeadzoneSettings(&dz_present);
+    m_deadzone_spins[0]->setValue(dz.left_stick.min);
+    m_deadzone_spins[1]->setValue(dz.left_stick.max);
+    m_deadzone_spins[2]->setValue(dz.right_stick.min);
+    m_deadzone_spins[3]->setValue(dz.right_stick.max);
+    m_deadzone_spins[4]->setValue(dz.left_trigger.min);
+    m_deadzone_spins[5]->setValue(dz.left_trigger.max);
+    m_deadzone_spins[6]->setValue(dz.right_trigger.min);
+    m_deadzone_spins[7]->setValue(dz.right_trigger.max);
 }
 
 QWidget* InputBindingsDialog::BuildSettingsPage() {

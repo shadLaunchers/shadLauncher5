@@ -27,6 +27,7 @@
 #include "game_list_frame.h"
 #include "gui_settings.h"
 #include "hotkeys_editor_dialog.h"
+#include "input_bindings_dialog.h"
 #include "main_window.h"
 #include "progress_dialog.h"
 #include "qt_ui/check_update.h"
@@ -200,6 +201,11 @@ void MainWindow::createConnects() {
 
     connect(ui->actionHotkeys, &QAction::triggered, this, [this] {
         HotkeysEditorDialog dialog(this);
+        dialog.exec();
+    });
+
+    connect(ui->actionInputBindings, &QAction::triggered, this, [this] {
+        InputBindingsDialog dialog(this);
         dialog.exec();
     });
 

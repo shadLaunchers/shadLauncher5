@@ -203,6 +203,7 @@
     <addaction name="actionExport_GameList"/>
     <addaction name="actionReset_Custom_Titles"/>
     <addaction name="actionHotkeys"/>
+    <addaction name="actionInputBindings"/>
     <addaction name="actionSetup_Wizard"/>
    </widget>
    <widget class="QMenu" name="menuView">
@@ -728,6 +729,14 @@
    </property>
    <property name="toolTip">
     <string>Rebind the emulator's keyboard, mouse, and pad hotkeys</string>
+   </property>
+  </action>
+  <action name="actionInputBindings">
+   <property name="text">
+    <string>Input Bindings...</string>
+   </property>
+   <property name="toolTip">
+    <string>Rebind pad controls per port, for global.json or a specific game</string>
    </property>
   </action>
   <action name="actionConfigPaths">
