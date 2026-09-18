@@ -9,6 +9,7 @@
 #include "common/logging/log.h"
 #include "common/path_util.h"
 #include "hotkeys_config.h"
+#include "input_ids.h"
 #include "text_preserving_json.h"
 
 namespace Core::Input {
@@ -257,6 +258,94 @@ bool HotkeysConfig::ResetToDefaults() {
         return false;
     }
     return Load();
+}
+
+std::vector<std::string> HotkeysConfig::Validate() const {
+    std::vector<std::string> warnings;
+    if (!m_valid || !m_root.contains("bindings") || !m_root["bindings"].is_array()) {
+        return warnings;
+    }
+
+    size_t index = 0;
+    for (const auto& entry : m_root["bindings"]) {
+        const std::string tag = "Entry #" + std::to_string(index++);
+
+        if (!entry.is_object()) {
+            warnings.push_back(tag + " isn't a JSON object, ignored.");
+            continue;
+        }
+        const auto output_it = entry.find("output");
+        if (output_it == entry.end() || !output_it->is_string() ||
+            output_it->get<std::string>().empty()) {
+            warnings.push_back(tag + " has no usable \"output\" name, ignored.");
+            continue;
+        }
+        const std::string hotkey_name = output_it->get<std::string>();
+        bool is_known = false;
+        for (const auto& h : kKnownHotkeys) {
+            if (h.name == hotkey_name) {
+                is_known = true;
+                break;
+            }
+        }
+        if (!is_known) {
+            warnings.push_back(tag + ": \"" + hotkey_name +
+                              "\" isn't one of the ten hotkeys this build knows -- kept as-is, "
+                              "but not shown in the editor.");
+        }
+
+        const auto input_it = entry.find("input");
+        if (input_it == entry.end()) {
+            warnings.push_back(tag + " (\"" + hotkey_name + "\") has no \"input\", ignored.");
+            continue;
+        }
+        std::vector<std::string> names;
+        if (input_it->is_string()) {
+            names.push_back(input_it->get<std::string>());
+        } else if (input_it->is_array()) {
+            for (const auto& v : *input_it) {
+                if (v.is_string()) {
+                    names.push_back(v.get<std::string>());
+                }
+            }
+            if (names.empty()) {
+                warnings.push_back(tag + " (\"" + hotkey_name +
+                                  "\") has an empty or unusable \"input\" array, ignored.");
+                continue;
+            }
+            if (names.size() > 3) {
+                warnings.push_back(tag + " (\"" + hotkey_name + "\") has more than 3 keys; "
+                                                                 "only the first 3 are kept.");
+            }
+        } else {
+            warnings.push_back(tag + " (\"" + hotkey_name +
+                              "\") has an \"input\" that's neither a string nor an array, "
+                              "ignored.");
+            continue;
+        }
+        for (const auto& name : names) {
+            if (name != "unmapped" && !IsKnownInput(name)) {
+                warnings.push_back(tag + " (\"" + hotkey_name + "\"): input \"" + name +
+                                  "\" isn't a name this build recognizes.");
+            }
+        }
+
+        if (const auto gp_it = entry.find("gamepad"); gp_it != entry.end()) {
+            if (!gp_it->is_number_integer()) {
+                warnings.push_back(tag + " (\"" + hotkey_name +
+                                  "\"): \"gamepad\" isn't an integer, ignored.");
+            } else {
+                const int gp = gp_it->get<int>();
+                if (gp < 1 || gp > 4) {
+                    warnings.push_back(tag + " (\"" + hotkey_name + "\"): \"gamepad\" " +
+                                      std::to_string(gp) + " is outside 1-4, clamped to " +
+                                      std::to_string(std::clamp(gp, 1, 4)) + ".");
+                }
+            }
+        }
+    }
+
+    return warnings;
 }
 
 } // namespace Core::Input

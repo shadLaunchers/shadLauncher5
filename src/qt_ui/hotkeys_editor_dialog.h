@@ -80,12 +80,14 @@ public:
 private slots:
     void OnAddWay();
     void OnRemoveSelected();
+    void OnSetUnmapped();
     void OnResetToDefaults();
     void OnSave();
 
 private:
     void PopulateHotkeyList();
     void RefreshBindingsList();
+    void RefreshProblemsList();
     // The hotkey name currently selected in the left-hand list, or empty.
     [[nodiscard]] std::string CurrentHotkeyName() const;
     [[nodiscard]] static QString DisplayChord(const std::vector<std::string>& input);
@@ -93,6 +95,7 @@ private:
     QListWidget* m_hotkey_list = nullptr;
     QListWidget* m_bindings_list = nullptr;
     QLabel* m_default_label = nullptr;
+    QListWidget* m_problems_list = nullptr;
 
     std::unique_ptr<Core::Input::HotkeysConfig> m_config;
 };

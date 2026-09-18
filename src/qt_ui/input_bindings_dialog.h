@@ -75,6 +75,7 @@ signals:
 private slots:
     void OnAddWay();
     void OnRemoveSelected();
+    void OnSetUnmapped();
 
 private:
     void PopulateOutputList();
@@ -93,6 +94,7 @@ private:
     QListWidget* m_bindings_list = nullptr;
     QLabel* m_hint_label = nullptr;
     QPushButton* m_add_btn = nullptr;
+    QPushButton* m_unmapped_btn = nullptr;
     QPushButton* m_remove_btn = nullptr;
 };
 
@@ -110,6 +112,7 @@ public:
 private slots:
     void OnSave();
     void RefreshConflicts();
+    void RefreshProblemsList();
     void OnFilePickerChanged(int index);
     void OnBrowseForGame();
 
@@ -133,6 +136,7 @@ private:
     std::array<PortBindingsPage*, 4> m_pages{};
     QListWidget* m_conflicts_list = nullptr;
     QLabel* m_conflicts_summary = nullptr;
+    QListWidget* m_problems_list = nullptr;
 
     // Settings tab (section 8: mouse-to-joystick and per-stick/trigger
     // deadzones -- global.json-level settings, not per-output bindings).

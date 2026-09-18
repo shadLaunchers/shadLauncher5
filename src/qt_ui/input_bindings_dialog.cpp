@@ -155,10 +155,13 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
 
     auto* row_buttons = new QHBoxLayout();
     m_add_btn = new QPushButton(tr("Add a way..."), ways_box);
+    m_unmapped_btn = new QPushButton(tr("Set to Unmapped"), ways_box);
     m_remove_btn = new QPushButton(tr("Remove selected"), ways_box);
     connect(m_add_btn, &QPushButton::clicked, this, &PortBindingsPage::OnAddWay);
+    connect(m_unmapped_btn, &QPushButton::clicked, this, &PortBindingsPage::OnSetUnmapped);
     connect(m_remove_btn, &QPushButton::clicked, this, &PortBindingsPage::OnRemoveSelected);
     row_buttons->addWidget(m_add_btn);
+    row_buttons->addWidget(m_unmapped_btn);
     row_buttons->addWidget(m_remove_btn);
     right_layout->addLayout(row_buttons);
 
@@ -210,6 +213,7 @@ void PortBindingsPage::UpdateEnabledState() {
     m_output_list->setEnabled(enabled);
     m_bindings_list->setEnabled(enabled);
     m_add_btn->setEnabled(enabled);
+    m_unmapped_btn->setEnabled(enabled);
     m_remove_btn->setEnabled(enabled);
     RefreshBindingsList();
 }
@@ -311,6 +315,34 @@ void PortBindingsPage::OnAddWay() {
     new_binding.port = m_port_number;
     bindings.push_back(new_binding);
     m_config->SetBindings(name, bindings);
+    RefreshBindingsList();
+    emit BindingsChanged();
+}
+
+void PortBindingsPage::OnSetUnmapped() {
+    const std::string name = CurrentOutputName();
+    if (name.empty()) {
+        return;
+    }
+    // section 6: "unmapped" writes "deliberately unbound" without just
+    // deleting every way to press it -- it never matches an event, so it
+    // can't ever conflict with anything either. This replaces every OTHER
+    // port's bindings too (same as OnAddWay effectively does by fully
+    // replacing this output's list scoped to this port): only this port's
+    // entries are touched, other ports' bindings for the same output are
+    // left as they were.
+    auto bindings = m_config->GetBindings(name);
+    std::vector<Core::Input::PortedBinding> kept;
+    for (auto& b : bindings) {
+        if (b.port != m_port_number) {
+            kept.push_back(std::move(b));
+        }
+    }
+    Core::Input::PortedBinding unmapped;
+    unmapped.input = {"unmapped"};
+    unmapped.port = m_port_number;
+    kept.push_back(unmapped);
+    m_config->SetBindings(name, kept);
     RefreshBindingsList();
     emit BindingsChanged();
 }
@@ -425,6 +457,7 @@ void InputBindingsDialog::BuildUi() {
         m_tabs->addTab(page, tab_icon, tr("Port %1").arg(port));
         page->setEnabled(m_config->IsLoaded());
         connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshConflicts);
+        connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshProblemsList);
     }
     m_tabs->addTab(BuildSettingsPage(), tr("Settings"));
     outer->addWidget(m_tabs, 3);
@@ -440,6 +473,14 @@ void InputBindingsDialog::BuildUi() {
     conflicts_layout->addWidget(m_conflicts_list);
     outer->addWidget(conflicts_box, 1);
     RefreshConflicts();
+
+    auto* problems_box = new QGroupBox(tr("Problems"), this);
+    auto* problems_layout = new QVBoxLayout(problems_box);
+    m_problems_list = new QListWidget(problems_box);
+    m_problems_list->setMaximumHeight(90);
+    problems_layout->addWidget(m_problems_list);
+    outer->addWidget(problems_box);
+    RefreshProblemsList();
 
     auto* buttons = new QHBoxLayout();
     auto* save_btn = new QPushButton(tr("Save"), this);
@@ -499,6 +540,21 @@ void InputBindingsDialog::RefreshConflicts() {
                                              .arg(port_text));
         item->setForeground(QColor("#E0A030"));
         m_conflicts_list->addItem(item);
+    }
+}
+
+void InputBindingsDialog::RefreshProblemsList() {
+    m_problems_list->clear();
+    if (!m_config->IsLoaded()) {
+        return;
+    }
+    for (const auto& w : m_config->Validate()) {
+        m_problems_list->addItem(QString::fromStdString(w));
+    }
+    if (m_global_overlay && m_global_overlay->IsLoaded()) {
+        for (const auto& w : m_global_overlay->Validate()) {
+            m_problems_list->addItem(tr("(global.json) %1").arg(QString::fromStdString(w)));
+        }
     }
 }
 
@@ -602,6 +658,7 @@ void InputBindingsDialog::SwitchTarget(const std::filesystem::path& path) {
     }
     ReloadSettingsTab();
     RefreshConflicts();
+    RefreshProblemsList();
     PopulateFilePicker();
 }
 

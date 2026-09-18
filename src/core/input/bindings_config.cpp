@@ -9,6 +9,7 @@
 
 #include "bindings_config.h"
 #include "common/logging/log.h"
+#include "input_ids.h"
 #include "text_preserving_json.h"
 
 namespace Core::Input {
@@ -502,6 +503,91 @@ std::vector<BindingConflict> FindConflicts(const std::vector<BindingsConfig::Fla
     }
 
     return conflicts;
+}
+
+std::vector<std::string> BindingsConfig::Validate() const {
+    std::vector<std::string> warnings;
+    if (!m_valid || !m_root.contains("bindings") || !m_root["bindings"].is_array()) {
+        return warnings;
+    }
+
+    size_t index = 0;
+    for (const auto& entry : m_root["bindings"]) {
+        const std::string tag = "Entry #" + std::to_string(index++);
+
+        if (!entry.is_object()) {
+            warnings.push_back(tag + " isn't a JSON object, ignored.");
+            continue;
+        }
+        const auto output_it = entry.find("output");
+        if (output_it == entry.end() || !output_it->is_string() ||
+            output_it->get<std::string>().empty()) {
+            warnings.push_back(tag + " has no usable \"output\" name, ignored.");
+            continue;
+        }
+        const std::string raw_output = output_it->get<std::string>();
+        const auto [base_output, output_port] = SplitPortSuffix(raw_output);
+        if (base_output != raw_output && output_port == 0 && raw_output.rfind(':') != std::string::npos) {
+            warnings.push_back(tag + " (\"" + raw_output +
+                              "\"): the \":n\" port suffix isn't a number, ignored.");
+        }
+        if (!IsKnownPadControlOutput(base_output)) {
+            warnings.push_back(tag + ": output \"" + base_output +
+                              "\" isn't a pad control this build recognizes.");
+        }
+
+        const auto input_it = entry.find("input");
+        if (input_it == entry.end()) {
+            warnings.push_back(tag + " (\"" + base_output + "\") has no \"input\", ignored.");
+            continue;
+        }
+        std::vector<std::string> names;
+        if (input_it->is_string()) {
+            names.push_back(SplitPortSuffix(input_it->get<std::string>()).first);
+        } else if (input_it->is_array()) {
+            for (const auto& v : *input_it) {
+                if (v.is_string()) {
+                    names.push_back(v.get<std::string>());
+                }
+            }
+            if (names.empty()) {
+                warnings.push_back(tag + " (\"" + base_output +
+                                  "\") has an empty or unusable \"input\" array, ignored.");
+                continue;
+            }
+            if (names.size() > 3) {
+                warnings.push_back(tag + " (\"" + base_output + "\") has more than 3 keys; "
+                                                                  "only the first 3 are kept.");
+            }
+        } else {
+            warnings.push_back(tag + " (\"" + base_output +
+                              "\") has an \"input\" that's neither a string nor an array, "
+                              "ignored.");
+            continue;
+        }
+        for (const auto& name : names) {
+            if (name != "unmapped" && !IsKnownInput(name)) {
+                warnings.push_back(tag + " (\"" + base_output + "\"): input \"" + name +
+                                  "\" isn't a name this build recognizes.");
+            }
+        }
+
+        if (const auto gp_it = entry.find("gamepad"); gp_it != entry.end()) {
+            if (!gp_it->is_number_integer()) {
+                warnings.push_back(tag + " (\"" + base_output +
+                                  "\"): \"gamepad\" isn't an integer, ignored.");
+            } else {
+                const int gp = gp_it->get<int>();
+                if (gp < 1 || gp > 4) {
+                    warnings.push_back(tag + " (\"" + base_output + "\"): \"gamepad\" " +
+                                      std::to_string(gp) + " is outside 1-4, clamped to " +
+                                      std::to_string(std::clamp(gp, 1, 4)) + ".");
+                }
+            }
+        }
+    }
+
+    return warnings;
 }
 
 } // namespace Core::Input

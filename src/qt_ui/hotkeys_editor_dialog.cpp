@@ -4,12 +4,16 @@
 #include <algorithm>
 
 #include <QFont>
+#include <QGroupBox>
+#include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QKeyEvent>
 #include <QLabel>
 #include <QMessageBox>
 #include <QMouseEvent>
+#include <QPainter>
 #include <QPushButton>
+#include <QStyleHints>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -17,6 +21,37 @@
 #include "hotkeys_editor_dialog.h"
 
 namespace {
+
+// Recolors the gamepad icon (drawn white, like every images/menu/*.svg
+// resource) so it reads against both PS5_Dark and PS5_White. Self-contained
+// rather than relying on qt_utils.h having a matching helper, since that
+// can't be assumed present in every checkout (see input_bindings_dialog.cpp,
+// which has the same helper for the same reason).
+QIcon TintedGamepadIcon() {
+    const QIcon source(":/images/menu/gamepad.svg");
+    const bool dark = QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;
+    const QColor color = dark ? QColor(0xF5, 0xF5, 0xF7) : QColor(0x1D, 0x1D, 0x1F);
+
+    QIcon out;
+    const QList<QSize> sizes = source.availableSizes();
+    const QList<QSize> render_sizes = sizes.isEmpty() ? QList<QSize>{QSize(64, 64)} : sizes;
+    for (const QSize& size : render_sizes) {
+        QPixmap pm = source.pixmap(size);
+        if (pm.isNull()) {
+            continue;
+        }
+        QPixmap tinted(pm.size());
+        tinted.setDevicePixelRatio(pm.devicePixelRatio());
+        tinted.fill(Qt::transparent);
+        QPainter p(&tinted);
+        p.drawPixmap(0, 0, pm);
+        p.setCompositionMode(QPainter::CompositionMode_SourceIn);
+        p.fillRect(tinted.rect(), color);
+        p.end();
+        out.addPixmap(tinted);
+    }
+    return out;
+}
 
 QString FriendlyHotkeyName(const std::string& id) {
     // "hotkey_toggle_mouse_to_joystick" -> "Toggle Mouse To Joystick"
@@ -56,12 +91,18 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent) : QDialog(parent) {
     instructions->setWordWrap(true);
     layout->addWidget(instructions);
 
+    auto* pad_row = new QHBoxLayout();
+    auto* pad_icon = new QLabel(this);
+    pad_icon->setPixmap(TintedGamepadIcon().pixmap(20, 20));
+    pad_row->addStretch();
+    pad_row->addWidget(pad_icon);
     m_gamepad_label = new QLabel(this);
-    m_gamepad_label->setAlignment(Qt::AlignCenter);
     m_gamepad_label->setText(m_gamepad ? tr("Pad detected: %1").arg(
                                              QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
                                        : tr("No pad detected"));
-    layout->addWidget(m_gamepad_label);
+    pad_row->addWidget(m_gamepad_label);
+    pad_row->addStretch();
+    layout->addLayout(pad_row);
 
     m_preview_label = new QLabel(tr("(nothing captured yet)"), this);
     m_preview_label->setAlignment(Qt::AlignCenter);
@@ -402,15 +443,25 @@ HotkeysEditorDialog::HotkeysEditorDialog(QWidget* parent)
 
     auto* row_buttons = new QHBoxLayout();
     auto* add_btn = new QPushButton(tr("Add a way..."), this);
+    auto* unmapped_btn = new QPushButton(tr("Set to Unmapped"), this);
     auto* remove_btn = new QPushButton(tr("Remove selected"), this);
     connect(add_btn, &QPushButton::clicked, this, &HotkeysEditorDialog::OnAddWay);
+    connect(unmapped_btn, &QPushButton::clicked, this, &HotkeysEditorDialog::OnSetUnmapped);
     connect(remove_btn, &QPushButton::clicked, this, &HotkeysEditorDialog::OnRemoveSelected);
     row_buttons->addWidget(add_btn);
+    row_buttons->addWidget(unmapped_btn);
     row_buttons->addWidget(remove_btn);
     right_layout->addLayout(row_buttons);
 
     main_layout->addLayout(right_layout, 2);
     outer->addLayout(main_layout);
+
+    auto* problems_box = new QGroupBox(tr("Problems"), this);
+    auto* problems_layout = new QVBoxLayout(problems_box);
+    m_problems_list = new QListWidget(this);
+    m_problems_list->setMaximumHeight(90);
+    problems_layout->addWidget(m_problems_list);
+    outer->addWidget(problems_box);
 
     auto* bottom_buttons = new QHBoxLayout();
     auto* reset_btn = new QPushButton(tr("Reset All to Defaults..."), this);
@@ -432,6 +483,7 @@ HotkeysEditorDialog::HotkeysEditorDialog(QWidget* parent)
     if (m_hotkey_list->count() > 0) {
         m_hotkey_list->setCurrentRow(0);
     }
+    RefreshProblemsList();
 }
 
 void HotkeysEditorDialog::PopulateHotkeyList() {
@@ -489,6 +541,22 @@ void HotkeysEditorDialog::OnAddWay() {
     bindings.push_back(new_binding);
     m_config->SetBindings(name, bindings);
     RefreshBindingsList();
+    RefreshProblemsList();
+}
+
+void HotkeysEditorDialog::OnSetUnmapped() {
+    const std::string name = CurrentHotkeyName();
+    if (name.empty()) {
+        return;
+    }
+    // section 6: "unmapped" is how you write "deliberately unbound" without
+    // just deleting every way to press it -- it never matches an event, so
+    // it can't ever conflict with anything either.
+    Core::Input::HotkeyBinding binding;
+    binding.input = {"unmapped"};
+    m_config->SetBindings(name, {binding});
+    RefreshBindingsList();
+    RefreshProblemsList();
 }
 
 void HotkeysEditorDialog::OnRemoveSelected() {
@@ -504,6 +572,15 @@ void HotkeysEditorDialog::OnRemoveSelected() {
     bindings.erase(bindings.begin() + row);
     m_config->SetBindings(name, bindings);
     RefreshBindingsList();
+    RefreshProblemsList();
+}
+
+void HotkeysEditorDialog::RefreshProblemsList() {
+    m_problems_list->clear();
+    const auto warnings = m_config->Validate();
+    for (const auto& w : warnings) {
+        m_problems_list->addItem(QString::fromStdString(w));
+    }
 }
 
 void HotkeysEditorDialog::OnResetToDefaults() {
@@ -520,6 +597,7 @@ void HotkeysEditorDialog::OnResetToDefaults() {
         return;
     }
     RefreshBindingsList();
+    RefreshProblemsList();
 }
 
 void HotkeysEditorDialog::OnSave() {

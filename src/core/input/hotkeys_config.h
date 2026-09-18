@@ -65,6 +65,12 @@ public:
     // its next launch. Returns true if the file didn't exist or was removed.
     bool ResetToDefaults();
 
+    // section 9's validation table, applied to this session's current
+    // state. Every skip/clamp/truncate this class already does silently
+    // while parsing is real behavior -- this just also produces a
+    // human-readable reason for each one.
+    [[nodiscard]] std::vector<std::string> Validate() const;
+
     [[nodiscard]] const std::filesystem::path& FilePath() const {
         return m_path;
     }
