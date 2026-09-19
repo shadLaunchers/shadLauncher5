@@ -18,6 +18,21 @@ struct User {
     std::string device_guid = "";
     std::string device_serial = "";
     std::string device_path = "";
+    // Carried, not used here. The emulator's copy of this struct has them
+    // (src/core/user_manager.h, "kept ... so that users.json stays
+    // interchangeable with shadPS4's") and writes them into users.json. A
+    // field missing from the serializer below is not merely unread -- it is
+    // dropped on the next Save(), so leaving these out meant every launcher
+    // save quietly reset the ShadNet account and the NP profile of every user.
+    std::string shadnet_npid = "";
+    std::string shadnet_password = "";
+    std::string shadnet_token = "";
+    std::string shadnet_email = "";
+    bool shadnet_enabled = false;
+    std::string np_country = "us";               // ISO 3166-1 alpha-2
+    std::string np_language = "en";              // ISO 639-1
+    u8 np_age = 30;                              // 0..127
+    std::string np_date_of_birth = "1994-01-01"; // ISO 8601 "YYYY-MM-DD"
 };
 
 struct Users {
@@ -26,8 +41,14 @@ struct Users {
 };
 
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(User, user_id, user_color, user_name, player_index,
-                                                device_guid, device_serial, device_path)
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(Users, user, commit_hash)
+                                                device_guid, device_serial, device_path,
+                                                shadnet_npid, shadnet_password, shadnet_token,
+                                                shadnet_email, shadnet_enabled, np_country,
+                                                np_language, np_age, np_date_of_birth)
+// WITH_DEFAULT, like the emulator's: the plain macro throws when a key is
+// missing, so a users.json without "commit_hash" -- one the emulator is
+// perfectly happy to read -- would fail to load here.
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE_WITH_DEFAULT(Users, user, commit_hash)
 
 using LoggedInUsers = std::array<User*, 4>;
 

@@ -24,31 +24,38 @@
 
 namespace Core::Input {
 
-// Which of section 5's three spellings named this binding's port. Kept so a
-// rewrite re-emits the shape the file already used instead of collapsing all
-// three into "gamepad" -- an output-side ":n" and a "gamepad" field answer
-// different questions (whose output fires, vs which device may press it), so
-// silently converting one into the other changes what the emulator does.
-enum class PortSource {
-    None,         // no port named anywhere -- belongs to every port
-    OutputSuffix, // "output": "cross:2"
-    GamepadField, // "gamepad": 2
-    InputSuffix,  // "input": "cross:2"
-};
-
+// A binding's three port fields, held separately because they are three
+// different questions and the emulator reads them as three (ReadBinding in
+// src/core/input/input_config.cpp). Collapsing them into one "port" loses
+// information and, worse, converts one spelling into another: an output-side
+// ":n" says *whose pad fires*, while a "gamepad" field and the input side's
+// own ":n" say *which device may press it*, leaving the pad on player 1.
+//
+// Each is 1-4, or 0 for "the file did not name this one".
 struct PortedBinding {
     std::vector<std::string> input; // 1-3 input names, held together
-    // 0 = binding names no port ("belongs to every port", section 5's
-    // default). 1-4 = this binding is scoped to one port. A binding the
-    // editor creates itself leaves port_source at None and is written with
-    // a "gamepad" field; one loaded from a file keeps whichever spelling it
-    // arrived in.
-    int port = 0;
-    PortSource port_source = PortSource::None;
-    // The input side's own ":n" suffix, independent of `port` -- this is
-    // what lets the worked example in section 10 (one player's device
-    // driving another player's output) survive a round-trip. 0 = none.
-    int input_port = 0;
+
+    int output_port = 0;   // "output": "cross:2"
+    int input_port = 0;    // "input": "cross:2"
+    int gamepad_field = 0; // "gamepad": 2
+
+    // Whose pad this binding drives. 0 means every player: the engine builds
+    // one copy per player, and since an event carries exactly one port only
+    // one copy can match. A binding that named a port on the *input* side
+    // alone is not multiplied, so its pad falls back to player 1.
+    [[nodiscard]] int OutputPlayer() const {
+        if (output_port != 0) {
+            return output_port;
+        }
+        return InputDevice() == 0 ? 0 : 1;
+    }
+
+    // Which player's device may press it, 0 for any. An explicit "gamepad"
+    // field wins over the input side's suffix, which is the emulator's own
+    // precedence.
+    [[nodiscard]] int InputDevice() const {
+        return gamepad_field != 0 ? gamepad_field : input_port;
+    }
 };
 
 // section 8: applies while mouse-to-joystick is switched on.
@@ -156,7 +163,7 @@ struct BindingConflict {
     std::string output_a;
     std::string output_b;
     std::vector<std::string> keys; // the exact chord both share
-    // The port this collides at, or 0 if it's every port (both bindings
+    // The player this collides on, or 0 if it's every player (both bindings
     // name no port, so the engine's per-port copies collide everywhere).
     int port = 0;
 };

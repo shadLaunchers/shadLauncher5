@@ -16,23 +16,38 @@ namespace Core::Input {
 
 namespace {
 
-// Splits "cross:2" into ("cross", 2); "cross" into ("cross", 0). A ":n" that
-// isn't a number is ignored per input-bindings.md section 9 ("':n' suffix is
-// not a number -> ignores the suffix, warns").
-std::pair<std::string, int> SplitPortSuffix(const std::string& value) {
+// Splits "cross:2" into ("cross", 2) and "cross" into ("cross", nothing). A
+// ":n" that isn't a number is ignored per input-bindings.md section 9 ("':n'
+// suffix is not a number -> ignores the suffix, warns").
+//
+// The result is optional rather than 0-for-absent because the emulator's own
+// SplitGamepadId is, and section 5 is explicit that the two differ: "`0` is
+// below the range, not 'unspecified': it becomes port 1." Reading "cross:0" as
+// "named no port" would have shown it as every player's, when the emulator
+// gives it to player 1 alone.
+std::pair<std::string, std::optional<int>> SplitPortSuffix(const std::string& value) {
     const auto colon = value.rfind(':');
     if (colon == std::string::npos) {
-        return {value, 0};
+        return {value, std::nullopt};
     }
+    // The name is stripped at the colon either way, which is what the
+    // emulator's SplitGamepadId does: a suffix it can't read is dropped and
+    // the binding kept, not turned into an output called "l1:two" that no
+    // table knows.
+    std::string name = value.substr(0, colon);
     const std::string suffix = value.substr(colon + 1);
     if (suffix.empty() ||
         !std::all_of(suffix.begin(), suffix.end(), [](char c) { return c >= '0' && c <= '9'; })) {
-        return {value, 0};
+        return {std::move(name), std::nullopt};
     }
-    return {value.substr(0, colon), std::stoi(suffix)};
+    try {
+        return {std::move(name), std::stoi(suffix)};
+    } catch (const std::exception&) {
+        return {std::move(name), std::nullopt}; // more digits than an int holds
+    }
 }
 
-// Section 5/9: a named port is clamped into 1-4, 0 becomes 1.
+// Section 5/9: a named port is clamped into 1-4, and 0 becomes 1.
 int ClampPort(int port) {
     if (port <= 0) {
         return 1;
@@ -62,7 +77,7 @@ std::optional<BindingsConfig::FlatBinding> ParseBindingEntry(const nlohmann::ord
     }
 
     PortedBinding binding;
-    int input_port = 0;
+    std::optional<int> input_port;
     if (input_it->is_string()) {
         auto [base_input, p] = SplitPortSuffix(input_it->get<std::string>());
         binding.input.push_back(std::move(base_input));
@@ -86,22 +101,19 @@ std::optional<BindingsConfig::FlatBinding> ParseBindingEntry(const nlohmann::ord
         return std::nullopt;
     }
 
-    // The input side's suffix is remembered whether or not it is what names
-    // this binding's port, so a rewrite can put it back.
-    binding.input_port = input_port;
-
-    // Priority: output ":n" suffix, then "gamepad" field, then input ":n"
-    // suffix -- see bindings_config.h's PortedBinding comment.
-    if (output_port != 0) {
-        binding.port = ClampPort(output_port);
-        binding.port_source = PortSource::OutputSuffix;
-    } else if (const auto gp_it = entry.find("gamepad");
-               gp_it != entry.end() && gp_it->is_number_integer()) {
-        binding.port = ClampPort(gp_it->get<int>());
-        binding.port_source = PortSource::GamepadField;
-    } else if (input_port != 0) {
-        binding.port = ClampPort(input_port);
-        binding.port_source = PortSource::InputSuffix;
+    // All three are read, none overwrites another -- the emulator reads them
+    // the same way, and a rewrite has to be able to put back exactly what it
+    // found. Which one wins where is PortedBinding's OutputPlayer() and
+    // InputDevice().
+    if (output_port) {
+        binding.output_port = ClampPort(*output_port);
+    }
+    if (input_port) {
+        binding.input_port = ClampPort(*input_port);
+    }
+    if (const auto gp_it = entry.find("gamepad");
+        gp_it != entry.end() && gp_it->is_number_integer()) {
+        binding.gamepad_field = ClampPort(gp_it->get<int>());
     }
 
     return BindingsConfig::FlatBinding{base_output, std::move(binding)};
@@ -110,28 +122,24 @@ std::optional<BindingsConfig::FlatBinding> ParseBindingEntry(const nlohmann::ord
 // One binding's entry text, plain-formatted (no comments -- this is only
 // used for entries an edit is actively adding/replacing this session).
 std::string FormatBindingEntry(const std::string& output, const PortedBinding& binding) {
+    // Each of the three port fields goes back where it came from. A field the
+    // file did not have stays absent rather than being invented from one of
+    // the others.
+    const auto suffixed = [](const std::string& name, int port) {
+        return port == 0 ? name : name + ":" + std::to_string(port);
+    };
+
     nlohmann::ordered_json entry;
-    entry["output"] = binding.port_source == PortSource::OutputSuffix
-                          ? output + ":" + std::to_string(binding.port)
-                          : output;
+    entry["output"] = suffixed(output, binding.output_port);
 
     if (binding.input.size() == 1) {
-        // Put back the input side's own ":n", whether or not it is what
-        // named this binding's port.
-        entry["input"] = binding.input_port == 0
-                             ? binding.input.front()
-                             : binding.input.front() + ":" + std::to_string(binding.input_port);
+        entry["input"] = suffixed(binding.input.front(), binding.input_port);
     } else {
         entry["input"] = binding.input;
     }
 
-    // Only the shorthand spelling gets a "gamepad" field. A binding the
-    // editor created itself (port_source == None with a port set) counts as
-    // shorthand; one that arrived as a ":n" suffix already carries its port
-    // in the name written above.
-    if (binding.port != 0 && (binding.port_source == PortSource::None ||
-                              binding.port_source == PortSource::GamepadField)) {
-        entry["gamepad"] = binding.port;
+    if (binding.gamepad_field != 0) {
+        entry["gamepad"] = binding.gamepad_field;
     }
     return entry.dump();
 }
@@ -505,6 +513,14 @@ bool PortsOverlap(int a, int b) {
     return a == 0 || b == 0 || a == b;
 }
 
+// Two bindings can only fire together if they reach the same player AND some
+// one device can press them both. "cross:2" and a "gamepad": 3 binding of
+// circle share no device, so the same chord on both is not a conflict.
+bool CanFireTogether(const PortedBinding& a, const PortedBinding& b) {
+    return PortsOverlap(a.OutputPlayer(), b.OutputPlayer()) &&
+           PortsOverlap(a.InputDevice(), b.InputDevice());
+}
+
 int CollisionPort(int a, int b) {
     if (a != 0) return a;
     if (b != 0) return b;
@@ -534,7 +550,7 @@ std::vector<BindingConflict> FindConflicts(const std::vector<BindingsConfig::Fla
             if (a.binding.input.size() != b.binding.input.size()) {
                 continue;
             }
-            if (!PortsOverlap(a.binding.port, b.binding.port)) {
+            if (!CanFireTogether(a.binding, b.binding)) {
                 continue;
             }
             const std::set<std::string> b_keys(b.binding.input.begin(), b.binding.input.end());
@@ -546,7 +562,7 @@ std::vector<BindingConflict> FindConflicts(const std::vector<BindingsConfig::Fla
                 a.output,
                 b.output,
                 a.binding.input,
-                CollisionPort(a.binding.port, b.binding.port),
+                CollisionPort(a.binding.OutputPlayer(), b.binding.OutputPlayer()),
             });
         }
     }
@@ -576,7 +592,7 @@ std::vector<std::string> BindingsConfig::Validate() const {
         }
         const std::string raw_output = output_it->get<std::string>();
         const auto [base_output, output_port] = SplitPortSuffix(raw_output);
-        if (base_output != raw_output && output_port == 0 && raw_output.rfind(':') != std::string::npos) {
+        if (!output_port && raw_output.rfind(':') != std::string::npos) {
             warnings.push_back(tag + " (\"" + raw_output +
                               "\"): the \":n\" port suffix isn't a number, ignored.");
         }

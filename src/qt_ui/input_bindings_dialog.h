@@ -7,16 +7,15 @@
 // is assigned" checkbox is on.
 //
 // FIRST PASS -- scope deliberately narrower than the full spec for now:
-//  - A port's bindings are the ones scoped to it, however the file spelled
-//    that (bindings_config.h's PortedBinding). A binding this editor creates
-//    is written with a "gamepad" field; one that arrived as an ":n" suffix
-//    on "output" or "input" keeps that spelling when it is rewritten, so a
-//    file that routes one player's device to another player's output
-//    survives a round-trip. This editor still doesn't offer *setting* a
-//    suffix -- the two spellings answer different questions (which device
-//    may press it, vs whose output fires) and offering both in a first pass
-//    risks writing something the emulator resolves differently than
-//    intended.
+//  - A page shows the bindings that drive *that player's pad*
+//    (PortedBinding::OutputPlayer()), and a binding it creates is written as
+//    an output-side suffix -- "output": "cross:2". That is the only spelling
+//    that means what this page's tab says: a "gamepad" field names the device
+//    allowed to press the binding and leaves the pad on player 1.
+//  - A binding that arrived in one of the other two spellings keeps it when
+//    rewritten, so a file that routes one player's device to another player's
+//    pad survives a round-trip. This editor doesn't offer *setting* a device
+//    restriction -- it only shows one, marked on the row.
 //  - "Port assigned" is this editor's own concept, not read from the
 //    emulator: docs/multi-user.md (which this editor hasn't been given)
 //    covers how a *device* actually gets a port at runtime. Here it just

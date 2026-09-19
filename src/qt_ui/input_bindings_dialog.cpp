@@ -259,15 +259,24 @@ void PortBindingsPage::RefreshBindingsList() {
     }
     int shown = 0;
     for (const auto& binding : m_config->GetBindings(name)) {
-        // This page only shows/edits bindings scoped to this exact port.
-        // Bindings that name no port (port == 0, "belongs to every port",
-        // section 5) drive every port including this one, but aren't
-        // listed per-port here to avoid the same line appearing edited
-        // four times over; they still work at runtime regardless.
-        if (binding.port == m_port_number) {
-            m_bindings_list->addItem(DisplayChord(binding.input));
-            shown++;
+        // This page shows the bindings that drive *this player's* pad --
+        // OutputPlayer(), not the raw port, because a binding that named a
+        // port only on the input side still fires player 1. Bindings that
+        // name no port at all (OutputPlayer() == 0, "belongs to every port",
+        // section 5) drive every player including this one, but aren't listed
+        // per-port here to avoid the same line appearing edited four times
+        // over; they still work at runtime regardless.
+        if (binding.OutputPlayer() != m_port_number) {
+            continue;
         }
+        QString label = DisplayChord(binding.input);
+        // A device restriction is not visible in the chord, and it is the
+        // difference between "anyone can press this" and "only player 3 can".
+        if (const int device = binding.InputDevice(); device != 0) {
+            label = tr("%1  (only port %2's device)").arg(label).arg(device);
+        }
+        m_bindings_list->addItem(label);
+        shown++;
     }
 
     // Section 2: the game's own file and global.json are concatenated at
@@ -278,7 +287,7 @@ void PortBindingsPage::RefreshBindingsList() {
     int shown_global = 0;
     if (m_global_overlay) {
         for (const auto& binding : m_global_overlay->GetBindings(name)) {
-            if (binding.port == 0 || binding.port == m_port_number) {
+            if (binding.OutputPlayer() == 0 || binding.OutputPlayer() == m_port_number) {
                 auto* item = new QListWidgetItem(
                     tr("(from global.json) %1").arg(DisplayChord(binding.input)));
                 item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
@@ -315,7 +324,14 @@ void PortBindingsPage::OnAddWay() {
     auto bindings = m_config->GetBindings(name);
     Core::Input::PortedBinding new_binding;
     new_binding.input = capture.CapturedInput();
-    new_binding.port = m_port_number;
+    // This page is "which player's pad does this press", so the port belongs on
+    // the OUTPUT side -- "cross:2" -- and the file's other spelling is not
+    // interchangeable with it. A "gamepad" field names the device allowed to
+    // press the binding and leaves the output on player 1 (input-bindings.md
+    // section 5: `{ "output": "cross", "input": "cross", "gamepad": 2 }` is
+    // "player 2's pad works player 1's cross"). Writing that here meant every
+    // binding added on the Port 2 tab fired player 1's pad.
+    new_binding.output_port = m_port_number;
     bindings.push_back(new_binding);
     m_config->SetBindings(name, bindings);
     RefreshBindingsList();
@@ -337,13 +353,13 @@ void PortBindingsPage::OnSetUnmapped() {
     auto bindings = m_config->GetBindings(name);
     std::vector<Core::Input::PortedBinding> kept;
     for (auto& b : bindings) {
-        if (b.port != m_port_number) {
+        if (b.OutputPlayer() != m_port_number) {
             kept.push_back(std::move(b));
         }
     }
     Core::Input::PortedBinding unmapped;
     unmapped.input = {"unmapped"};
-    unmapped.port = m_port_number;
+    unmapped.output_port = m_port_number; // see OnAddWay
     kept.push_back(unmapped);
     m_config->SetBindings(name, kept);
     RefreshBindingsList();
@@ -362,7 +378,7 @@ void PortBindingsPage::OnRemoveSelected() {
     auto bindings = m_config->GetBindings(name);
     int seen = -1;
     for (size_t i = 0; i < bindings.size(); i++) {
-        if (bindings[i].port == m_port_number) {
+        if (bindings[i].OutputPlayer() == m_port_number) {
             seen++;
             if (seen == row) {
                 bindings.erase(bindings.begin() + static_cast<long>(i));
@@ -535,7 +551,7 @@ void InputBindingsDialog::RefreshConflicts() {
             keys << QString::fromStdString(k);
         }
         const QString port_text =
-            c.port == 0 ? tr("every port") : tr("port %1").arg(c.port);
+            c.port == 0 ? tr("every player") : tr("player %1").arg(c.port);
         auto* item = new QListWidgetItem(tr("%1 vs %2: both use %3 (%4)")
                                              .arg(QString::fromStdString(c.output_a))
                                              .arg(QString::fromStdString(c.output_b))
@@ -768,11 +784,14 @@ QWidget* InputBindingsDialog::BuildSettingsPage() {
     size_t spin_idx = 0;
     for (const auto& [label, range] : rows) {
         auto* row_layout = new QHBoxLayout();
+        // 0-127, not 0-255 (input-bindings.md section 8). The engine's axes are
+        // signed -128..127, so a max above 127 is a value the stick can never
+        // reach: the dead zone would swallow the whole travel.
         auto* min_spin = new QSpinBox(dz_box);
-        min_spin->setRange(0, 255);
+        min_spin->setRange(0, 127);
         min_spin->setValue(range.min);
         auto* max_spin = new QSpinBox(dz_box);
-        max_spin->setRange(0, 255);
+        max_spin->setRange(0, 127);
         max_spin->setValue(range.max);
         row_layout->addWidget(new QLabel(tr("min"), dz_box));
         row_layout->addWidget(min_spin);
