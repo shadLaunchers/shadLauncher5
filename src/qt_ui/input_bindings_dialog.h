@@ -24,7 +24,7 @@
 //    the tab's controls.
 //
 // File picker (section 2): the person can switch between global.json and a
-// specific game's custom_input_configs/<serial>.json. When editing a game's
+// specific game's input_config/<title id>.json. When editing a game's
 // file, global.json is also loaded read-only as an overlay -- its bindings
 // are shown alongside the game file's own (clearly marked, not editable
 // here) and folded into conflict detection, since that's what the emulator
@@ -35,6 +35,7 @@
 
 #include <QDialog>
 #include <QListWidget>
+#include <QSet>
 #include <array>
 #include <filesystem>
 #include <memory>
@@ -70,6 +71,10 @@ public:
     // to re-render with the fresh data.
     void Reload();
 
+    // The outputs on this page that have at least one binding, for the
+    // diagram's dots and the list's markers.
+    [[nodiscard]] QSet<QString> BoundOutputs() const;
+
 signals:
     // Emitted after a way-to-press is added or removed, so the dialog can
     // refresh conflict detection (which needs every port's bindings, not
@@ -80,13 +85,18 @@ private slots:
     void OnAddWay();
     void OnRemoveSelected();
     void OnSetUnmapped();
+    void OnFilterChanged(const QString& text);
 
 private:
     void PopulateOutputList();
     void RefreshBindingsList();
+    void RefreshOutputMarkers();
     void UpdateEnabledState();
     [[nodiscard]] std::string CurrentOutputName() const;
     [[nodiscard]] static QString DisplayChord(const std::vector<std::string>& input);
+    // True for axis_left_x and friends: valid outputs, but only an axis may
+    // drive them, and KeyCaptureDialog cannot capture one.
+    [[nodiscard]] static bool IsAnalogOutput(const std::string& name);
 
     int m_port_number;
     Core::Input::BindingsConfig* m_config; // not owned
@@ -94,12 +104,19 @@ private:
 
     QCheckBox* m_assigned_check = nullptr;
     GamepadDiagramWidget* m_diagram = nullptr;
+    class QLineEdit* m_filter = nullptr;
     QListWidget* m_output_list = nullptr;
     QListWidget* m_bindings_list = nullptr;
     QLabel* m_hint_label = nullptr;
     QPushButton* m_add_btn = nullptr;
     QPushButton* m_unmapped_btn = nullptr;
     QPushButton* m_remove_btn = nullptr;
+
+    // Row -> index into this output's binding list, so a row the person
+    // selected can be mapped back to the entry it came from. The list mixes
+    // this player's own bindings with the ones that belong to every player,
+    // so the row number is not the index.
+    std::vector<int> m_row_to_binding;
 };
 
 class InputBindingsDialog : public QDialog {
@@ -115,10 +132,16 @@ public:
 
 private slots:
     void OnSave();
+    void OnRevert();
     void RefreshConflicts();
     void RefreshProblemsList();
     void OnFilePickerChanged(int index);
     void OnBrowseForGame();
+
+protected:
+    // Closing with edits in hand asks first, however the dialog is closed.
+    void closeEvent(class QCloseEvent* event) override;
+    void reject() override;
 
 private:
     void BuildUi();
@@ -129,6 +152,12 @@ private:
     // tells every page and the settings tab to re-render.
     void SwitchTarget(const std::filesystem::path& path);
     void ReloadSettingsTab();
+    // Save button, the unreadable-file banner and the per-page enabled state
+    // all follow whether the current file actually loaded.
+    void RefreshLoadedState();
+    // Returns false if the person cancelled out of the "you have unsaved
+    // changes" prompt. Called before anything that would discard them.
+    [[nodiscard]] bool ConfirmDiscardingEdits();
 
     std::filesystem::path m_global_json_path;
     std::unique_ptr<Core::Input::BindingsConfig> m_config;
@@ -136,6 +165,9 @@ private:
 
     QComboBox* m_file_picker = nullptr;
     QLabel* m_subtitle_label = nullptr;
+    QLabel* m_unreadable_label = nullptr;
+    QPushButton* m_save_btn = nullptr;
+    QPushButton* m_revert_btn = nullptr;
     QTabWidget* m_tabs = nullptr;
     std::array<PortBindingsPage*, 4> m_pages{};
     QListWidget* m_conflicts_list = nullptr;

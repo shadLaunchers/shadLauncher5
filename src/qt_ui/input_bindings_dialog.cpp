@@ -6,13 +6,16 @@
 #include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFont>
+#include <QCloseEvent>
 #include <QFormLayout>
 #include <QGroupBox>
+#include <QLineEdit>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QPainter>
+#include <QPixmap>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QSpinBox>
@@ -57,9 +60,48 @@ void AddSectionHeader(QListWidget* list, const QString& title) {
 
 void AddOutputRow(QListWidget* list, std::string_view name) {
     const std::string id(name);
-    auto* item = new QListWidgetItem("    " + FriendlyOutputName(id));
+    auto* item = new QListWidgetItem("  " + FriendlyOutputName(id));
     item->setData(Qt::UserRole, QString::fromStdString(id));
     list->addItem(item);
+}
+
+// A filled dot for "this one has bindings", or a blank of the same size so
+// every row's text still lines up. An icon rather than a text prefix: in a
+// proportional font no number of spaces is the width of a bullet.
+// Secondary text. Not `setStyleSheet("color: palette(placeholder-text)")`:
+// that resolves against whatever the style hands the widget, and on a light
+// theme it came out near-white on near-white -- the hint under the bindings
+// list was invisible. Mixing the two palette colours we actually have is
+// deterministic in both themes.
+QColor MutedColor(const QPalette& pal) {
+    const QColor text = pal.color(QPalette::WindowText);
+    const QColor back = pal.color(QPalette::Window);
+    return QColor::fromRgbF(text.redF() * 0.55 + back.redF() * 0.45,
+                            text.greenF() * 0.55 + back.greenF() * 0.45,
+                            text.blueF() * 0.55 + back.blueF() * 0.45);
+}
+
+void Muted(QWidget* widget) {
+    QPalette pal = widget->palette();
+    pal.setColor(QPalette::WindowText, MutedColor(pal));
+    widget->setPalette(pal);
+}
+
+QIcon BoundMarker(const QColor& color, const QColor& ring, bool filled, int side) {
+    QPixmap pm(side, side);
+    pm.fill(Qt::transparent);
+    if (filled) {
+        QPainter p(&pm);
+        p.setRenderHint(QPainter::Antialiasing, true);
+        // Ringed, so it survives being drawn on the selection highlight --
+        // a plain Highlight-coloured dot on a Highlight-coloured row is
+        // invisible, which is exactly the row you are looking at.
+        p.setPen(QPen(ring, std::max(1.0, side * 0.055)));
+        p.setBrush(color);
+        const qreal r = side * 0.20;
+        p.drawEllipse(QPointF(side / 2.0, side / 2.0), r, r);
+    }
+    return QIcon(pm);
 }
 
 // Recolors the gamepad tab/window icon (drawn white, like every
@@ -119,10 +161,14 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     auto* diagram_box = new QGroupBox(tr("Layout"), this);
     auto* diagram_layout = new QVBoxLayout(diagram_box);
     m_diagram = new GamepadDiagramWidget(diagram_box);
-    diagram_layout->addWidget(m_diagram);
+    // Capped and centred: the diagram keeps its aspect ratio, so letting it
+    // have the dialog's full width just surrounds it with empty box.
+    m_diagram->setMaximumWidth(520);
+    m_diagram->setMinimumHeight(190);
+    diagram_layout->addWidget(m_diagram, 0, Qt::AlignHCenter);
     auto* diagram_hint = new QLabel(
         tr("Click a control on the diagram, or pick one from the list below."), diagram_box);
-    diagram_hint->setStyleSheet("color: palette(placeholder-text);");
+    Muted(diagram_hint);
     diagram_hint->setAlignment(Qt::AlignCenter);
     diagram_layout->addWidget(diagram_hint);
     connect(m_diagram, &GamepadDiagramWidget::OutputClicked, this,
@@ -135,13 +181,18 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
                     }
                 }
             });
-    outer->addWidget(diagram_box);
+    outer->addWidget(diagram_box, 0);
 
     auto* main_layout = new QHBoxLayout();
     main_layout->setSpacing(12);
 
     auto* output_box = new QGroupBox(tr("Pad Control"), this);
     auto* left_layout = new QVBoxLayout(output_box);
+    m_filter = new QLineEdit(output_box);
+    m_filter->setPlaceholderText(tr("Filter (e.g. \"axis\", \"pad\")"));
+    m_filter->setClearButtonEnabled(true);
+    connect(m_filter, &QLineEdit::textChanged, this, &PortBindingsPage::OnFilterChanged);
+    left_layout->addWidget(m_filter);
     m_output_list = new QListWidget(output_box);
     left_layout->addWidget(m_output_list);
     main_layout->addWidget(output_box, 1);
@@ -153,7 +204,7 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
 
     m_hint_label = new QLabel(ways_box);
     m_hint_label->setWordWrap(true);
-    m_hint_label->setStyleSheet("color: palette(placeholder-text);");
+    Muted(m_hint_label);
     right_layout->addWidget(m_hint_label);
 
     auto* row_buttons = new QHBoxLayout();
@@ -169,7 +220,7 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     right_layout->addLayout(row_buttons);
 
     main_layout->addWidget(ways_box, 2);
-    outer->addLayout(main_layout);
+    outer->addLayout(main_layout, 1);
 
     connect(m_output_list, &QListWidget::currentRowChanged, this, [this](int) {
         RefreshBindingsList();
@@ -213,12 +264,103 @@ bool PortBindingsPage::IsAssigned() const {
 
 void PortBindingsPage::UpdateEnabledState() {
     const bool enabled = IsAssigned();
+    m_filter->setEnabled(enabled);
     m_output_list->setEnabled(enabled);
     m_bindings_list->setEnabled(enabled);
     m_add_btn->setEnabled(enabled);
     m_unmapped_btn->setEnabled(enabled);
     m_remove_btn->setEnabled(enabled);
     RefreshBindingsList();
+    RefreshOutputMarkers();
+}
+
+bool PortBindingsPage::IsAnalogOutput(const std::string& name) {
+    return std::any_of(Core::Input::kAnalogToAnalogOutputNames.begin(),
+                       Core::Input::kAnalogToAnalogOutputNames.end(),
+                       [&](std::string_view n) { return n == name; });
+}
+
+void PortBindingsPage::OnFilterChanged(const QString& text) {
+    const QString needle = text.trimmed();
+    QListWidgetItem* first_visible = nullptr;
+    for (int i = 0; i < m_output_list->count(); i++) {
+        auto* item = m_output_list->item(i);
+        const QString id = item->data(Qt::UserRole).toString();
+        if (id.isEmpty()) {
+            continue; // a section header; handled below
+        }
+        const bool matches = needle.isEmpty() ||
+                             id.contains(needle, Qt::CaseInsensitive) ||
+                             item->text().contains(needle, Qt::CaseInsensitive);
+        item->setHidden(!matches);
+        if (matches && first_visible == nullptr) {
+            first_visible = item;
+        }
+    }
+    // A header with nothing left under it is just noise.
+    QListWidgetItem* header = nullptr;
+    bool header_has_rows = false;
+    for (int i = 0; i < m_output_list->count(); i++) {
+        auto* item = m_output_list->item(i);
+        if (item->data(Qt::UserRole).toString().isEmpty()) {
+            if (header != nullptr) {
+                header->setHidden(!header_has_rows);
+            }
+            header = item;
+            header_has_rows = false;
+        } else if (!item->isHidden()) {
+            header_has_rows = true;
+        }
+    }
+    if (header != nullptr) {
+        header->setHidden(!header_has_rows);
+    }
+
+    // Keep a usable selection: if what was selected is now filtered away,
+    // move to the first row that survived.
+    auto* current = m_output_list->currentItem();
+    if ((current == nullptr || current->isHidden()) && first_visible != nullptr) {
+        m_output_list->setCurrentItem(first_visible);
+    }
+}
+
+QSet<QString> PortBindingsPage::BoundOutputs() const {
+    QSet<QString> bound;
+    for (int i = 0; i < m_output_list->count(); i++) {
+        const QString id = m_output_list->item(i)->data(Qt::UserRole).toString();
+        if (id.isEmpty()) {
+            continue;
+        }
+        const auto name = id.toStdString();
+        const auto& bindings = m_config->GetBindings(name);
+        const bool any = std::any_of(bindings.begin(), bindings.end(), [&](const auto& b) {
+            const int player = b.OutputPlayer();
+            return player == 0 || player == m_port_number;
+        });
+        if (any) {
+            bound.insert(id);
+        }
+    }
+    return bound;
+}
+
+void PortBindingsPage::RefreshOutputMarkers() {
+    const QSet<QString> bound = BoundOutputs();
+    const int side = std::max(8, m_output_list->fontMetrics().height());
+    const QIcon dot = BoundMarker(palette().color(QPalette::Highlight),
+                                  palette().color(QPalette::HighlightedText), true, side);
+    const QIcon blank = BoundMarker(Qt::transparent, Qt::transparent, false, side);
+    for (int i = 0; i < m_output_list->count(); i++) {
+        auto* item = m_output_list->item(i);
+        const QString id = item->data(Qt::UserRole).toString();
+        if (id.isEmpty()) {
+            continue; // a section header
+        }
+        // A dot in the margin beats a colour: it survives both themes and
+        // does not collide with the selection highlight.
+        item->setIcon(bound.contains(id) ? dot : blank);
+    }
+    m_diagram->SetBoundOutputs(bound);
 }
 
 std::string PortBindingsPage::CurrentOutputName() const {
@@ -244,6 +386,7 @@ void PortBindingsPage::SetGlobalOverlay(Core::Input::BindingsConfig* overlay) {
 
 void PortBindingsPage::Reload() {
     RefreshBindingsList();
+    RefreshOutputMarkers();
 }
 
 void PortBindingsPage::RefreshBindingsList() {
@@ -258,24 +401,35 @@ void PortBindingsPage::RefreshBindingsList() {
         return;
     }
     int shown = 0;
-    for (const auto& binding : m_config->GetBindings(name)) {
-        // This page shows the bindings that drive *this player's* pad --
-        // OutputPlayer(), not the raw port, because a binding that named a
-        // port only on the input side still fires player 1. Bindings that
-        // name no port at all (OutputPlayer() == 0, "belongs to every port",
-        // section 5) drive every player including this one, but aren't listed
-        // per-port here to avoid the same line appearing edited four times
-        // over; they still work at runtime regardless.
-        if (binding.OutputPlayer() != m_port_number) {
+    m_row_to_binding.clear();
+    const auto& bindings = m_config->GetBindings(name);
+    for (int i = 0; i < static_cast<int>(bindings.size()); i++) {
+        const auto& binding = bindings[i];
+        // What drives *this player's* pad: OutputPlayer(), not the raw port,
+        // because a binding that named a port only on the input side still
+        // fires player 1. A binding that named no port at all drives every
+        // player, this one included, so it is listed here too -- marked, and
+        // removable. Hiding those was how a hand-written global.json, and
+        // everything inherited from default.json, showed up as an empty list.
+        const int player = binding.OutputPlayer();
+        if (player != 0 && player != m_port_number) {
             continue;
         }
         QString label = DisplayChord(binding.input);
+        if (player == 0) {
+            label = tr("%1  (all ports)").arg(label);
+        }
         // A device restriction is not visible in the chord, and it is the
         // difference between "anyone can press this" and "only player 3 can".
         if (const int device = binding.InputDevice(); device != 0) {
             label = tr("%1  (only port %2's device)").arg(label).arg(device);
         }
-        m_bindings_list->addItem(label);
+        auto* item = new QListWidgetItem(label);
+        if (player == 0) {
+            item->setForeground(MutedColor(palette()));
+        }
+        m_bindings_list->addItem(item);
+        m_row_to_binding.push_back(i);
         shown++;
     }
 
@@ -291,24 +445,36 @@ void PortBindingsPage::RefreshBindingsList() {
                 auto* item = new QListWidgetItem(
                     tr("(from global.json) %1").arg(DisplayChord(binding.input)));
                 item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
-                item->setForeground(palette().color(QPalette::PlaceholderText));
+                item->setForeground(MutedColor(palette()));
                 m_bindings_list->addItem(item);
                 shown_global++;
             }
         }
     }
 
-    if (shown > 0 || shown_global > 0) {
+    // Only an axis may drive an analog output, and the capture dialog can
+    // only capture buttons -- so offering "Add a way..." here would only ever
+    // produce a binding the emulator rejects.
+    const bool analog = IsAnalogOutput(name);
+    m_add_btn->setEnabled(IsAssigned() && !analog);
+    m_unmapped_btn->setEnabled(IsAssigned() && !analog);
+
+    if (analog) {
         m_hint_label->setText(
-            tr("Showing this port's own bindings for %1. Bindings with no port named also "
-              "drive this port and aren't listed here.")
+            tr("%1 can only be driven by a stick or trigger axis, and this editor can't "
+              "capture one yet -- set it by hand in the file for now.")
                 .arg(FriendlyOutputName(name)));
+    } else if (shown > 0 || shown_global > 0) {
+        m_hint_label->setText(
+            tr("Ways to press %1 that reach player %2. Greyed rows name no port, so they "
+              "drive every player.")
+                .arg(FriendlyOutputName(name))
+                .arg(m_port_number));
     } else {
         m_hint_label->setText(
-            tr("No binding scoped specifically to port %1 for %2 yet -- it may still work "
-              "via a binding that names no port.")
-                .arg(m_port_number)
-                .arg(FriendlyOutputName(name)));
+            tr("Nothing drives %1 on player %2 yet.")
+                .arg(FriendlyOutputName(name))
+                .arg(m_port_number));
     }
 }
 
@@ -335,6 +501,7 @@ void PortBindingsPage::OnAddWay() {
     bindings.push_back(new_binding);
     m_config->SetBindings(name, bindings);
     RefreshBindingsList();
+    RefreshOutputMarkers();
     emit BindingsChanged();
 }
 
@@ -363,6 +530,7 @@ void PortBindingsPage::OnSetUnmapped() {
     kept.push_back(unmapped);
     m_config->SetBindings(name, kept);
     RefreshBindingsList();
+    RefreshOutputMarkers();
     emit BindingsChanged();
 }
 
@@ -372,22 +540,31 @@ void PortBindingsPage::OnRemoveSelected() {
     if (name.empty() || row < 0) {
         return;
     }
-    // The bindings list only shows this port's own entries, so map the
-    // selected row back to its position among all of this output's
-    // bindings before erasing.
-    auto bindings = m_config->GetBindings(name);
-    int seen = -1;
-    for (size_t i = 0; i < bindings.size(); i++) {
-        if (bindings[i].OutputPlayer() == m_port_number) {
-            seen++;
-            if (seen == row) {
-                bindings.erase(bindings.begin() + static_cast<long>(i));
-                break;
-            }
-        }
+    // The list mixes this player's bindings with the ones that belong to
+    // every player, and the overlay rows are appended after both, so the row
+    // number is not an index into anything -- RefreshBindingsList records
+    // where each row came from.
+    if (row >= static_cast<int>(m_row_to_binding.size())) {
+        return; // a read-only overlay row
     }
+    auto bindings = m_config->GetBindings(name);
+    const int index = m_row_to_binding[static_cast<size_t>(row)];
+    if (index < 0 || index >= static_cast<int>(bindings.size())) {
+        return;
+    }
+    if (bindings[static_cast<size_t>(index)].OutputPlayer() == 0 &&
+        QMessageBox::question(
+            this, tr("Remove Binding"),
+            tr("This binding names no port, so it drives all four players, not just "
+              "player %1. Remove it for everyone?")
+                .arg(m_port_number),
+            QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+        return;
+    }
+    bindings.erase(bindings.begin() + index);
     m_config->SetBindings(name, bindings);
     RefreshBindingsList();
+    RefreshOutputMarkers();
     emit BindingsChanged();
 }
 
@@ -437,7 +614,7 @@ void InputBindingsDialog::BuildUi() {
 
     m_subtitle_label =
         new QLabel(tr("Editing %1").arg(QString::fromStdString(m_config->FilePath().string())), this);
-    m_subtitle_label->setStyleSheet("color: palette(placeholder-text);");
+    Muted(m_subtitle_label);
     title_layout->addWidget(m_subtitle_label);
     header->addLayout(title_layout);
     header->addStretch();
@@ -456,16 +633,13 @@ void InputBindingsDialog::BuildUi() {
     connect(m_file_picker, qOverload<int>(&QComboBox::currentIndexChanged), this,
             &InputBindingsDialog::OnFilePickerChanged);
 
-    if (!m_config->IsLoaded()) {
-        auto* warning = new QLabel(
-            tr("Couldn't read %1 -- it may not be valid JSON. Editing is disabled to avoid "
-              "overwriting whatever's actually in it.")
-                .arg(QString::fromStdString(m_config->FilePath().string())),
-            this);
-        warning->setWordWrap(true);
-        warning->setStyleSheet("color: #E05555; font-weight: bold;");
-        outer->addWidget(warning);
-    }
+    // Built whether or not it is needed right now: switching files has to be
+    // able to raise and lower it, and it used to be a local that only existed
+    // if the *first* file failed to load.
+    m_unreadable_label = new QLabel(this);
+    m_unreadable_label->setWordWrap(true);
+    m_unreadable_label->setStyleSheet("color: #E05555; font-weight: bold;");
+    outer->addWidget(m_unreadable_label);
 
     m_tabs = new QTabWidget(this);
     const QIcon tab_icon = TintedGamepadIcon();
@@ -474,7 +648,6 @@ void InputBindingsDialog::BuildUi() {
         m_pages[static_cast<size_t>(port - 1)] = page;
         page->SetGlobalOverlay(m_global_overlay.get());
         m_tabs->addTab(page, tab_icon, tr("Port %1").arg(port));
-        page->setEnabled(m_config->IsLoaded());
         connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshConflicts);
         connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshProblemsList);
     }
@@ -502,18 +675,97 @@ void InputBindingsDialog::BuildUi() {
     RefreshProblemsList();
 
     auto* buttons = new QHBoxLayout();
-    auto* save_btn = new QPushButton(tr("Save"), this);
-    save_btn->setDefault(true);
-    save_btn->setMinimumWidth(100);
+    m_revert_btn = new QPushButton(tr("Revert"), this);
+    m_revert_btn->setMinimumWidth(100);
+    m_revert_btn->setToolTip(tr("Throw away this session's edits and read the file again."));
+    m_save_btn = new QPushButton(tr("Save"), this);
+    m_save_btn->setDefault(true);
+    m_save_btn->setMinimumWidth(100);
     auto* close_btn = new QPushButton(tr("Close"), this);
     close_btn->setMinimumWidth(100);
-    save_btn->setEnabled(m_config->IsLoaded());
-    connect(save_btn, &QPushButton::clicked, this, &InputBindingsDialog::OnSave);
-    connect(close_btn, &QPushButton::clicked, this, &QDialog::accept);
+    connect(m_revert_btn, &QPushButton::clicked, this, &InputBindingsDialog::OnRevert);
+    connect(m_save_btn, &QPushButton::clicked, this, &InputBindingsDialog::OnSave);
+    connect(close_btn, &QPushButton::clicked, this, &QDialog::reject);
+    buttons->addWidget(m_revert_btn);
     buttons->addStretch();
-    buttons->addWidget(save_btn);
+    buttons->addWidget(m_save_btn);
     buttons->addWidget(close_btn);
     outer->addLayout(buttons);
+
+    RefreshLoadedState();
+}
+
+void InputBindingsDialog::RefreshLoadedState() {
+    const bool loaded = m_config->IsLoaded();
+    const QString path = QString::fromStdString(m_config->FilePath().string());
+
+    m_unreadable_label->setVisible(!loaded);
+    m_unreadable_label->setText(
+        loaded ? QString()
+               : tr("Couldn't read %1 -- it may not be valid JSON. Editing is disabled to "
+                   "avoid overwriting whatever's actually in it.")
+                     .arg(path));
+    m_save_btn->setEnabled(loaded);
+    m_revert_btn->setEnabled(loaded);
+    for (auto* page : m_pages) {
+        if (page != nullptr) {
+            page->setEnabled(loaded);
+        }
+    }
+}
+
+bool InputBindingsDialog::ConfirmDiscardingEdits() {
+    if (!m_config->IsLoaded() || !m_config->HasUnsavedChanges()) {
+        return true;
+    }
+    const auto answer = QMessageBox::question(
+        this, tr("Input Bindings"),
+        tr("%1 has unsaved changes. Save them?")
+            .arg(QString::fromStdString(m_config->FilePath().filename().string())),
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
+    if (answer == QMessageBox::Cancel) {
+        return false;
+    }
+    if (answer == QMessageBox::Save) {
+        return m_config->Save();
+    }
+    return true;
+}
+
+void InputBindingsDialog::OnRevert() {
+    if (m_config->HasUnsavedChanges() &&
+        QMessageBox::question(this, tr("Revert"),
+                              tr("Throw away this session's edits to %1 and read the file "
+                                "again?")
+                                  .arg(QString::fromStdString(
+                                      m_config->FilePath().filename().string())),
+                              QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+        return;
+    }
+    // Load() clears the edit cache, so re-loading the same path is the revert.
+    const auto path = m_config->FilePath();
+    m_config->Load(path);
+    for (auto* page : m_pages) {
+        page->Reload();
+    }
+    ReloadSettingsTab();
+    RefreshLoadedState();
+    RefreshConflicts();
+    RefreshProblemsList();
+}
+
+void InputBindingsDialog::closeEvent(QCloseEvent* event) {
+    if (ConfirmDiscardingEdits()) {
+        event->accept();
+    } else {
+        event->ignore();
+    }
+}
+
+void InputBindingsDialog::reject() {
+    if (ConfirmDiscardingEdits()) {
+        QDialog::reject();
+    }
 }
 
 void InputBindingsDialog::RefreshConflicts() {
@@ -656,6 +908,11 @@ void InputBindingsDialog::OnBrowseForGame() {
 }
 
 void InputBindingsDialog::SwitchTarget(const std::filesystem::path& path) {
+    if (!ConfirmDiscardingEdits()) {
+        // Put the picker back on the file we are still editing.
+        PopulateFilePicker();
+        return;
+    }
     m_config->Load(path);
     if (path != m_global_json_path) {
         if (!m_global_overlay) {
@@ -672,10 +929,10 @@ void InputBindingsDialog::SwitchTarget(const std::filesystem::path& path) {
 
     for (auto* page : m_pages) {
         page->SetGlobalOverlay(m_global_overlay.get());
-        page->setEnabled(m_config->IsLoaded());
         page->Reload();
     }
     ReloadSettingsTab();
+    RefreshLoadedState();
     RefreshConflicts();
     RefreshProblemsList();
     PopulateFilePicker();

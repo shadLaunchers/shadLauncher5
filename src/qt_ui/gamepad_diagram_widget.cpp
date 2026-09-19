@@ -1,46 +1,100 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <QEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
+#include <QToolTip>
+#include <algorithm>
 #include <string_view>
 
 #include "gamepad_diagram_widget.h"
 
 namespace {
 
-// Normalized (0-1) layout, independent of actual widget size. Loosely
-// schematic, not a trace of any specific controller's proportions.
+// The diagram is authored in a 1.45:1 box and scaled into whatever the widget
+// gets, so its proportions never depend on the layout around it.
+constexpr qreal kAspect = 1.45;
+
 struct NormRegion {
     const char* output;
-    qreal x, y, w, h; // fraction of the drawing rect
+    qreal x, y, w, h; // fractions of the canvas
 };
 
+// Invented proportions. Sticks side by side below the face buttons, which is
+// the layout the binding vocabulary assumes (l3/r3 as pressable sticks).
 constexpr NormRegion kLayout[] = {
-    {"pad_up", 0.18, 0.38, 0.07, 0.09},   {"pad_down", 0.18, 0.55, 0.07, 0.09},
-    {"pad_left", 0.10, 0.46, 0.09, 0.07}, {"pad_right", 0.25, 0.46, 0.09, 0.07},
+    // Triggers sit above the shoulders, both fully inside the canvas -- the
+    // old layout put them at y = -0.04, half of each clipped off the top.
+    {"l2", 0.170, 0.018, 0.166, 0.058},
+    {"r2", 0.664, 0.018, 0.166, 0.058},
+    // The shoulders run a little under the shell's top edge, so they read as
+    // part of the pad rather than two pills floating above it.
+    {"l1", 0.170, 0.082, 0.166, 0.076},
+    {"r1", 0.664, 0.082, 0.166, 0.076},
 
-    {"triangle", 0.79, 0.30, 0.09, 0.09}, {"cross", 0.79, 0.55, 0.09, 0.09},
-    {"square", 0.71, 0.42, 0.09, 0.09},   {"circle", 0.87, 0.42, 0.09, 0.09},
+    // One touchpad, three zones. The emulator splits a press by where it
+    // landed across the pad's width (TOUCHPAD_REGIONS in input_bindings.cpp),
+    // so the three are drawn as thirds of one strip rather than as separate
+    // buttons.
+    {"touchpad_left", 0.3930, 0.228, 0.0713, 0.146},
+    {"touchpad_center", 0.4643, 0.228, 0.0713, 0.146},
+    {"touchpad_right", 0.5357, 0.228, 0.0713, 0.146},
 
-    {"l3", 0.30, 0.68, 0.12, 0.16},       {"r3", 0.58, 0.68, 0.12, 0.16},
+    {"options", 0.632, 0.238, 0.036, 0.042},
 
-    {"l1", 0.06, 0.06, 0.16, 0.08},       {"r1", 0.78, 0.06, 0.16, 0.08},
-    {"l2", 0.06, -0.04, 0.16, 0.08},      {"r2", 0.78, -0.04, 0.16, 0.08},
+    // The arms are the shape they are on a pad: up/down taller than wide,
+    // left/right wider than tall, meeting at the centre.
+    {"pad_up", 0.2210, 0.296, 0.0380, 0.064},
+    {"pad_down", 0.2210, 0.424, 0.0380, 0.064},
+    {"pad_left", 0.1755, 0.360, 0.0455, 0.064},
+    {"pad_right", 0.2590, 0.360, 0.0455, 0.064},
 
-    {"touchpad_left", 0.30, 0.16, 0.15, 0.14},
-    {"touchpad_center", 0.45, 0.16, 0.10, 0.14},
-    {"touchpad_right", 0.55, 0.16, 0.15, 0.14},
+    {"triangle", 0.7230, 0.276, 0.0620, 0.089},
+    {"circle", 0.7840, 0.364, 0.0620, 0.089},
+    {"cross", 0.7230, 0.452, 0.0620, 0.089},
+    {"square", 0.6620, 0.364, 0.0620, 0.089},
 
-    {"options", 0.68, 0.20, 0.06, 0.05},  {"back", 0.26, 0.20, 0.06, 0.05},
+    {"l3", 0.3220, 0.500, 0.1080, 0.156},
+    {"r3", 0.5700, 0.500, 0.1080, 0.156},
 };
+
+QColor Mix(const QColor& a, const QColor& b, qreal t) {
+    return QColor::fromRgbF(a.redF() * (1 - t) + b.redF() * t,
+                            a.greenF() * (1 - t) + b.greenF() * t,
+                            a.blueF() * (1 - t) + b.blueF() * t);
+}
+
+QColor WithAlpha(QColor c, int alpha) {
+    c.setAlpha(alpha);
+    return c;
+}
 
 } // namespace
 
 GamepadDiagramWidget::GamepadDiagramWidget(QWidget* parent) : QWidget(parent) {
-    setMouseTracking(false);
+    setMouseTracking(true); // for hover feedback
+    setCursor(Qt::ArrowCursor);
     RebuildRegions();
+}
+
+QRectF GamepadDiagramWidget::Canvas() const {
+    const qreal w = width();
+    const qreal h = height();
+    if (w <= 0 || h <= 0) {
+        return {};
+    }
+    // Fit the authored box, centred, with a little breathing room.
+    const qreal avail_w = w - 8.0;
+    const qreal avail_h = h - 8.0;
+    qreal cw = avail_w;
+    qreal ch = cw / kAspect;
+    if (ch > avail_h) {
+        ch = avail_h;
+        cw = ch * kAspect;
+    }
+    return {(w - cw) / 2.0, (h - ch) / 2.0, cw, ch};
 }
 
 void GamepadDiagramWidget::resizeEvent(QResizeEvent* event) {
@@ -49,13 +103,36 @@ void GamepadDiagramWidget::resizeEvent(QResizeEvent* event) {
 }
 
 void GamepadDiagramWidget::RebuildRegions() {
+    m_canvas = Canvas();
     m_regions.clear();
-    const QRectF rect(0, 0, width(), height());
+    m_regions.reserve(std::size(kLayout));
     for (const auto& r : kLayout) {
-        m_regions[r.output] =
-            QRectF(rect.x() + r.x * rect.width(), rect.y() + r.y * rect.height(),
-                  r.w * rect.width(), r.h * rect.height());
+        m_regions.push_back({r.output, QRectF(m_canvas.x() + r.x * m_canvas.width(),
+                                              m_canvas.y() + r.y * m_canvas.height(),
+                                              r.w * m_canvas.width(), r.h * m_canvas.height())});
     }
+}
+
+const QRectF* GamepadDiagramWidget::RectFor(const std::string& output) const {
+    const auto it = std::find_if(m_regions.begin(), m_regions.end(),
+                                 [&](const Region& r) { return r.output == output; });
+    return it == m_regions.end() ? nullptr : &it->rect;
+}
+
+std::string GamepadDiagramWidget::OutputAt(const QPointF& pos) const {
+    // Smallest match wins, so a touchpad zone is not swallowed by anything
+    // drawn around it.
+    const Region* best = nullptr;
+    for (const auto& r : m_regions) {
+        if (!r.rect.contains(pos)) {
+            continue;
+        }
+        if (best == nullptr ||
+            r.rect.width() * r.rect.height() < best->rect.width() * best->rect.height()) {
+            best = &r;
+        }
+    }
+    return best == nullptr ? std::string() : best->output;
 }
 
 void GamepadDiagramWidget::SetHighlightedOutput(const QString& outputName) {
@@ -66,150 +143,338 @@ void GamepadDiagramWidget::SetHighlightedOutput(const QString& outputName) {
     update();
 }
 
+void GamepadDiagramWidget::SetBoundOutputs(const QSet<QString>& outputNames) {
+    if (m_bound == outputNames) {
+        return;
+    }
+    m_bound = outputNames;
+    update();
+}
+
 void GamepadDiagramWidget::mousePressEvent(QMouseEvent* event) {
-    const QPointF pos = event->position();
-    for (const auto& [name, rect] : m_regions) {
-        if (rect.contains(pos)) {
-            emit OutputClicked(QString::fromStdString(name));
-            return;
+    const std::string hit = OutputAt(event->position());
+    if (!hit.empty()) {
+        emit OutputClicked(QString::fromStdString(hit));
+    }
+}
+
+void GamepadDiagramWidget::mouseMoveEvent(QMouseEvent* event) {
+    const std::string hit = OutputAt(event->position());
+    if (hit == m_hovered) {
+        return;
+    }
+    m_hovered = hit;
+    setCursor(hit.empty() ? Qt::ArrowCursor : Qt::PointingHandCursor);
+    setToolTip(hit.empty() ? QString() : QString::fromStdString(hit));
+    update();
+}
+
+void GamepadDiagramWidget::leaveEvent(QEvent* event) {
+    QWidget::leaveEvent(event);
+    if (!m_hovered.empty()) {
+        m_hovered.clear();
+        setCursor(Qt::ArrowCursor);
+        update();
+    }
+}
+
+GamepadDiagramWidget::Look GamepadDiagramWidget::LookFor(const std::string& output) const {
+    const QColor base = palette().color(QPalette::Base);
+    const QColor text = palette().color(QPalette::WindowText);
+    const QColor accent = palette().color(QPalette::Highlight);
+
+    Look look;
+    look.fill = base;
+    look.pen = WithAlpha(text, 150);
+    look.bound = m_bound.contains(QString::fromStdString(output));
+
+    if (m_highlighted.toStdString() == output) {
+        look.fill = accent;
+        look.pen = accent.darker(130);
+    } else if (m_hovered == output) {
+        look.fill = Mix(base, accent, 0.30);
+        look.pen = WithAlpha(accent, 220);
+    }
+    return look;
+}
+
+void GamepadDiagramWidget::DrawBound(QPainter& p, const QRectF& rect, const Look& look) const {
+    if (!look.bound) {
+        return;
+    }
+    // A dot just outside the control's top-right. Its own channel: a bound
+    // control still reads as bound while a different one is selected.
+    const qreal r = std::max(1.8, m_canvas.width() * 0.0055);
+    const QPointF at(rect.right() - r * 0.2, rect.top() + r * 0.2);
+    p.save();
+    p.setPen(QPen(palette().color(QPalette::Base), r * 0.7));
+    p.setBrush(palette().color(QPalette::Highlight));
+    p.drawEllipse(at, r, r);
+    p.restore();
+}
+
+void GamepadDiagramWidget::DrawBody(QPainter& p) const {
+    const QRectF c = m_canvas;
+    const auto px = [&](qreal x, qreal y) {
+        return QPointF(c.x() + x * c.width(), c.y() + y * c.height());
+    };
+    // Mirrored about the centre line, so the two halves cannot drift apart.
+    const auto mx = [&](qreal x, qreal y) {
+        return QPointF(c.x() + (1.0 - x) * c.width(), c.y() + y * c.height());
+    };
+
+    // One closed outline rather than a slab with two grips unioned onto it --
+    // the union left a visible seam where the shapes met.
+    QPainterPath body;
+    body.moveTo(px(0.500, 0.148));
+    // top edge and right shoulder of the shell
+    body.cubicTo(px(0.660, 0.148), px(0.800, 0.158), px(0.862, 0.196));
+    body.cubicTo(px(0.906, 0.223), px(0.920, 0.300), px(0.922, 0.400));
+    // down the outside and out into the right grip
+    body.cubicTo(px(0.930, 0.508), px(0.934, 0.612), px(0.912, 0.712));
+    body.cubicTo(px(0.888, 0.822), px(0.838, 0.936), px(0.772, 0.964));
+    // round the tip and back up the inside
+    body.cubicTo(px(0.714, 0.988), px(0.668, 0.938), px(0.654, 0.856));
+    body.cubicTo(px(0.640, 0.778), px(0.628, 0.742), px(0.596, 0.702));
+    // the waist, between the two grips
+    body.cubicTo(px(0.566, 0.666), px(0.546, 0.656), px(0.500, 0.656));
+    // and the mirror of all of it
+    body.cubicTo(mx(0.546, 0.656), mx(0.566, 0.666), mx(0.596, 0.702));
+    body.cubicTo(mx(0.628, 0.742), mx(0.640, 0.778), mx(0.654, 0.856));
+    body.cubicTo(mx(0.668, 0.938), mx(0.714, 0.988), mx(0.772, 0.964));
+    body.cubicTo(mx(0.838, 0.936), mx(0.888, 0.822), mx(0.912, 0.712));
+    body.cubicTo(mx(0.934, 0.612), mx(0.930, 0.508), mx(0.922, 0.400));
+    body.cubicTo(mx(0.918, 0.300), mx(0.906, 0.223), mx(0.862, 0.196));
+    body.cubicTo(mx(0.800, 0.158), mx(0.660, 0.148), mx(0.500, 0.148));
+    body.closeSubpath();
+
+    const QColor window = palette().color(QPalette::Window);
+    const QColor text = palette().color(QPalette::WindowText);
+    const QColor shell = Mix(window, text, 0.13);
+
+    p.save();
+    p.setPen(QPen(WithAlpha(text, 90), std::max(1.0, c.width() * 0.0035)));
+    p.setBrush(shell);
+    p.drawPath(body);
+
+    // A slightly lighter face plate, so the shell has some depth instead of
+    // reading as one flat cut-out.
+    QPainterPath face;
+    const QRectF plate(px(0.152, 0.186), px(0.848, 0.648));
+    face.addRoundedRect(plate, plate.height() * 0.30, plate.height() * 0.30);
+    p.setPen(Qt::NoPen);
+    p.setBrush(Mix(shell, window, 0.55));
+    p.drawPath(face);
+    p.restore();
+}
+
+void GamepadDiagramWidget::DrawTriggersAndShoulders(QPainter& p) const {
+    for (const auto* name : {"l2", "r2", "l1", "r1"}) {
+        const QRectF* rect = RectFor(name);
+        if (rect == nullptr) {
+            continue;
+        }
+        const Look look = LookFor(name);
+        const qreal radius = m_canvas.height() * 0.026;
+        p.setPen(QPen(look.pen, std::max(1.0, m_canvas.width() * 0.003)));
+        p.setBrush(look.fill);
+        p.drawRoundedRect(*rect, radius, radius);
+        DrawBound(p, *rect, look);
+    }
+}
+
+void GamepadDiagramWidget::DrawTouchpad(QPainter& p) const {
+    const QRectF* left = RectFor("touchpad_left");
+    const QRectF* right = RectFor("touchpad_right");
+    if (left == nullptr || right == nullptr) {
+        return;
+    }
+    const QRectF whole = left->united(*right);
+    const qreal radius = whole.height() * 0.16;
+
+    // One surface, drawn once, with the three zones marked on it -- that is
+    // what the guest sees, and drawing three buttons would suggest otherwise.
+    p.save();
+    p.setPen(QPen(WithAlpha(palette().color(QPalette::WindowText), 150),
+                  std::max(1.0, m_canvas.width() * 0.003)));
+    p.setBrush(palette().color(QPalette::Base));
+    p.drawRoundedRect(whole, radius, radius);
+
+    QPainterPath clip;
+    clip.addRoundedRect(whole, radius, radius);
+    p.setClipPath(clip);
+    for (const auto* name : {"touchpad_left", "touchpad_center", "touchpad_right"}) {
+        const QRectF* zone = RectFor(name);
+        if (zone == nullptr) {
+            continue;
+        }
+        const Look look = LookFor(name);
+        const bool active = m_highlighted.toStdString() == name || m_hovered == name;
+        if (active) {
+            p.setPen(Qt::NoPen);
+            p.setBrush(look.fill);
+            p.drawRect(*zone);
         }
     }
+    p.setClipping(false);
+
+    // Hairlines between the zones.
+    p.setPen(QPen(WithAlpha(palette().color(QPalette::WindowText), 38), 1.0));
+    for (const auto* name : {"touchpad_center", "touchpad_right"}) {
+        if (const QRectF* zone = RectFor(name)) {
+            p.drawLine(QPointF(zone->left(), whole.top() + whole.height() * 0.30),
+                       QPointF(zone->left(), whole.bottom() - whole.height() * 0.30));
+        }
+    }
+    p.restore();
+
+    for (const auto* name : {"touchpad_left", "touchpad_center", "touchpad_right"}) {
+        if (const QRectF* zone = RectFor(name)) {
+            DrawBound(p, zone->adjusted(0, whole.height() * 0.12, 0, 0), LookFor(name));
+        }
+    }
+}
+
+void GamepadDiagramWidget::DrawDpad(QPainter& p) const {
+    for (const auto* name : {"pad_up", "pad_down", "pad_left", "pad_right"}) {
+        const QRectF* rect = RectFor(name);
+        if (rect == nullptr) {
+            continue;
+        }
+        const Look look = LookFor(name);
+        const qreal radius = std::min(rect->width(), rect->height()) * 0.18;
+        p.setPen(QPen(look.pen, std::max(1.0, m_canvas.width() * 0.003)));
+        p.setBrush(look.fill);
+        p.drawRoundedRect(*rect, radius, radius);
+
+        // A small arrow, so the four arms are not four identical pills.
+        const QRectF g = rect->adjusted(rect->width() * 0.30, rect->height() * 0.30,
+                                        -rect->width() * 0.30, -rect->height() * 0.30);
+        QPolygonF arrow;
+        const std::string_view id(name);
+        if (id == "pad_up") {
+            arrow << QPointF(g.center().x(), g.top()) << g.bottomLeft() << g.bottomRight();
+        } else if (id == "pad_down") {
+            arrow << QPointF(g.center().x(), g.bottom()) << g.topLeft() << g.topRight();
+        } else if (id == "pad_left") {
+            arrow << QPointF(g.left(), g.center().y()) << g.topRight() << g.bottomRight();
+        } else {
+            arrow << QPointF(g.right(), g.center().y()) << g.topLeft() << g.bottomLeft();
+        }
+        p.setPen(Qt::NoPen);
+        p.setBrush(WithAlpha(palette().color(QPalette::WindowText), 120));
+        p.drawPolygon(arrow);
+
+        DrawBound(p, *rect, look);
+    }
+}
+
+void GamepadDiagramWidget::DrawFaceButtons(QPainter& p) const {
+    for (const auto* name : {"triangle", "circle", "cross", "square"}) {
+        const QRectF* rect = RectFor(name);
+        if (rect == nullptr) {
+            continue;
+        }
+        const Look look = LookFor(name);
+        p.setPen(QPen(look.pen, std::max(1.0, m_canvas.width() * 0.0035)));
+        p.setBrush(look.fill);
+        p.drawEllipse(*rect);
+
+        // Plain single-colour outlines. No per-button colour coding: the
+        // shapes are the config file's vocabulary, the colours are somebody's
+        // brand.
+        const QRectF g = rect->adjusted(rect->width() * 0.30, rect->height() * 0.30,
+                                        -rect->width() * 0.30, -rect->height() * 0.30);
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(WithAlpha(palette().color(QPalette::WindowText), 170),
+                      std::max(1.0, m_canvas.width() * 0.004)));
+        const std::string_view id(name);
+        if (id == "triangle") {
+            QPolygonF tri;
+            tri << QPointF(g.center().x(), g.top()) << g.bottomLeft() << g.bottomRight();
+            p.drawPolygon(tri);
+        } else if (id == "circle") {
+            p.drawEllipse(g);
+        } else if (id == "cross") {
+            p.drawLine(g.topLeft(), g.bottomRight());
+            p.drawLine(g.topRight(), g.bottomLeft());
+        } else {
+            p.drawRect(g);
+        }
+
+        DrawBound(p, *rect, look);
+    }
+}
+
+void GamepadDiagramWidget::DrawSticks(QPainter& p) const {
+    for (const auto* name : {"l3", "r3"}) {
+        const QRectF* rect = RectFor(name);
+        if (rect == nullptr) {
+            continue;
+        }
+        const Look look = LookFor(name);
+        const QColor text = palette().color(QPalette::WindowText);
+
+        // A well, then the cap sitting in it -- two circles read as a stick
+        // where one reads as a button.
+        p.setPen(QPen(WithAlpha(text, 70), std::max(1.0, m_canvas.width() * 0.003)));
+        p.setBrush(Mix(palette().color(QPalette::Window), text, 0.22));
+        p.drawEllipse(*rect);
+
+        const QRectF cap = rect->adjusted(rect->width() * 0.14, rect->height() * 0.14,
+                                          -rect->width() * 0.14, -rect->height() * 0.14);
+        p.setPen(QPen(look.pen, std::max(1.0, m_canvas.width() * 0.0035)));
+        p.setBrush(look.fill);
+        p.drawEllipse(cap);
+
+        // The dished top.
+        p.setPen(Qt::NoPen);
+        p.setBrush(WithAlpha(text, 45));
+        const QRectF dish = cap.adjusted(cap.width() * 0.26, cap.height() * 0.26,
+                                         -cap.width() * 0.26, -cap.height() * 0.26);
+        p.drawEllipse(dish);
+
+        DrawBound(p, *rect, look);
+    }
+}
+
+void GamepadDiagramWidget::DrawCentreButtons(QPainter& p) const {
+    const QRectF* options = RectFor("options");
+    if (options == nullptr) {
+        return;
+    }
+    const Look look = LookFor("options");
+    const qreal radius = options->height() * 0.35;
+    p.setPen(QPen(look.pen, std::max(1.0, m_canvas.width() * 0.003)));
+    p.setBrush(look.fill);
+    p.drawRoundedRect(*options, radius, radius);
+    DrawBound(p, *options, look);
+
+    // The mirror of it on the left is where `back`/`share` would be. That name
+    // is input-only -- nothing in this editor can be bound to it -- so the
+    // shape is drawn inert, and is not in m_regions: clicking it does nothing
+    // rather than silently selecting nothing, which is what the old diagram
+    // did with a "back" region that matched no row in the output list.
+    const QRectF mirror(m_canvas.x() + (1.0 - 0.632 - 0.036) * m_canvas.width(), options->y(),
+                        options->width(), options->height());
+    p.setPen(QPen(WithAlpha(palette().color(QPalette::WindowText), 55),
+                  std::max(1.0, m_canvas.width() * 0.003)));
+    p.setBrush(Qt::NoBrush);
+    p.drawRoundedRect(mirror, radius, radius);
 }
 
 void GamepadDiagramWidget::paintEvent(QPaintEvent*) {
+    if (m_canvas.isEmpty()) {
+        RebuildRegions();
+    }
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing, true);
 
-    const QColor body = palette().color(QPalette::Button);
-    const QColor outline = palette().color(QPalette::WindowText);
-    const QColor fill = palette().color(QPalette::Base);
-    const QColor highlight = palette().color(QPalette::Highlight);
-
-    DrawShoulders(p, fill, highlight);
-    DrawBody(p, body, outline);
-    DrawTouchpadAndCenter(p, fill, highlight);
-    DrawDpad(p, fill, highlight);
-    DrawFaceButtons(p, outline, highlight);
-    DrawSticks(p, fill, highlight);
-}
-
-void GamepadDiagramWidget::DrawBody(QPainter& p, const QColor& body, const QColor& outline) const {
-    const QRectF r(0, height() * 0.05, width(), height() * 0.85);
-    QPainterPath path;
-    path.addRoundedRect(r, r.height() * 0.35, r.height() * 0.35);
-    // Two grip bulges at the bottom corners -- what reads as "a pad" at a
-    // glance without tracing anyone's specific curvature.
-    path.addEllipse(QPointF(r.left() + r.width() * 0.12, r.bottom() - r.height() * 0.05),
-                    r.width() * 0.14, r.height() * 0.22);
-    path.addEllipse(QPointF(r.right() - r.width() * 0.12, r.bottom() - r.height() * 0.05),
-                    r.width() * 0.14, r.height() * 0.22);
-
-    p.setPen(QPen(outline, 1.5));
-    p.setBrush(body);
-    p.drawPath(path.simplified());
-}
-
-void GamepadDiagramWidget::DrawDpad(QPainter& p, const QColor& fill, const QColor& highlight) const {
-    static const char* names[] = {"pad_up", "pad_down", "pad_left", "pad_right"};
-    for (const auto* name : names) {
-        const auto it = m_regions.find(name);
-        if (it == m_regions.end()) {
-            continue;
-        }
-        const bool hi = m_highlighted.toStdString() == name;
-        p.setPen(QPen(palette().color(QPalette::WindowText), 1.2));
-        p.setBrush(hi ? highlight : fill);
-        p.drawRoundedRect(it->second, 3, 3);
-    }
-}
-
-void GamepadDiagramWidget::DrawFaceButtons(QPainter& p, const QColor& outline,
-                                           const QColor& highlight) const {
-    const QColor bg = palette().color(QPalette::Base);
-    for (const auto& name : {"triangle", "circle", "cross", "square"}) {
-        const auto it = m_regions.find(name);
-        if (it == m_regions.end()) {
-            continue;
-        }
-        const QRectF r = it->second;
-        const bool hi = m_highlighted.toStdString() == name;
-        p.setPen(QPen(outline, 1.5));
-        p.setBrush(hi ? highlight : bg);
-        p.drawEllipse(r);
-
-        // Plain, single-color glyphs -- generic outlines, not a reproduction
-        // of any brand's specific per-button color coding.
-        p.setBrush(Qt::NoBrush);
-        p.setPen(QPen(outline, 1.6));
-        const QRectF g = r.adjusted(r.width() * 0.28, r.height() * 0.28, -r.width() * 0.28,
-                                    -r.height() * 0.28);
-        if (std::string_view(name) == "triangle") {
-            QPolygonF tri;
-            tri << QPointF(g.center().x(), g.top()) << QPointF(g.left(), g.bottom())
-                << QPointF(g.right(), g.bottom());
-            p.drawPolygon(tri);
-        } else if (std::string_view(name) == "circle") {
-            p.drawEllipse(g);
-        } else if (std::string_view(name) == "cross") {
-            p.drawLine(g.topLeft(), g.bottomRight());
-            p.drawLine(g.topRight(), g.bottomLeft());
-        } else { // square
-            p.drawRect(g);
-        }
-    }
-}
-
-void GamepadDiagramWidget::DrawSticks(QPainter& p, const QColor& fill, const QColor& highlight) const {
-    for (const auto& name : {"l3", "r3"}) {
-        const auto it = m_regions.find(name);
-        if (it == m_regions.end()) {
-            continue;
-        }
-        const bool hi = m_highlighted.toStdString() == name;
-        p.setPen(QPen(palette().color(QPalette::WindowText), 1.5));
-        p.setBrush(hi ? highlight : fill);
-        p.drawEllipse(it->second);
-        p.setBrush(palette().color(QPalette::WindowText));
-        p.setPen(Qt::NoPen);
-        const QPointF c = it->second.center();
-        p.drawEllipse(c, it->second.width() * 0.18, it->second.width() * 0.18);
-    }
-}
-
-void GamepadDiagramWidget::DrawShoulders(QPainter& p, const QColor& fill,
-                                         const QColor& highlight) const {
-    for (const auto& name : {"l1", "r1", "l2", "r2"}) {
-        const auto it = m_regions.find(name);
-        if (it == m_regions.end()) {
-            continue;
-        }
-        const bool hi = m_highlighted.toStdString() == name;
-        p.setPen(QPen(palette().color(QPalette::WindowText), 1.2));
-        p.setBrush(hi ? highlight : fill);
-        p.drawRoundedRect(it->second, 4, 4);
-    }
-}
-
-void GamepadDiagramWidget::DrawTouchpadAndCenter(QPainter& p, const QColor& fill,
-                                                 const QColor& highlight) const {
-    for (const auto& name : {"touchpad_left", "touchpad_center", "touchpad_right"}) {
-        const auto it = m_regions.find(name);
-        if (it == m_regions.end()) {
-            continue;
-        }
-        const bool hi = m_highlighted.toStdString() == name;
-        p.setPen(QPen(palette().color(QPalette::WindowText), 1.0));
-        p.setBrush(hi ? highlight : fill);
-        p.drawRoundedRect(it->second, 3, 3);
-    }
-    for (const auto& name : {"options", "back"}) {
-        const auto it = m_regions.find(name);
-        if (it == m_regions.end()) {
-            continue;
-        }
-        const bool hi = m_highlighted.toStdString() == name;
-        p.setPen(QPen(palette().color(QPalette::WindowText), 1.0));
-        p.setBrush(hi ? highlight : fill);
-        p.drawEllipse(it->second);
-    }
+    DrawBody(p);
+    DrawTriggersAndShoulders(p);
+    DrawTouchpad(p);
+    DrawCentreButtons(p);
+    DrawDpad(p);
+    DrawFaceButtons(p);
+    DrawSticks(p);
 }

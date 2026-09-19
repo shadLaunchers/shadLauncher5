@@ -96,6 +96,12 @@ public:
 
     [[nodiscard]] bool IsDirty(const std::string& output_name) const;
 
+    // Anything at all edited this session and not yet written -- bindings,
+    // the mouse block or the dead zones. What Save() would actually act on.
+    [[nodiscard]] bool HasUnsavedChanges() const {
+        return !m_dirty_names.empty() || m_mouse_dirty || m_deadzones_dirty;
+    }
+
     // section 8. present=false if the file has no "mouse" block at all (the
     // returned values are then the built-in defaults, for display only --
     // Save() will not write a block nobody asked to change).
