@@ -41,8 +41,13 @@ struct RootScan {
 [[nodiscard]] RootScan ScanRoot(const std::string& text);
 
 struct ArrayElement {
-    std::string leading; // whitespace/comments/comma immediately before this element, verbatim
-    std::string text;    // the element's own value text, verbatim
+    // Whitespace and comments immediately before this element, verbatim.
+    // The separating comma is NOT part of this: it is structure, not
+    // trivia, and keeping it here would put a stray comma at the front of
+    // the rebuilt array whenever the first element is the one being
+    // replaced. A caller reassembling elements emits its own commas.
+    std::string leading;
+    std::string text; // the element's own value text, verbatim
 };
 
 struct ArrayContent {

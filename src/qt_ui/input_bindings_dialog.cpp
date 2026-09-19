@@ -14,10 +14,13 @@
 #include <QMessageBox>
 #include <QPainter>
 #include <QPushButton>
+#include <QSignalBlocker>
 #include <QSpinBox>
 #include <QStyleHints>
 #include <QTabWidget>
 #include <QVBoxLayout>
+#include <memory>
+#include <vector>
 
 #include "common/path_util.h"
 #include "core/input/input_ids.h"
@@ -663,6 +666,21 @@ void InputBindingsDialog::SwitchTarget(const std::filesystem::path& path) {
 }
 
 void InputBindingsDialog::ReloadSettingsTab() {
+    // Every setValue() below would otherwise fire the commit_* handlers and
+    // mark the file we have only just loaded as edited -- which makes Save()
+    // write a whole "mouse" and "deadzones" block into a game's file that
+    // nobody asked to change, pinning settings over global.json. Showing a
+    // value is not editing it.
+    const QSignalBlocker block_joystick(m_mouse_to_joystick);
+    const QSignalBlocker block_deadzone_offset(m_mouse_deadzone_offset);
+    const QSignalBlocker block_speed(m_mouse_speed);
+    const QSignalBlocker block_speed_offset(m_mouse_speed_offset);
+    std::vector<std::unique_ptr<QSignalBlocker>> block_spins;
+    block_spins.reserve(m_deadzone_spins.size());
+    for (auto* spin : m_deadzone_spins) {
+        block_spins.push_back(std::make_unique<QSignalBlocker>(spin));
+    }
+
     bool mouse_present = false;
     const auto mouse = m_config->GetMouseSettings(&mouse_present);
     const int mouse_idx = m_mouse_to_joystick->findData(QString::fromStdString(mouse.to_joystick));

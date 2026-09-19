@@ -31,6 +31,17 @@ std::string FormatHotkeyEntry(const std::string& name, const HotkeyBinding& bind
     }
     return entry.dump();
 }
+
+// True if `trivia` ends part-way through a "//" comment, so whatever is
+// appended next would be swallowed by that comment's line.
+bool EndsInsideLineComment(const std::string& trivia) {
+    const auto slashes = trivia.rfind("//");
+    return slashes != std::string::npos && trivia.find('\n', slashes) == std::string::npos;
+}
+
+bool HasComment(const std::string& trivia) {
+    return trivia.find("//") != std::string::npos || trivia.find("/*") != std::string::npos;
+}
 } // namespace
 
 bool HotkeysConfig::Load() {
@@ -205,6 +216,13 @@ bool HotkeysConfig::Save() const {
         if (!output.empty() && dirty_set.count(output)) {
             continue; // dropped -- replaced by fresh entries below
         }
+        // The separator is ours to write: SplitArray hands back only the
+        // trivia before each element, never the comma. It goes before the
+        // leading trivia so a comment sitting above an element stays above
+        // it.
+        if (!first) {
+            rebuilt += ",";
+        }
         rebuilt += elem.leading;
         rebuilt += elem.text;
         first = false;
@@ -228,7 +246,15 @@ bool HotkeysConfig::Save() const {
             rebuilt += FormatHotkeyEntry(name, binding);
         }
     }
-    if (!rebuilt.empty()) {
+    // A note written after the last entry is trivia belonging to nobody, so
+    // nothing above would have carried it -- put it back rather than
+    // deleting it.
+    if (HasComment(existing.trailing)) {
+        rebuilt += existing.trailing;
+        if (EndsInsideLineComment(existing.trailing)) {
+            rebuilt += "\n    ";
+        }
+    } else if (!rebuilt.empty()) {
         rebuilt += "\n    ";
     }
 

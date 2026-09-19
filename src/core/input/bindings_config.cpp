@@ -86,15 +86,22 @@ std::optional<BindingsConfig::FlatBinding> ParseBindingEntry(const nlohmann::ord
         return std::nullopt;
     }
 
+    // The input side's suffix is remembered whether or not it is what names
+    // this binding's port, so a rewrite can put it back.
+    binding.input_port = input_port;
+
     // Priority: output ":n" suffix, then "gamepad" field, then input ":n"
     // suffix -- see bindings_config.h's PortedBinding comment.
     if (output_port != 0) {
         binding.port = ClampPort(output_port);
+        binding.port_source = PortSource::OutputSuffix;
     } else if (const auto gp_it = entry.find("gamepad");
                gp_it != entry.end() && gp_it->is_number_integer()) {
         binding.port = ClampPort(gp_it->get<int>());
+        binding.port_source = PortSource::GamepadField;
     } else if (input_port != 0) {
         binding.port = ClampPort(input_port);
+        binding.port_source = PortSource::InputSuffix;
     }
 
     return BindingsConfig::FlatBinding{base_output, std::move(binding)};
@@ -104,10 +111,26 @@ std::optional<BindingsConfig::FlatBinding> ParseBindingEntry(const nlohmann::ord
 // used for entries an edit is actively adding/replacing this session).
 std::string FormatBindingEntry(const std::string& output, const PortedBinding& binding) {
     nlohmann::ordered_json entry;
-    entry["output"] = output;
-    entry["input"] = binding.input.size() == 1 ? nlohmann::ordered_json(binding.input.front())
-                                               : nlohmann::ordered_json(binding.input);
-    if (binding.port != 0) {
+    entry["output"] = binding.port_source == PortSource::OutputSuffix
+                          ? output + ":" + std::to_string(binding.port)
+                          : output;
+
+    if (binding.input.size() == 1) {
+        // Put back the input side's own ":n", whether or not it is what
+        // named this binding's port.
+        entry["input"] = binding.input_port == 0
+                             ? binding.input.front()
+                             : binding.input.front() + ":" + std::to_string(binding.input_port);
+    } else {
+        entry["input"] = binding.input;
+    }
+
+    // Only the shorthand spelling gets a "gamepad" field. A binding the
+    // editor created itself (port_source == None with a port set) counts as
+    // shorthand; one that arrived as a ":n" suffix already carries its port
+    // in the name written above.
+    if (binding.port != 0 && (binding.port_source == PortSource::None ||
+                              binding.port_source == PortSource::GamepadField)) {
         entry["gamepad"] = binding.port;
     }
     return entry.dump();
@@ -115,6 +138,17 @@ std::string FormatBindingEntry(const std::string& output, const PortedBinding& b
 
 constexpr const char* kFreshFileTemplate =
     "{\n    \"version\": 1,\n\n    \"bindings\": [\n    ]\n}\n";
+
+// True if `trivia` ends part-way through a "//" comment, so whatever is
+// appended next would be swallowed by that comment's line.
+bool EndsInsideLineComment(const std::string& trivia) {
+    const auto slashes = trivia.rfind("//");
+    return slashes != std::string::npos && trivia.find('\n', slashes) == std::string::npos;
+}
+
+bool HasComment(const std::string& trivia) {
+    return trivia.find("//") != std::string::npos || trivia.find("/*") != std::string::npos;
+}
 
 } // namespace
 
@@ -382,6 +416,13 @@ bool BindingsConfig::Save() const {
             if (!base_output.empty() && dirty_set.count(base_output)) {
                 continue; // dropped -- replaced by fresh entries below
             }
+            // The separator is ours to write: SplitArray hands back only the
+            // trivia before each element, never the comma. It goes before
+            // the leading trivia so a comment sitting above an element stays
+            // above it.
+            if (!first) {
+                rebuilt += ",";
+            }
             rebuilt += elem.leading;
             rebuilt += elem.text;
             first = false;
@@ -406,7 +447,15 @@ bool BindingsConfig::Save() const {
                 rebuilt += FormatBindingEntry(name, binding);
             }
         }
-        if (!rebuilt.empty()) {
+        // A note written after the last entry is trivia belonging to nobody,
+        // so nothing above would have carried it -- put it back rather than
+        // deleting it.
+        if (HasComment(existing.trailing)) {
+            rebuilt += existing.trailing;
+            if (EndsInsideLineComment(existing.trailing)) {
+                rebuilt += "\n    ";
+            }
+        } else if (!rebuilt.empty()) {
             rebuilt += "\n    ";
         }
 

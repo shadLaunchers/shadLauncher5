@@ -24,19 +24,31 @@
 
 namespace Core::Input {
 
+// Which of section 5's three spellings named this binding's port. Kept so a
+// rewrite re-emits the shape the file already used instead of collapsing all
+// three into "gamepad" -- an output-side ":n" and a "gamepad" field answer
+// different questions (whose output fires, vs which device may press it), so
+// silently converting one into the other changes what the emulator does.
+enum class PortSource {
+    None,         // no port named anywhere -- belongs to every port
+    OutputSuffix, // "output": "cross:2"
+    GamepadField, // "gamepad": 2
+    InputSuffix,  // "input": "cross:2"
+};
+
 struct PortedBinding {
     std::vector<std::string> input; // 1-3 input names, held together
     // 0 = binding names no port ("belongs to every port", section 5's
-    // default). 1-4 = this binding is scoped to one port, written as a
-    // "gamepad" field on save (the mechanism the worked example in section
-    // 10 uses for one player's device driving another's output). An
-    // output-side ":n" suffix -- the *other* way a file can name a port
-    // (section 5) -- is preserved verbatim if present when this binding was
-    // loaded, but this editor does not offer setting one: the two fields
-    // answer different questions (which device may press it, vs whose
-    // output fires) and conflating them in a first pass risks writing
-    // something the emulator resolves differently than intended.
+    // default). 1-4 = this binding is scoped to one port. A binding the
+    // editor creates itself leaves port_source at None and is written with
+    // a "gamepad" field; one loaded from a file keeps whichever spelling it
+    // arrived in.
     int port = 0;
+    PortSource port_source = PortSource::None;
+    // The input side's own ":n" suffix, independent of `port` -- this is
+    // what lets the worked example in section 10 (one player's device
+    // driving another player's output) survive a round-trip. 0 = none.
+    int input_port = 0;
 };
 
 // section 8: applies while mouse-to-joystick is switched on.

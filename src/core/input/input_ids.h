@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 //
-// The subset of the emulator's input vocabulary (docs/input-bindings.md,
-// section 7) that a hotkey binding can use: the ten known hotkey names with
-// their documented defaults, and the keyboard/mouse input names a hotkey can
-// bind to. This intentionally does not include the pad-control output
-// vocabulary (triangle, axis_left_x_plus, ...) -- that belongs to the
-// per-game/global binding editor, not this one.
+// The emulator's input vocabulary (docs/input-bindings.md, section 7), in
+// two halves. First: what a hotkey binding can use -- the ten known hotkey
+// names with their documented defaults, and the keyboard/mouse input names a
+// hotkey can bind to. Then, below the divider: the pad-control vocabulary
+// the per-game/global binding editor needs -- the output names (triangle,
+// axis_left_x_plus, ...), the pad names that are input-only, and the three
+// names the emulator knows but has not implemented.
 
 #pragma once
 
