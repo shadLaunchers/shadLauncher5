@@ -170,6 +170,10 @@ private:
     QPushButton* m_revert_btn = nullptr;
     QTabWidget* m_tabs = nullptr;
     std::array<PortBindingsPage*, 4> m_pages{};
+    // Conflicts and problems share one small tabbed box at the bottom:
+    // two stacked group boxes cost ~240px of height for two lists that are
+    // usually empty.
+    class QTabWidget* m_issues = nullptr;
     QListWidget* m_conflicts_list = nullptr;
     QLabel* m_conflicts_summary = nullptr;
     QListWidget* m_problems_list = nullptr;

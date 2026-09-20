@@ -144,8 +144,8 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
                                    QWidget* parent)
     : QWidget(parent), m_port_number(port_number), m_config(config) {
     auto* outer = new QVBoxLayout(this);
-    outer->setContentsMargins(10, 10, 10, 10);
-    outer->setSpacing(10);
+    outer->setContentsMargins(8, 6, 8, 6);
+    outer->setSpacing(6);
 
     m_assigned_check =
         new QCheckBox(tr("This port is assigned (edit its bindings)"), this);
@@ -158,19 +158,15 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     connect(m_assigned_check, &QCheckBox::toggled, this, &PortBindingsPage::UpdateEnabledState);
     outer->addWidget(m_assigned_check);
 
-    auto* diagram_box = new QGroupBox(tr("Layout"), this);
-    auto* diagram_layout = new QVBoxLayout(diagram_box);
-    m_diagram = new GamepadDiagramWidget(diagram_box);
-    // Capped and centred: the diagram keeps its aspect ratio, so letting it
-    // have the dialog's full width just surrounds it with empty box.
-    m_diagram->setMaximumWidth(520);
-    m_diagram->setMinimumHeight(190);
-    diagram_layout->addWidget(m_diagram, 0, Qt::AlignHCenter);
-    auto* diagram_hint = new QLabel(
-        tr("Click a control on the diagram, or pick one from the list below."), diagram_box);
-    Muted(diagram_hint);
-    diagram_hint->setAlignment(Qt::AlignCenter);
-    diagram_layout->addWidget(diagram_hint);
+    // No group box and no caption line: between them they cost about 60px of
+    // height to say what one tooltip says, and this dialog had none to spare.
+    // Capped and centred, since the diagram keeps its aspect ratio and would
+    // otherwise sit in a band of empty box.
+    m_diagram = new GamepadDiagramWidget(this);
+    m_diagram->setMaximumWidth(430);
+    m_diagram->setMinimumHeight(100);
+    m_diagram->setMaximumHeight(168);
+    m_diagram->setToolTip(tr("Click a control to select it."));
     connect(m_diagram, &GamepadDiagramWidget::OutputClicked, this,
             [this](const QString& output) {
                 for (int i = 0; i < m_output_list->count(); i++) {
@@ -181,7 +177,7 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
                     }
                 }
             });
-    outer->addWidget(diagram_box, 0);
+    outer->addWidget(m_diagram, 0, Qt::AlignHCenter);
 
     auto* main_layout = new QHBoxLayout();
     main_layout->setSpacing(12);
@@ -194,12 +190,14 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     connect(m_filter, &QLineEdit::textChanged, this, &PortBindingsPage::OnFilterChanged);
     left_layout->addWidget(m_filter);
     m_output_list = new QListWidget(output_box);
+    m_output_list->setMinimumHeight(84);
     left_layout->addWidget(m_output_list);
     main_layout->addWidget(output_box, 1);
 
     auto* ways_box = new QGroupBox(tr("Ways to Press It"), this);
     auto* right_layout = new QVBoxLayout(ways_box);
     m_bindings_list = new QListWidget(ways_box);
+    m_bindings_list->setMinimumHeight(84);
     right_layout->addWidget(m_bindings_list);
 
     m_hint_label = new QLabel(ways_box);
@@ -461,15 +459,11 @@ void PortBindingsPage::RefreshBindingsList() {
 
     if (analog) {
         m_hint_label->setText(
-            tr("%1 can only be driven by a stick or trigger axis, and this editor can't "
-              "capture one yet -- set it by hand in the file for now.")
+            tr("%1 takes a stick or trigger axis, which this editor can't capture yet.")
                 .arg(FriendlyOutputName(name)));
     } else if (shown > 0 || shown_global > 0) {
         m_hint_label->setText(
-            tr("Ways to press %1 that reach player %2. Greyed rows name no port, so they "
-              "drive every player.")
-                .arg(FriendlyOutputName(name))
-                .arg(m_port_number));
+            tr("Reaching player %1. Greyed rows drive every player.").arg(m_port_number));
     } else {
         m_hint_label->setText(
             tr("Nothing drives %1 on player %2 yet.")
@@ -592,33 +586,19 @@ void InputBindingsDialog::BuildUi() {
     setWindowTitle(tr("Input Bindings -- %1").arg(
         QString::fromStdString(m_config->FilePath().filename().string())));
     setWindowIcon(TintedGamepadIcon());
-    resize(800, 600);
+    resize(860, 620);
 
     auto* outer = new QVBoxLayout(this);
-    outer->setContentsMargins(16, 16, 16, 16);
-    outer->setSpacing(12);
+    outer->setContentsMargins(10, 10, 10, 10);
+    outer->setSpacing(8);
 
-    // Header: icon + title + which file this session edits.
-    auto* header = new QHBoxLayout();
-    auto* icon_label = new QLabel(this);
-    icon_label->setPixmap(TintedGamepadIcon().pixmap(32, 32));
-    header->addWidget(icon_label);
-
-    auto* title_layout = new QVBoxLayout();
-    auto* title_label = new QLabel(tr("Input Bindings"), this);
-    QFont title_font = title_label->font();
-    title_font.setPointSize(title_font.pointSize() + 4);
-    title_font.setBold(true);
-    title_label->setFont(title_font);
-    title_layout->addWidget(title_label);
-
-    m_subtitle_label =
-        new QLabel(tr("Editing %1").arg(QString::fromStdString(m_config->FilePath().string())), this);
+    // The window title already says "Input Bindings"; a 32px icon and a
+    // point-size-plus-four heading repeating it cost ~70px of height that
+    // the tabs needed more.
+    m_subtitle_label = new QLabel(this);
+    m_subtitle_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
     Muted(m_subtitle_label);
-    title_layout->addWidget(m_subtitle_label);
-    header->addLayout(title_layout);
-    header->addStretch();
-    outer->addLayout(header);
+    outer->addWidget(m_subtitle_label);
 
     // File picker (section 2): global.json, or a specific game's own file.
     auto* picker_row = new QHBoxLayout();
@@ -632,6 +612,8 @@ void InputBindingsDialog::BuildUi() {
     PopulateFilePicker();
     connect(m_file_picker, qOverload<int>(&QComboBox::currentIndexChanged), this,
             &InputBindingsDialog::OnFilePickerChanged);
+    m_subtitle_label->setText(
+        tr("Editing %1").arg(QString::fromStdString(m_config->FilePath().string())));
 
     // Built whether or not it is needed right now: switching files has to be
     // able to raise and lower it, and it used to be a local that only existed
@@ -652,26 +634,30 @@ void InputBindingsDialog::BuildUi() {
         connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshProblemsList);
     }
     m_tabs->addTab(BuildSettingsPage(), tr("Settings"));
-    outer->addWidget(m_tabs, 3);
+    outer->addWidget(m_tabs, 1);
 
-    auto* conflicts_box = new QGroupBox(tr("Conflicts"), this);
-    auto* conflicts_layout = new QVBoxLayout(conflicts_box);
-    m_conflicts_summary = new QLabel(conflicts_box);
+    // One tabbed box, not two stacked group boxes: both lists are empty in
+    // the normal case and were costing ~240px of height to say so.
+    m_issues = new QTabWidget(this);
+    m_issues->setMaximumHeight(112);
+
+    auto* conflicts_page = new QWidget(m_issues);
+    auto* conflicts_layout = new QVBoxLayout(conflicts_page);
+    conflicts_layout->setContentsMargins(6, 6, 6, 6);
+    conflicts_layout->setSpacing(4);
+    m_conflicts_summary = new QLabel(conflicts_page);
     m_conflicts_summary->setWordWrap(true);
     conflicts_layout->addWidget(m_conflicts_summary);
-    m_conflicts_list = new QListWidget(conflicts_box);
-    m_conflicts_list->setMaximumHeight(110);
+    m_conflicts_list = new QListWidget(conflicts_page);
     m_conflicts_list->setAlternatingRowColors(true);
     conflicts_layout->addWidget(m_conflicts_list);
-    outer->addWidget(conflicts_box, 1);
-    RefreshConflicts();
+    m_issues->addTab(conflicts_page, tr("Conflicts"));
 
-    auto* problems_box = new QGroupBox(tr("Problems"), this);
-    auto* problems_layout = new QVBoxLayout(problems_box);
-    m_problems_list = new QListWidget(problems_box);
-    m_problems_list->setMaximumHeight(90);
-    problems_layout->addWidget(m_problems_list);
-    outer->addWidget(problems_box);
+    m_problems_list = new QListWidget(m_issues);
+    m_issues->addTab(m_problems_list, tr("Problems"));
+
+    outer->addWidget(m_issues, 0);
+    RefreshConflicts();
     RefreshProblemsList();
 
     auto* buttons = new QHBoxLayout();
@@ -769,6 +755,9 @@ void InputBindingsDialog::reject() {
 }
 
 void InputBindingsDialog::RefreshConflicts() {
+    if (m_conflicts_list == nullptr) {
+        return; // called from BuildUi before the box exists
+    }
     m_conflicts_list->clear();
     if (!m_config->IsLoaded()) {
         m_conflicts_summary->clear();
@@ -784,6 +773,11 @@ void InputBindingsDialog::RefreshConflicts() {
         all.insert(all.end(), global_bindings.begin(), global_bindings.end());
     }
     const auto conflicts = Core::Input::FindConflicts(all);
+    if (m_issues != nullptr) {
+        m_issues->setTabText(0, conflicts.empty()
+                                    ? tr("Conflicts")
+                                    : tr("Conflicts (%1)").arg(conflicts.size()));
+    }
     if (conflicts.empty()) {
         m_conflicts_summary->setText(tr("\u2713 No conflicts: no two bindings share the exact "
                                        "same keys for different controls."));
@@ -815,6 +809,9 @@ void InputBindingsDialog::RefreshConflicts() {
 }
 
 void InputBindingsDialog::RefreshProblemsList() {
+    if (m_problems_list == nullptr) {
+        return;
+    }
     m_problems_list->clear();
     if (!m_config->IsLoaded()) {
         return;
@@ -826,6 +823,11 @@ void InputBindingsDialog::RefreshProblemsList() {
         for (const auto& w : m_global_overlay->Validate()) {
             m_problems_list->addItem(tr("(global.json) %1").arg(QString::fromStdString(w)));
         }
+    }
+    if (m_issues != nullptr) {
+        const int count = m_problems_list->count();
+        m_issues->setTabText(1, count == 0 ? tr("Problems")
+                                           : tr("Problems (%1)").arg(count));
     }
 }
 

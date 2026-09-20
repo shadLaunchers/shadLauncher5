@@ -45,11 +45,14 @@ public:
     // doesn't draw are ignored.
     void SetBoundOutputs(const QSet<QString>& outputNames);
 
+    // Small on purpose. This is a picker, not the point of the window, and
+    // its old floor of 207px was a third of the dialog's height before
+    // anything else had asked for any.
     [[nodiscard]] QSize sizeHint() const override {
-        return QSize(420, 290);
+        return QSize(340, 234);
     }
     [[nodiscard]] QSize minimumSizeHint() const override {
-        return QSize(300, 207);
+        return QSize(200, 138);
     }
 
 signals:
