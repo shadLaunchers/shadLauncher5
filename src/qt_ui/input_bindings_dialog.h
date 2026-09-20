@@ -78,10 +78,11 @@ public:
     // out, since that changes whether a pinned device has a name.
     void RefreshDeviceLabel();
 
-    // Read-only global.json bindings to show alongside this page's own,
-    // when this page belongs to a dialog editing a specific game's file.
-    // Pass nullptr to clear it (editing global.json itself has no overlay).
-    void SetGlobalOverlay(Core::Input::BindingsConfig* overlay);
+    // The other layer's bindings, read-only, shown alongside this page's own.
+    // `label` is the file's name as the rows should say it. Which file that is
+    // depends on what is being edited -- see RefreshBindingsList. Pass nullptr
+    // to clear it.
+    void SetOverlay(Core::Input::BindingsConfig* overlay, const QString& label);
 
     // Call after m_config has been reloaded in place (a new target path)
     // to re-render with the fresh data.
@@ -119,10 +120,14 @@ private:
     // True for axis_left_x and friends: only an axis may drive them, which
     // changes what the hint tells you to press.
     [[nodiscard]] static bool IsAnalogOutput(const std::string& name);
+    // The outputs `config` binds for this port. Used for this page's own file
+    // and for the read-only layer beside it, which get different markers.
+    [[nodiscard]] QSet<QString> OutputsBoundIn(Core::Input::BindingsConfig* config) const;
 
     int m_port_number;
     Core::Input::BindingsConfig* m_config; // not owned
     Core::Input::BindingsConfig* m_global_overlay = nullptr; // not owned; read-only display
+    QString m_overlay_label;                                 // the file name those rows name
 
     QLabel* m_device_label = nullptr;
     GamepadDiagramWidget* m_diagram = nullptr;
@@ -177,6 +182,9 @@ private:
     // bindings, because the emulator reads one or the other and never both.
     // Returns true if it seeded. Never touches global.json or default.json.
     bool SeedFromDefaultsIfNew(const std::filesystem::path& path);
+    // Loads the read-only layer that applies alongside `path`, and names it.
+    // default.json under global.json; global.json under a game's file.
+    void LoadOverlayFor(const std::filesystem::path& path);
     void RefreshSeededBanner();
     void PopulateFilePicker();
     // Switches the dialog to edit `path` in place -- reloads m_config (and
@@ -193,7 +201,10 @@ private:
 
     std::filesystem::path m_global_json_path;
     std::unique_ptr<Core::Input::BindingsConfig> m_config;
-    std::unique_ptr<Core::Input::BindingsConfig> m_global_overlay; // set only when editing a game file
+    // The other layer that applies alongside the file being edited, shown
+    // read-only. Which file that is depends on the target -- LoadOverlayFor.
+    std::unique_ptr<Core::Input::BindingsConfig> m_global_overlay;
+    QString m_overlay_label;
 
     QComboBox* m_file_picker = nullptr;
     GamepadSelector* m_gamepad = nullptr;

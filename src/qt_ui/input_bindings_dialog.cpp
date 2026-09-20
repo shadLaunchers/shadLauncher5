@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "common/path_util.h"
+#include "core/input/input_defaults.h" // creates default.json/global.json when missing
 #include "core/input/input_ids.h"
 #include "core/user_settings.h" // UserManagement: which device is pinned to which port
 #include "game_info.h"
@@ -394,15 +395,18 @@ void PortBindingsPage::OnFilterChanged(const QString& text) {
     }
 }
 
-QSet<QString> PortBindingsPage::BoundOutputs() const {
+QSet<QString> PortBindingsPage::OutputsBoundIn(Core::Input::BindingsConfig* config) const {
     QSet<QString> bound;
+    if (config == nullptr) {
+        return bound;
+    }
     for (int i = 0; i < m_output_list->count(); i++) {
         const QString id = m_output_list->item(i)->data(Qt::UserRole).toString();
         if (id.isEmpty()) {
             continue;
         }
         const auto name = id.toStdString();
-        const auto& bindings = m_config->GetBindings(name);
+        const auto& bindings = config->GetBindings(name);
         const bool any = std::any_of(bindings.begin(), bindings.end(), [&](const auto& b) {
             const int player = b.OutputPlayer();
             return player == 0 || player == m_port_number;
@@ -414,11 +418,25 @@ QSet<QString> PortBindingsPage::BoundOutputs() const {
     return bound;
 }
 
+QSet<QString> PortBindingsPage::BoundOutputs() const {
+    return OutputsBoundIn(m_config);
+}
+
 void PortBindingsPage::RefreshOutputMarkers() {
     const QSet<QString> bound = BoundOutputs();
+    // What the other layer covers. Without this, opening global.json -- which
+    // is empty by design, being the "extra bindings" file -- showed an
+    // unmarked list and a blank diagram, which reads as "you have no controls"
+    // rather than "your controls are in the other file".
+    const QSet<QString> from_overlay = OutputsBoundIn(m_global_overlay);
+
     const int side = std::max(8, m_output_list->fontMetrics().height());
     const QIcon dot = BoundMarker(palette().color(QPalette::Highlight),
                                   palette().color(QPalette::HighlightedText), true, side);
+    // Muted, for an output this file does not bind but the other layer does:
+    // present, and not yours to edit here.
+    const QIcon overlay_dot =
+        BoundMarker(MutedColor(palette()), palette().color(QPalette::Window), true, side);
     const QIcon blank = BoundMarker(Qt::transparent, Qt::transparent, false, side);
     for (int i = 0; i < m_output_list->count(); i++) {
         auto* item = m_output_list->item(i);
@@ -428,9 +446,15 @@ void PortBindingsPage::RefreshOutputMarkers() {
         }
         // A dot in the margin beats a colour: it survives both themes and
         // does not collide with the selection highlight.
-        item->setIcon(bound.contains(id) ? dot : blank);
+        if (bound.contains(id)) {
+            item->setIcon(dot);
+        } else if (from_overlay.contains(id)) {
+            item->setIcon(overlay_dot);
+        } else {
+            item->setIcon(blank);
+        }
     }
-    m_diagram->SetBoundOutputs(bound);
+    m_diagram->SetBoundOutputs(bound + from_overlay);
 }
 
 std::string PortBindingsPage::CurrentOutputName() const {
@@ -449,8 +473,9 @@ QString PortBindingsPage::DisplayChord(const std::vector<std::string>& input) {
     return parts.join(" + ");
 }
 
-void PortBindingsPage::SetGlobalOverlay(Core::Input::BindingsConfig* overlay) {
+void PortBindingsPage::SetOverlay(Core::Input::BindingsConfig* overlay, const QString& label) {
     m_global_overlay = overlay;
+    m_overlay_label = label;
     RefreshBindingsList();
 }
 
@@ -507,17 +532,24 @@ void PortBindingsPage::RefreshBindingsList() {
         shown++;
     }
 
-    // Section 2: the game's own file and global.json are concatenated at
-    // runtime, so global.json's bindings for this output are just as
-    // "active" as this file's own -- show them, clearly marked, even though
-    // this page can't edit them (switch the file picker to global.json for
-    // that).
+    // Section 2: two files are concatenated at runtime, so the other one's
+    // bindings for this output are just as "active" as this file's own. Which
+    // other one depends on what is being edited, and getting that wrong would
+    // be worse than showing nothing:
+    //
+    //   editing global.json -> default.json is the base under it
+    //   editing a game file -> global.json is added on top; default.json is
+    //                          NOT in play at all, because a game file
+    //                          replaces it rather than layering over it
+    //
+    // Shown clearly marked, and not editable here -- switch the file picker
+    // to that file for that.
     int shown_global = 0;
     if (m_global_overlay) {
         for (const auto& binding : m_global_overlay->GetBindings(name)) {
             if (binding.OutputPlayer() == 0 || binding.OutputPlayer() == m_port_number) {
                 auto* item = new QListWidgetItem(
-                    tr("(from global.json) %1").arg(DisplayChord(binding.input)));
+                    tr("(from %1) %2").arg(m_overlay_label, DisplayChord(binding.input)));
                 item->setFlags(item->flags() & ~Qt::ItemIsSelectable);
                 item->setForeground(MutedColor(palette()));
                 m_bindings_list->addItem(item);
@@ -703,12 +735,16 @@ InputBindingsDialog::InputBindingsDialog(const std::filesystem::path& targetFile
     : QDialog(parent), m_global_json_path(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
                                           "global.json"),
       m_config(std::make_unique<Core::Input::BindingsConfig>()) {
+    // The emulator writes default.json and global.json on its first run. Open
+    // the launcher first -- which is the normal order -- and neither exists
+    // yet, so there was nothing for a new game file to start from and nothing
+    // for the all-games overlay to show. Writing them here means the editor
+    // and the emulator agree about what a fresh install looks like.
+    Core::Input::EnsureBindingsFiles();
+
     m_config->Load(targetFile);
     SeedFromDefaultsIfNew(targetFile);
-    if (targetFile != m_global_json_path) {
-        m_global_overlay = std::make_unique<Core::Input::BindingsConfig>();
-        m_global_overlay->Load(m_global_json_path);
-    }
+    LoadOverlayFor(targetFile);
     BuildUi();
 }
 
@@ -808,7 +844,7 @@ void InputBindingsDialog::BuildUi() {
     for (int port = 1; port <= 4; port++) {
         auto* page = new PortBindingsPage(port, m_config.get(), this);
         m_pages[static_cast<size_t>(port - 1)] = page;
-        page->SetGlobalOverlay(m_global_overlay.get());
+        page->SetOverlay(m_global_overlay.get(), m_overlay_label);
         m_tabs->addTab(page, tab_icon, tr("Port %1").arg(port));
         connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshConflicts);
         connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshProblemsList);
@@ -1007,6 +1043,45 @@ void InputBindingsDialog::RefreshSeededBanner() {
     }
 }
 
+void InputBindingsDialog::LoadOverlayFor(const std::filesystem::path& path) {
+    // The emulator concatenates exactly two files at runtime, and which two
+    // depends on the game (Load() in its input_config.cpp):
+    //
+    //   a game with its own file -> that file + global.json
+    //   a game without one       -> default.json + global.json
+    //
+    // So the read-only layer shown beside what is being edited is the other
+    // half of whichever pair this file is in. The one thing that would be a
+    // lie is showing default.json beside a game's file: a game file replaces
+    // default.json rather than layering over it, so those rows would not be
+    // in play at all.
+    const auto defaults_path =
+        Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "default.json";
+
+    std::filesystem::path overlay_path;
+    if (path == m_global_json_path) {
+        overlay_path = defaults_path;
+        m_overlay_label = tr("default.json");
+    } else {
+        overlay_path = m_global_json_path;
+        m_overlay_label = tr("global.json");
+    }
+
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(overlay_path, ec)) {
+        m_global_overlay.reset();
+        m_overlay_label.clear();
+        return;
+    }
+    if (!m_global_overlay) {
+        m_global_overlay = std::make_unique<Core::Input::BindingsConfig>();
+    }
+    if (!m_global_overlay->Load(overlay_path)) {
+        m_global_overlay.reset();
+        m_overlay_label.clear();
+    }
+}
+
 PortBindingsPage* InputBindingsDialog::CurrentPage() const {
     for (auto* page : m_pages) {
         if (page != nullptr && page == m_tabs->currentWidget()) {
@@ -1104,7 +1179,8 @@ void InputBindingsDialog::RefreshProblemsList() {
     }
     if (m_global_overlay && m_global_overlay->IsLoaded()) {
         for (const auto& w : m_global_overlay->Validate()) {
-            m_problems_list->addItem(tr("(global.json) %1").arg(QString::fromStdString(w)));
+            m_problems_list->addItem(tr("(%1) %2").arg(m_overlay_label,
+                                                       QString::fromStdString(w)));
         }
     }
     if (m_issues != nullptr) {
@@ -1127,7 +1203,9 @@ void InputBindingsDialog::OnSave() {
 void InputBindingsDialog::PopulateFilePicker() {
     m_file_picker->blockSignals(true);
     m_file_picker->clear();
-    m_file_picker->addItem(tr("Global (global.json)"),
+    // "Global" alone said nothing about the relationship between the two
+    // files, which is why an empty editor looked broken rather than correct.
+    m_file_picker->addItem(tr("All games — extra bindings (global.json)"),
                            QString::fromStdString(m_global_json_path.string()));
 
     // List games that already have a custom file -- game_list_frame.cpp
@@ -1156,7 +1234,7 @@ void InputBindingsDialog::PopulateFilePicker() {
         // reflects reality instead of silently defaulting to something else.
         const QString label =
             m_config->FilePath() == m_global_json_path
-                ? tr("Global (global.json)")
+                ? tr("All games — extra bindings (global.json)")
                 : tr("Game: %1").arg(QString::fromStdString(m_config->FilePath().stem().string()));
         m_file_picker->addItem(label, current_path);
         m_file_picker->setCurrentIndex(m_file_picker->count() - 1);
@@ -1200,21 +1278,14 @@ void InputBindingsDialog::SwitchTarget(const std::filesystem::path& path) {
     }
     m_config->Load(path);
     SeedFromDefaultsIfNew(path);
-    if (path != m_global_json_path) {
-        if (!m_global_overlay) {
-            m_global_overlay = std::make_unique<Core::Input::BindingsConfig>();
-        }
-        m_global_overlay->Load(m_global_json_path);
-    } else {
-        m_global_overlay.reset();
-    }
+    LoadOverlayFor(path);
 
     setWindowTitle(
         tr("Input Bindings -- %1").arg(QString::fromStdString(path.filename().string())));
     m_subtitle_label->setText(tr("Editing %1").arg(QString::fromStdString(path.string())));
 
     for (auto* page : m_pages) {
-        page->SetGlobalOverlay(m_global_overlay.get());
+        page->SetOverlay(m_global_overlay.get(), m_overlay_label);
         page->Reload();
     }
     ReloadSettingsTab();

@@ -161,6 +161,8 @@ set(CORE src/core/user_manager.cpp
           src/core/input/hotkeys_config.h
           src/core/input/bindings_config.cpp
           src/core/input/bindings_config.h
+          src/core/input/input_defaults.cpp
+          src/core/input/input_defaults.h
           src/core/input/text_preserving_json.cpp
           src/core/input/text_preserving_json.h
 )

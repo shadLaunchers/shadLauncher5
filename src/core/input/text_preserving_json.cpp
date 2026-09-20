@@ -220,4 +220,48 @@ std::string ReplaceOrInsertTopLevelValue(const std::string& text, const std::str
     return text.substr(0, scan.close_brace) + insertion + text.substr(scan.close_brace);
 }
 
+std::string StripTrailingCommas(const std::string& text) {
+    // A comma is trailing when the next thing that is not whitespace or a
+    // comment is the ']' or '}' that closes the container. Everything else --
+    // commas inside strings, commas inside comments, commas between real
+    // members -- has to be left exactly where it is, which is why this walks
+    // the text with the same string- and comment-awareness as the rest of
+    // this file rather than reaching for a regular expression.
+    std::string out;
+    out.reserve(text.size());
+
+    size_t pos = 0;
+    while (pos < text.size()) {
+        const char c = text[pos];
+
+        if (c == '"') {
+            const size_t end = SkipString(text, pos);
+            out.append(text, pos, end - pos);
+            pos = end;
+            continue;
+        }
+        if (c == '/' && pos + 1 < text.size() && (text[pos + 1] == '/' || text[pos + 1] == '*')) {
+            const size_t end = SkipWs(text, pos); // consumes this comment and any run after it
+            out.append(text, pos, end - pos);
+            pos = end;
+            continue;
+        }
+        if (c == ',') {
+            const size_t next = SkipWs(text, pos + 1);
+            if (next < text.size() && (text[next] == ']' || text[next] == '}')) {
+                // Drop the comma, keep everything between it and the bracket
+                // -- that run is whitespace and comments, and in default.json
+                // it is most of the documentation.
+                out.append(text, pos + 1, next - (pos + 1));
+                pos = next;
+                continue;
+            }
+        }
+
+        out.push_back(c);
+        pos++;
+    }
+    return out;
+}
+
 } // namespace Core::Input::TextJson

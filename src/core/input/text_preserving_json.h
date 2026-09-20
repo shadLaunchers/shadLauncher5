@@ -43,13 +43,24 @@ struct AcceptsTrailingCommas<
     Json, std::void_t<decltype(Json::parse(std::declval<const std::string&>(), nullptr, true, true,
                                             true))>> : std::true_type {};
 
+// Removes a comma that is followed only by whitespace and comments before the
+// closing ']' or '}'. For the older-nlohmann path below, which has no
+// ignore_trailing_commas of its own.
+//
+// This is not cosmetic. The emulator's own default.json ends with
+// "bindings": [ ... ], followed by the commented-out "mouse" and "deadzones"
+// blocks and then the closing brace -- so the last real member is followed by
+// a comma, and a parser without ignore_trailing_commas refuses the whole file.
+// The editor reported the emulator's own default file as unreadable.
+[[nodiscard]] std::string StripTrailingCommas(const std::string& text);
+
 template <typename Json>
 [[nodiscard]] Json ParseTolerant(const std::string& text) {
     if constexpr (AcceptsTrailingCommas<Json>::value) {
         return Json::parse(text, /*cb=*/nullptr, /*allow_exceptions=*/true,
                            /*ignore_comments=*/true, /*ignore_trailing_commas=*/true);
     } else {
-        return Json::parse(text, /*cb=*/nullptr, /*allow_exceptions=*/true,
+        return Json::parse(StripTrailingCommas(text), /*cb=*/nullptr, /*allow_exceptions=*/true,
                            /*ignore_comments=*/true);
     }
 }

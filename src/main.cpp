@@ -7,12 +7,19 @@
 #include <QMessageBox>
 
 #include "common/logging/log.h"
+#include "core/input/input_defaults.h"
 #include "qt_ui/gui_application.h"
 #include "qt_ui/stylesheets.h"
 
 int main(int argc, char* argv[]) {
     // Start default log
     Common::Log::Setup("shadLauncher5.log");
+
+    // default.json and global.json as the emulator would write them. It does
+    // this on its own first run; the launcher is usually opened first, and
+    // until now that left the bindings editor with no defaults to show and
+    // nothing for a new per-game file to start from.
+    Core::Input::EnsureBindingsFiles();
 
     QScopedPointer<QCoreApplication> app(new GUIApplication(argc, argv));
     GUIApplication* gui_app = qobject_cast<GUIApplication*>(app.data());
