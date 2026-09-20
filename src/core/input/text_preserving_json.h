@@ -17,9 +17,42 @@
 #pragma once
 
 #include <string>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
+#include <nlohmann/json.hpp>
+
 namespace Core::Input::TextJson {
+
+// Parse the way the emulator parses: comments ignored, and trailing commas
+// tolerated. The emulator passes ignore_trailing_commas (see ParseFile in
+// src/core/input/input_config.cpp), so a file with one loads there and was
+// being reported as unreadable here -- the editor refusing to open something
+// the emulator is perfectly happy with.
+//
+// That argument only exists in newer nlohmann, and the launcher pins a
+// different fork of it than the emulator does, so whether it is available is
+// not something this file can assume. Detecting it keeps both cases correct
+// instead of trading one version's breakage for another's.
+template <typename Json, typename = void>
+struct AcceptsTrailingCommas : std::false_type {};
+
+template <typename Json>
+struct AcceptsTrailingCommas<
+    Json, std::void_t<decltype(Json::parse(std::declval<const std::string&>(), nullptr, true, true,
+                                            true))>> : std::true_type {};
+
+template <typename Json>
+[[nodiscard]] Json ParseTolerant(const std::string& text) {
+    if constexpr (AcceptsTrailingCommas<Json>::value) {
+        return Json::parse(text, /*cb=*/nullptr, /*allow_exceptions=*/true,
+                           /*ignore_comments=*/true, /*ignore_trailing_commas=*/true);
+    } else {
+        return Json::parse(text, /*cb=*/nullptr, /*allow_exceptions=*/true,
+                           /*ignore_comments=*/true);
+    }
+}
 
 struct TopLevelEntry {
     std::string key;

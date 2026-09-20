@@ -137,10 +137,16 @@ public:
     [[nodiscard]] std::vector<FlatBinding> GetAllBindings() const;
 
     // section 9's validation table, applied to this session's current state
-    // (edits included). Every skip/clamp/truncate this class already does
-    // silently while parsing is real behavior -- this just also produces a
-    // human-readable reason for each one, since nothing else in this class
-    // surfaces them to the person editing the file.
+    // -- the file's own entries for outputs nobody has touched, plus the
+    // edited ones from the cache. Every skip/clamp/truncate this class does
+    // silently while parsing is real behavior; this just also produces a
+    // human-readable reason for each one, since nothing else surfaces them
+    // to the person editing the file.
+    //
+    // It used to read the parsed file alone, which meant it kept reporting
+    // entries you had just deleted and said nothing about the ones you had
+    // just added -- including the one mistake the UI makes easy, a button
+    // captured for an analog output.
     [[nodiscard]] std::vector<std::string> Validate() const;
 
 private:

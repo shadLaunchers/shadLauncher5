@@ -12,6 +12,8 @@
 #pragma once
 
 #include <array>
+#include <cstdlib>
+#include <string>
 #include <string_view>
 
 namespace Core::Input {
@@ -96,7 +98,9 @@ inline constexpr std::string_view kUnmapped = "unmapped";
         return true;
     }
     if (name.size() >= 2 && name.size() <= 3 && name[0] == 'f') {
-        // f1-f12
+        // f1-f12, and only those: the emulator's table stops at f12, so
+        // accepting "f0", "f13" or "f99" here meant the editor would write a
+        // name the emulator warns about and drops.
         bool digits_ok = true;
         for (size_t i = 1; i < name.size(); i++) {
             if (name[i] < '0' || name[i] > '9') {
@@ -105,7 +109,11 @@ inline constexpr std::string_view kUnmapped = "unmapped";
             }
         }
         if (digits_ok) {
-            return true;
+            // From index 1: the name is "f12", not "12", and atoi on the
+            // whole thing stops at the 'f' and returns 0 -- which rejected
+            // every function key, f1 included.
+            const int number = std::atoi(std::string(name.substr(1)).c_str());
+            return number >= 1 && number <= 12;
         }
     }
     if (name.size() == 3 && name[0] == 'k' && name[1] == 'p' && name[2] >= '0' &&

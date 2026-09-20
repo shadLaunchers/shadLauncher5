@@ -20,7 +20,22 @@
 #include "core/input/hotkeys_config.h"
 
 class QLabel;
-class QTimer;
+
+// Which side of the keyboard a modifier is on. Qt's portable API reports
+// Key_Shift for both shifts, so the only way to tell them apart is the
+// platform scancode -- these are shadLauncher4's constants, verbatim from
+// its src/qt_ui/kbm_gui.h. Without them every right-hand modifier was
+// recorded as the left one, silently: the binding you saved was not the key
+// you pressed, and the emulator treats the two as different keys.
+#ifdef _WIN32
+#define LCTRL_KEY 29
+#define LALT_KEY 56
+#define LSHIFT_KEY 42
+#else
+#define LCTRL_KEY 37
+#define LALT_KEY 64
+#define LSHIFT_KEY 50
+#endif
 
 // Shown when the person clicks "Add a way..." for a hotkey. Captures up to
 // three keys/mouse buttons/pad buttons held together and reports them as an
@@ -50,6 +65,7 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     void keyReleaseEvent(QKeyEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
+    void wheelEvent(class QWheelEvent* event) override;
 
 private:
     void UpdatePreview();

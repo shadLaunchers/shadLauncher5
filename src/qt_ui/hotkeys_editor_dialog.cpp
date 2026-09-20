@@ -15,6 +15,7 @@
 #include <QPushButton>
 #include <QStyleHints>
 #include <QVBoxLayout>
+#include <QWheelEvent>
 
 #include "core/input/input_ids.h"
 #include "gamepad_selector.h"
@@ -270,6 +271,8 @@ std::string KeyCaptureDialog::NameForKeyEvent(QKeyEvent* event) {
 
     switch (key) {
     case Qt::Key_QuoteLeft: return "grave";
+    // Distinct ids in the emulator: grave is SDLK_BACKQUOTE, tilde is '~'.
+    case Qt::Key_AsciiTilde: return "tilde";
     case Qt::Key_Exclam: return "exclamation";
     case Qt::Key_At: return "at";
     case Qt::Key_NumberSign: return "hash";
@@ -322,19 +325,52 @@ std::string KeyCaptureDialog::NameForKeyEvent(QKeyEvent* event) {
     case Qt::Key_Left: return "left";
     case Qt::Key_Right: return "right";
 
+    // Qt reports one key for both shifts, so the side comes from the
+    // platform scancode -- shadLauncher4 does the same thing with the same
+    // constants (kbm_gui.cpp). "Left is assumed" was silently wrong: the
+    // emulator has separate ids for the two, so a binding recorded from the
+    // right-hand key never fired.
     case Qt::Key_Shift:
-        // Qt doesn't reliably tell left/right apart across platforms from
-        // the portable API alone; nativeVirtualKey() would (VK_LSHIFT vs
-        // VK_RSHIFT on Windows), but isn't used here to keep this platform-
-        // neutral. Left is assumed -- if this becomes a problem in practice,
-        // add a platform-specific check here.
-        return "lshift";
-    case Qt::Key_Control: return "lctrl";
-    case Qt::Key_Alt: return "lalt";
-    case Qt::Key_Meta: return "lmeta";
+        return event->nativeScanCode() == LSHIFT_KEY ? "lshift" : "rshift";
+    case Qt::Key_Control:
+        return event->nativeScanCode() == LCTRL_KEY ? "lctrl" : "rctrl";
+    case Qt::Key_Alt:
+        return event->nativeScanCode() == LALT_KEY ? "lalt" : "ralt";
+    case Qt::Key_Meta:
+        // The emulator knows lwin/rwin and lmeta/rmeta as separate names;
+        // shadLauncher4 picks by platform, and there is no scancode constant
+        // for the right-hand one in either launcher, so both stay left.
+#ifdef _WIN32
+        return "lwin";
+#else
+        return "lmeta";
+#endif
     default:
         return {};
     }
+}
+
+void KeyCaptureDialog::wheelEvent(QWheelEvent* event) {
+    // The four mousewheel names are in the emulator's table but had no route
+    // into the UI at all. Thresholds and the Alt quirk are shadLauncher4's
+    // (kbm_gui.cpp): "QT changes scrolling to horizontal for all widgets
+    // with the alt modifier", so an Alt-held horizontal delta is really the
+    // vertical wheel.
+    const QPoint delta = event->angleDelta();
+    const bool alt = (event->modifiers() & Qt::AltModifier) != 0;
+
+    if (delta.y() > 5) {
+        TryCapture("mousewheelup");
+    } else if (delta.y() < -5) {
+        TryCapture("mousewheeldown");
+    }
+
+    if (delta.x() > 5) {
+        TryCapture(alt ? "mousewheelup" : "mousewheelright");
+    } else if (delta.x() < -5) {
+        TryCapture(alt ? "mousewheeldown" : "mousewheelleft");
+    }
+    event->accept();
 }
 
 void KeyCaptureDialog::keyPressEvent(QKeyEvent* event) {
@@ -404,6 +440,12 @@ HotkeysEditorDialog::HotkeysEditorDialog(QWidget* parent)
     m_config->Load();
 
     auto* outer = new QVBoxLayout(this);
+
+    // The same picker the bindings editor has. The selection is process-wide
+    // (GamepadSelect, src/common/input.h), so choosing here or there is the
+    // same choice -- but a hotkey can be bound to a pad button, and without
+    // this the dialog gave no way to say which pad that meant.
+    outer->addWidget(new GamepadSelector(this));
 
     auto* main_layout = new QHBoxLayout();
 

@@ -14,8 +14,9 @@
 //    allowed to press the binding and leaves the pad on player 1.
 //  - A binding that arrived in one of the other two spellings keeps it when
 //    rewritten, so a file that routes one player's device to another player's
-//    pad survives a round-trip. This editor doesn't offer *setting* a device
-//    restriction -- it only shows one, marked on the row.
+//    pad survives a round-trip. Right-clicking a row sets which device may
+//    press it (the "gamepad" field); an input-side ":n" is preserved but
+//    still not something the editor writes from scratch.
 //  - "Port assigned" is this editor's own concept, not read from the
 //    emulator: docs/multi-user.md (which this editor hasn't been given)
 //    covers how a *device* actually gets a port at runtime. Here it just
@@ -91,6 +92,9 @@ private slots:
     void OnRemoveSelected();
     void OnSetUnmapped();
     void OnFilterChanged(const QString& text);
+    // Right-click a way-to-press: which device may press it. The only part
+    // of section 5 the editor could previously show but not set.
+    void OnBindingsContextMenu(const QPoint& pos);
 
 private:
     void PopulateOutputList();

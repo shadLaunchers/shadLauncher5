@@ -13,6 +13,7 @@
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
 #include <QPixmap>
@@ -199,6 +200,9 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     auto* right_layout = new QVBoxLayout(ways_box);
     m_bindings_list = new QListWidget(ways_box);
     m_bindings_list->setMinimumHeight(84);
+    m_bindings_list->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_bindings_list, &QListWidget::customContextMenuRequested, this,
+            &PortBindingsPage::OnBindingsContextMenu);
     right_layout->addWidget(m_bindings_list);
 
     m_hint_label = new QLabel(ways_box);
@@ -473,7 +477,9 @@ void PortBindingsPage::RefreshBindingsList() {
                 .arg(FriendlyOutputName(name)));
     } else if (shown > 0 || shown_global > 0) {
         m_hint_label->setText(
-            tr("Reaching player %1. Greyed rows drive every player.").arg(m_port_number));
+            tr("Reaching player %1. Greyed rows drive every player; right-click a row to "
+              "restrict which device may press it.")
+                .arg(m_port_number));
     } else {
         m_hint_label->setText(
             tr("Nothing drives %1 on player %2 yet.")
@@ -536,6 +542,63 @@ void PortBindingsPage::OnSetUnmapped() {
     RefreshBindingsList();
     RefreshOutputMarkers();
     emit BindingsChanged();
+}
+
+void PortBindingsPage::OnBindingsContextMenu(const QPoint& pos) {
+    if (!IsAssigned()) {
+        return;
+    }
+    const std::string name = CurrentOutputName();
+    QListWidgetItem* item = m_bindings_list->itemAt(pos);
+    if (name.empty() || item == nullptr) {
+        return;
+    }
+    const int row = m_bindings_list->row(item);
+    if (row < 0 || row >= static_cast<int>(m_row_to_binding.size())) {
+        return; // a read-only overlay row
+    }
+
+    auto bindings = m_config->GetBindings(name);
+    const int index = m_row_to_binding[static_cast<size_t>(row)];
+    if (index < 0 || index >= static_cast<int>(bindings.size())) {
+        return;
+    }
+    const int current = bindings[static_cast<size_t>(index)].InputDevice();
+
+    QMenu menu(this);
+    auto* heading = menu.addAction(tr("Pressed by"));
+    heading->setEnabled(false);
+    menu.addSeparator();
+
+    // 0 means any device, which is what a binding with no "gamepad" field
+    // and no input-side suffix means.
+    const auto add = [&](int device, const QString& label) {
+        QAction* action = menu.addAction(label);
+        action->setCheckable(true);
+        action->setChecked(current == device);
+        connect(action, &QAction::triggered, this, [this, name, index, device] {
+            auto edited = m_config->GetBindings(name);
+            if (index >= static_cast<int>(edited.size())) {
+                return;
+            }
+            auto& binding = edited[static_cast<size_t>(index)];
+            // Write it as a "gamepad" field, and clear the input-side
+            // suffix if that is where the restriction came from -- leaving
+            // both would say two different things about the same binding.
+            binding.gamepad_field = device;
+            binding.input_port = 0;
+            m_config->SetBindings(name, edited);
+            RefreshBindingsList();
+            RefreshOutputMarkers();
+            emit BindingsChanged();
+        });
+    };
+    add(0, tr("Any device"));
+    for (int device = 1; device <= 4; device++) {
+        add(device, tr("Only port %1's device").arg(device));
+    }
+
+    menu.exec(m_bindings_list->viewport()->mapToGlobal(pos));
 }
 
 void PortBindingsPage::OnRemoveSelected() {

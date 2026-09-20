@@ -187,8 +187,7 @@ bool BindingsConfig::Load(const std::filesystem::path& path) {
     m_raw_text = ss.str();
 
     try {
-        m_root = nlohmann::ordered_json::parse(m_raw_text, /*cb=*/nullptr, /*allow_exceptions=*/true,
-                                                /*ignore_comments=*/true);
+        m_root = TextJson::ParseTolerant<nlohmann::ordered_json>(m_raw_text);
     } catch (const nlohmann::json::exception& e) {
         LOG_ERROR(Common_Filesystem, "Failed to parse {}: {}", m_path.string(), e.what());
         return false;
@@ -412,7 +411,7 @@ bool BindingsConfig::Save() const {
             nlohmann::ordered_json parsed_elem;
             std::string base_output;
             try {
-                parsed_elem = nlohmann::ordered_json::parse(elem.text, nullptr, true, true);
+                parsed_elem = TextJson::ParseTolerant<nlohmann::ordered_json>(elem.text);
                 if (parsed_elem.is_object() && parsed_elem.contains("output") &&
                     parsed_elem["output"].is_string()) {
                     base_output = SplitPortSuffix(parsed_elem["output"].get<std::string>()).first;
@@ -570,80 +569,127 @@ std::vector<BindingConflict> FindConflicts(const std::vector<BindingsConfig::Fla
     return conflicts;
 }
 
+namespace {
+
+// Only an axis may drive an analog output (input-bindings.md section 7:
+// "only valid when the *input* is also an axis"). Both halves of that live
+// in input_ids.h.
+bool IsAnalogOutputName(const std::string& name) {
+    return std::any_of(kAnalogToAnalogOutputNames.begin(), kAnalogToAnalogOutputNames.end(),
+                       [&](std::string_view n) { return n == name; });
+}
+
+bool IsAxisInputName(const std::string& name) {
+    return std::any_of(kAnalogToAnalogOutputNames.begin(), kAnalogToAnalogOutputNames.end(),
+                       [&](std::string_view n) { return n == name; }) ||
+           name == "l2" || name == "r2";
+}
+
+} // namespace
+
 std::vector<std::string> BindingsConfig::Validate() const {
     std::vector<std::string> warnings;
-    if (!m_valid || !m_root.contains("bindings") || !m_root["bindings"].is_array()) {
+    if (!m_valid) {
         return warnings;
     }
 
-    size_t index = 0;
-    for (const auto& entry : m_root["bindings"]) {
-        const std::string tag = "Entry #" + std::to_string(index++);
+    // Walked over the session's state, not the parsed file: GetAllBindings()
+    // is the file's entries for untouched outputs plus the edited ones from
+    // the cache, which is what Save() would write and therefore what the
+    // person should be warned about.
+    int index = 0;
+    for (const auto& flat : GetAllBindings()) {
+        const std::string tag = "\"" + flat.output + "\" #" + std::to_string(index++);
+        const auto& binding = flat.binding;
 
-        if (!entry.is_object()) {
-            warnings.push_back(tag + " isn't a JSON object, ignored.");
-            continue;
-        }
-        const auto output_it = entry.find("output");
-        if (output_it == entry.end() || !output_it->is_string() ||
-            output_it->get<std::string>().empty()) {
-            warnings.push_back(tag + " has no usable \"output\" name, ignored.");
-            continue;
-        }
-        const std::string raw_output = output_it->get<std::string>();
-        const auto [base_output, output_port] = SplitPortSuffix(raw_output);
-        if (!output_port && raw_output.rfind(':') != std::string::npos) {
-            warnings.push_back(tag + " (\"" + raw_output +
-                              "\"): the \":n\" port suffix isn't a number, ignored.");
-        }
-        if (!IsKnownPadControlOutput(base_output)) {
-            warnings.push_back(tag + ": output \"" + base_output +
-                              "\" isn't a pad control this build recognizes.");
+        if (!IsKnownPadControlOutput(flat.output)) {
+            warnings.push_back(tag + ": not a pad control this build recognizes.");
         }
 
-        const auto input_it = entry.find("input");
-        if (input_it == entry.end()) {
-            warnings.push_back(tag + " (\"" + base_output + "\") has no \"input\", ignored.");
-            continue;
+        if (binding.input.size() > 3) {
+            warnings.push_back(tag + ": more than 3 keys; only the first 3 are kept.");
         }
-        std::vector<std::string> names;
-        if (input_it->is_string()) {
-            names.push_back(SplitPortSuffix(input_it->get<std::string>()).first);
-        } else if (input_it->is_array()) {
-            for (const auto& v : *input_it) {
-                if (v.is_string()) {
-                    names.push_back(v.get<std::string>());
-                }
-            }
-            if (names.empty()) {
-                warnings.push_back(tag + " (\"" + base_output +
-                                  "\") has an empty or unusable \"input\" array, ignored.");
-                continue;
-            }
-            if (names.size() > 3) {
-                warnings.push_back(tag + " (\"" + base_output + "\") has more than 3 keys; "
-                                                                  "only the first 3 are kept.");
-            }
-        } else {
-            warnings.push_back(tag + " (\"" + base_output +
-                              "\") has an \"input\" that's neither a string nor an array, "
-                              "ignored.");
-            continue;
-        }
-        for (const auto& name : names) {
-            if (name != "unmapped" && !IsKnownInput(name)) {
-                warnings.push_back(tag + " (\"" + base_output + "\"): input \"" + name +
+
+        const bool unmapped =
+            binding.input.size() == 1 && binding.input.front() == std::string(kUnmapped);
+        for (const auto& name : binding.input) {
+            if (name != std::string(kUnmapped) && !IsKnownInput(name)) {
+                warnings.push_back(tag + ": input \"" + name +
                                   "\" isn't a name this build recognizes.");
             }
         }
 
-        if (const auto gp_it = entry.find("gamepad"); gp_it != entry.end()) {
-            if (!gp_it->is_number_integer()) {
+        // The mistake the editor makes easy: capturing a button for an
+        // analog output. The emulator logs an error and drops the binding,
+        // which is otherwise invisible from here.
+        if (!unmapped && IsAnalogOutputName(flat.output)) {
+            for (const auto& name : binding.input) {
+                if (!IsAxisInputName(name)) {
+                    warnings.push_back(tag + ": \"" + name +
+                                      "\" is not an axis, and only an axis can drive an analog "
+                                      "stick output -- the emulator will drop this one.");
+                }
+            }
+        }
+
+        if (binding.output_port != 0 && binding.input_port == 0 && binding.gamepad_field == 0) {
+            // Harmless, but worth saying once: this is the spelling whose
+            // meaning is easiest to misread.
+            warnings.push_back(tag + ": drives player " + std::to_string(binding.output_port) +
+                              ", and any device may press it.");
+        }
+    }
+
+    // The entries the parser threw away never reach GetAllBindings(), so
+    // those are reported from the file directly.
+    if (m_root.contains("bindings") && m_root["bindings"].is_array()) {
+        int raw_index = 0;
+        for (const auto& entry : m_root["bindings"]) {
+            const std::string tag = "Entry #" + std::to_string(raw_index++);
+            if (!entry.is_object()) {
+                warnings.push_back(tag + " isn't a JSON object, ignored.");
+                continue;
+            }
+            const auto output_it = entry.find("output");
+            if (output_it == entry.end() || !output_it->is_string() ||
+                output_it->get<std::string>().empty()) {
+                warnings.push_back(tag + " has no usable \"output\" name, ignored.");
+                continue;
+            }
+            const std::string raw_output = output_it->get<std::string>();
+            const auto [base_output, output_port] = SplitPortSuffix(raw_output);
+            if (!output_port && raw_output.rfind(':') != std::string::npos) {
+                warnings.push_back(tag + " (\"" + raw_output +
+                                  "\"): the \":n\" port suffix isn't a number, ignored.");
+            }
+
+            const auto input_it = entry.find("input");
+            if (input_it == entry.end()) {
+                warnings.push_back(tag + " (\"" + base_output + "\") has no \"input\", ignored.");
+                continue;
+            }
+            if (!input_it->is_string() && !input_it->is_array()) {
                 warnings.push_back(tag + " (\"" + base_output +
-                                  "\"): \"gamepad\" isn't an integer, ignored.");
-            } else {
-                const int gp = gp_it->get<int>();
-                if (gp < 1 || gp > 4) {
+                                  "\") has an \"input\" that's neither a string nor an array, "
+                                  "ignored.");
+                continue;
+            }
+            if (input_it->is_array()) {
+                const bool any_usable =
+                    std::any_of(input_it->begin(), input_it->end(),
+                                [](const auto& v) { return v.is_string(); });
+                if (!any_usable) {
+                    warnings.push_back(tag + " (\"" + base_output +
+                                      "\") has an empty or unusable \"input\" array, ignored.");
+                    continue;
+                }
+            }
+
+            if (const auto gp_it = entry.find("gamepad"); gp_it != entry.end()) {
+                if (!gp_it->is_number_integer()) {
+                    warnings.push_back(tag + " (\"" + base_output +
+                                      "\"): \"gamepad\" isn't an integer, ignored.");
+                } else if (const int gp = gp_it->get<int>(); gp < 1 || gp > 4) {
                     warnings.push_back(tag + " (\"" + base_output + "\"): \"gamepad\" " +
                                       std::to_string(gp) + " is outside 1-4, clamped to " +
                                       std::to_string(std::clamp(gp, 1, 4)) + ".");

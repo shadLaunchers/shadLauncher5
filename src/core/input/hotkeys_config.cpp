@@ -73,8 +73,7 @@ bool HotkeysConfig::Load() {
     try {
         // ignore_comments: matches the emulator's own tolerant parser
         // (docs/input-bindings.md section 4).
-        m_root = nlohmann::ordered_json::parse(m_raw_text, /*cb=*/nullptr, /*allow_exceptions=*/true,
-                                               /*ignore_comments=*/true);
+        m_root = TextJson::ParseTolerant<nlohmann::ordered_json>(m_raw_text);
     } catch (const nlohmann::json::exception& e) {
         LOG_ERROR(Common_Filesystem, "Failed to parse {}: {}", m_path.string(), e.what());
         return false;
@@ -204,7 +203,7 @@ bool HotkeysConfig::Save() const {
     for (const auto& elem : existing.elements) {
         std::string output;
         try {
-            const auto parsed_elem = nlohmann::ordered_json::parse(elem.text, nullptr, true, true);
+            const auto parsed_elem = TextJson::ParseTolerant<nlohmann::ordered_json>(elem.text);
             if (parsed_elem.is_object() && parsed_elem.contains("output") &&
                 parsed_elem["output"].is_string()) {
                 output = parsed_elem["output"].get<std::string>();
