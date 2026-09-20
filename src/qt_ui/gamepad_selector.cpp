@@ -178,6 +178,38 @@ void GamepadSelector::OpenSelected(int index) {
     emit SelectionChanged();
 }
 
+QString GamepadSelector::SelectedGuid() const {
+    return QString::fromStdString(GamepadSelect::GetSelectedGamepad());
+}
+
+QString GamepadSelector::SelectedSerial() const {
+    if (m_gamepad == nullptr) {
+        return {};
+    }
+    const char* serial = SDL_GetGamepadSerial(m_gamepad);
+    return serial == nullptr ? QString() : QString::fromUtf8(serial);
+}
+
+QString GamepadSelector::SelectedPath() const {
+    if (m_gamepad == nullptr) {
+        return {};
+    }
+    const char* path = SDL_GetGamepadPath(m_gamepad);
+    return path == nullptr ? QString() : QString::fromUtf8(path);
+}
+
+bool GamepadSelector::SelectionIsAmbiguous() const {
+    return m_gamepad != nullptr && SelectedSerial().isEmpty() && SelectedPath().isEmpty();
+}
+
+QString GamepadSelector::SelectedName() const {
+    if (m_gamepad == nullptr) {
+        return {};
+    }
+    const char* name = SDL_GetGamepadName(m_gamepad);
+    return name == nullptr ? QString() : QString::fromUtf8(name);
+}
+
 void GamepadSelector::OnCurrentIndexChanged(int index) {
     if (m_refreshing) {
         return; // our own repopulation, not the person choosing

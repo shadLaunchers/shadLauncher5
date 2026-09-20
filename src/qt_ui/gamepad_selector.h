@@ -39,6 +39,25 @@ public:
         return m_gamepad != nullptr;
     }
 
+    // What users.json needs to pin this device, as the emulator stores it
+    // (src/bridge/core/input_devices.h). The GUID is the primary key; the
+    // serial and the path are optional narrowers, and both are commonly
+    // empty -- only HIDAPI-backed pads report a serial, and the path names
+    // the socket rather than the pad. Empty GUID means nothing is selected.
+    [[nodiscard]] QString SelectedGuid() const;
+    [[nodiscard]] QString SelectedSerial() const;
+    [[nodiscard]] QString SelectedPath() const;
+
+    // The selected pad reports neither a serial nor a path, so nothing
+    // separates it from another of the same model. input_devices.h keeps
+    // IsAmbiguous() "so the assignment UI can say so rather than storing
+    // something that will not match next time" -- this is that check, on
+    // the launcher's side of the same question.
+    [[nodiscard]] bool SelectionIsAmbiguous() const;
+
+    // The human name of the selected pad, for confirmations.
+    [[nodiscard]] QString SelectedName() const;
+
 signals:
     // A button went down or up, or an axis moved, on the selected pad.
     // `name` is an input-vocabulary name (input_ids.h) -- "cross", "l2",

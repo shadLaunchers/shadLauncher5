@@ -156,6 +156,28 @@ void UserManager::ClearPinnedDevice(u32 user_id) {
     Save();
 }
 
+void UserManager::SetPinnedDevice(u32 user_id, const std::string& guid,
+                                  const std::string& serial, const std::string& path) {
+    if (guid.empty()) {
+        return;
+    }
+    for (auto& u : m_users.user) {
+        if (u.user_id == user_id) {
+            u.device_guid = guid;
+            u.device_serial = serial;
+            u.device_path = path;
+        } else if (u.device_guid == guid) {
+            // One device, one port. Leaving it on two users would make
+            // PortFor's "most specific surviving assignment wins" pick one of
+            // them arbitrarily, which is worse than saying so here.
+            u.device_guid.clear();
+            u.device_serial.clear();
+            u.device_path.clear();
+        }
+    }
+    Save();
+}
+
 void UserManager::SetControllerPort(u32 user_id, int port) {
     for (auto& u : m_users.user) {
         if (u.user_id != user_id && u.player_index == port)

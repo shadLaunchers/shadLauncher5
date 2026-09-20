@@ -29,6 +29,7 @@ private Q_SLOTS:
     void OnUserSetDefault();
     void OnUserSetColor();
     void OnUserSetControllerPort();
+    void OnUserAssignDevice();
     void OnUserClearPinnedDevice();
     void OnSort(int logicalIndex);
 
@@ -80,6 +81,7 @@ private:
     QPushButton* push_set_default;
     QPushButton* push_set_color;
     QPushButton* push_set_controller;
+    QPushButton* push_assign_device;
     QPushButton* push_clear_device;
     QPushButton* push_close;
 

@@ -72,6 +72,17 @@ public:
     // this a pad pinned to the wrong user could only be undone by editing
     // users.json by hand.
     void ClearPinnedDevice(u32 user_id);
+    // Pins a physical device to this user's port. One device, one port: the
+    // same GUID is taken off every other user, which is what the emulator's
+    // InputDevices::Assign does on its side (src/bridge/core/input_devices.h,
+    // "takes the device off any other user who had claimed it").
+    //
+    // guid is required and is the primary key -- SDL's GUID string, or the
+    // literal "keyboard", which is the sentinel the emulator uses for the one
+    // device that has no GUID of its own. serial and path are optional
+    // narrowers and are commonly empty.
+    void SetPinnedDevice(u32 user_id, const std::string& guid, const std::string& serial,
+                         const std::string& path);
     std::vector<User> GetValidUsers() const;
     LoggedInUsers GetLoggedInUsers() const;
 

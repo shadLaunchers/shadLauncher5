@@ -10,6 +10,8 @@
 #include "core/emulator_settings.h"
 #include "gui_settings.h"
 #include "table_item_delegate.h"
+#include "common/input.h"
+#include "gamepad_selector.h"
 #include "user_manager_dialog.h"
 
 UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
@@ -55,6 +57,10 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
 
     push_set_controller = new QPushButton(tr("&Set Controller Port"), this);
     push_set_controller->setAutoDefault(false);
+    push_assign_device = new QPushButton(tr("&Assign Device"), this);
+    push_assign_device->setAutoDefault(false);
+    push_assign_device->setToolTip(
+        tr("Pin a physical controller, or the keyboard, to this user's port."));
     push_clear_device = new QPushButton(tr("&Clear Pinned Device"), this);
     push_clear_device->setAutoDefault(false);
     push_clear_device->setToolTip(
@@ -72,6 +78,7 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     hbox_buttons->addWidget(push_set_default);
     hbox_buttons->addWidget(push_set_color);
     hbox_buttons->addWidget(push_set_controller);
+    hbox_buttons->addWidget(push_assign_device);
     hbox_buttons->addWidget(push_clear_device);
     hbox_buttons->addStretch();
     hbox_buttons->addWidget(push_close);
@@ -96,6 +103,7 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
         push_set_default->setEnabled(valid && key != m_active_user);
         push_set_color->setEnabled(valid);
         push_set_controller->setEnabled(valid);
+        push_assign_device->setEnabled(valid);
         // Only meaningful when there is actually a pin to clear.
         const User* selected = valid ? UserManagement.GetUserByID(GetUserKey()) : nullptr;
         push_clear_device->setEnabled(selected != nullptr &&
@@ -112,6 +120,8 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     connect(push_set_color, &QAbstractButton::clicked, this, &UserManagerDialog::OnUserSetColor);
     connect(push_set_controller, &QAbstractButton::clicked, this,
             &UserManagerDialog::OnUserSetControllerPort);
+    connect(push_assign_device, &QAbstractButton::clicked, this,
+            &UserManagerDialog::OnUserAssignDevice);
     connect(push_clear_device, &QAbstractButton::clicked, this,
             &UserManagerDialog::OnUserClearPinnedDevice);
     connect(push_close, &QAbstractButton::clicked, this, &QDialog::accept);
@@ -389,6 +399,119 @@ QString UserManagerDialog::DescribePinnedDevice(const User& user) {
     return guid;
 }
 
+void UserManagerDialog::OnUserAssignDevice() {
+    const u32 user_id = GetUserKey();
+    if (user_id == 0) {
+        return;
+    }
+    User* user = UserManagement.GetUserByID(user_id);
+    if (user == nullptr) {
+        return;
+    }
+
+    // A pin hangs off the user's *port*: the emulator's chain is
+    // user --player_index--> port --device_*--> device, and
+    // input_devices.h's PortFor skips "a user holding a device but no port"
+    // outright. Storing one anyway would look like it worked and never
+    // match, so say it before rather than after.
+    if (user->player_index < 1 || user->player_index > 4) {
+        QMessageBox::information(
+            this, tr("Assign Device"),
+            tr("%1 holds no controller port, so a device pinned to them would never match "
+              "anything.\n\nSet a controller port first.")
+                .arg(QString::fromStdString(user->user_name)));
+        return;
+    }
+
+    QDialog picker(this);
+    picker.setWindowTitle(tr("Assign Device to %1").arg(QString::fromStdString(user->user_name)));
+    auto* layout = new QVBoxLayout(&picker);
+
+    auto* keyboard_radio = new QRadioButton(tr("Keyboard"), &picker);
+    auto* pad_radio = new QRadioButton(tr("Controller:"), &picker);
+    pad_radio->setChecked(true);
+    auto* selector = new GamepadSelector(&picker);
+
+    layout->addWidget(new QLabel(tr("Which device should drive port %1?").arg(user->player_index),
+                                 &picker));
+    layout->addWidget(pad_radio);
+    layout->addWidget(selector);
+    layout->addWidget(keyboard_radio);
+
+    auto* note = new QLabel(&picker);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &picker);
+    layout->addWidget(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, &picker, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &picker, &QDialog::reject);
+
+    // input_devices.h: "A device that reports neither is indistinguishable
+    // from another of the same model. ... IsAmbiguous() exists so the
+    // assignment UI can say so rather than storing something that will not
+    // match later." This is that warning.
+    const auto refresh_note = [&] {
+        const bool pad = pad_radio->isChecked();
+        selector->setEnabled(pad);
+        if (!pad) {
+            note->clear();
+            buttons->button(QDialogButtonBox::Ok)->setEnabled(true);
+            return;
+        }
+        buttons->button(QDialogButtonBox::Ok)->setEnabled(selector->HasGamepad());
+        if (!selector->HasGamepad()) {
+            note->setText(tr("No controller is connected."));
+        } else if (selector->SelectionIsAmbiguous()) {
+            note->setText(tr("This pad reports no serial number and no port path, so another "
+                            "one of the same model would match this pin too."));
+        } else {
+            note->clear();
+        }
+    };
+    connect(pad_radio, &QRadioButton::toggled, &picker, refresh_note);
+    connect(selector, &GamepadSelector::SelectionChanged, &picker, refresh_note);
+    refresh_note();
+
+    if (picker.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    std::string guid;
+    std::string serial;
+    std::string path;
+    if (keyboard_radio->isChecked()) {
+        // The sentinel the emulator uses for the one device with no GUID of
+        // its own (input_devices.h's KEYBOARD_GUID).
+        guid = "keyboard";
+    } else {
+        guid = selector->SelectedGuid().toStdString();
+        serial = selector->SelectedSerial().toStdString();
+        path = selector->SelectedPath().toStdString();
+    }
+    if (guid.empty()) {
+        return;
+    }
+
+    // One device, one port: warn before quietly taking it off someone else.
+    for (const auto& other : UserManagement.GetAllUsers()) {
+        if (other.user_id != static_cast<s32>(user_id) && other.device_guid == guid) {
+            if (QMessageBox::question(
+                    this, tr("Assign Device"),
+                    tr("That device is currently pinned to %1. Move it to %2?")
+                        .arg(QString::fromStdString(other.user_name),
+                             QString::fromStdString(user->user_name)),
+                    QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+                return;
+            }
+            break;
+        }
+    }
+
+    UserManagement.SetPinnedDevice(user_id, guid, serial, path);
+    UpdateTable();
+}
+
 void UserManagerDialog::OnUserClearPinnedDevice() {
     const u32 user_id = GetUserKey();
     if (user_id == 0) {
@@ -448,6 +571,7 @@ void UserManagerDialog::ShowContextMenu(const QPoint& pos) {
     QAction* default_user_act = context_menu->addAction(tr("&Set Default User"));
     QAction* color_act = context_menu->addAction(tr("&Set Color"));
     QAction* port_act = context_menu->addAction(tr("&Set Controller Port"));
+    QAction* assign_device_act = context_menu->addAction(tr("&Assign Device"));
     QAction* clear_device_act = context_menu->addAction(tr("&Clear Pinned Device"));
     QAction* show_dir_act = context_menu->addAction(tr("&Open User Directory"));
 
@@ -466,6 +590,8 @@ void UserManagerDialog::ShowContextMenu(const QPoint& pos) {
     connect(default_user_act, &QAction::triggered, this, &UserManagerDialog::OnUserSetDefault);
     connect(color_act, &QAction::triggered, this, &UserManagerDialog::OnUserSetColor);
     connect(port_act, &QAction::triggered, this, &UserManagerDialog::OnUserSetControllerPort);
+    connect(assign_device_act, &QAction::triggered, this,
+            &UserManagerDialog::OnUserAssignDevice);
     connect(clear_device_act, &QAction::triggered, this,
             &UserManagerDialog::OnUserClearPinnedDevice);
 
