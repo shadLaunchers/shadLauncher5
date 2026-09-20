@@ -26,13 +26,15 @@ class QTimer;
 // three keys/mouse buttons/pad buttons held together and reports them as an
 // ordered list of input-vocabulary names (docs/input-bindings.md section 7).
 //
-// Pad capture follows the same SDL_InitSubSystem(SDL_INIT_GAMEPAD |
-// SDL_INIT_EVENTS) / SDL_QuitSubSystem lifecycle shadLauncher4's
-// ControlSettings dialog uses (src/qt_ui/control_settings.cpp), scoped to
-// this dialog's lifetime rather than the whole app's -- this dialog polls
-// SDL on a QTimer on the UI thread instead of shadLauncher4's background
-// SdlEventWrapper thread, since a short-lived modal capture doesn't need
-// that machinery.
+// Pad events arrive through SdlEventWrapper, the one SDL reader in the
+// process (sdl_event_wrapper.h), rather than this dialog polling SDL itself.
+// That is not tidiness: the bindings editor watches the selected pad live
+// while this dialog is open on top of it, and two readers on one event queue
+// take turns stealing each other's events.
+//
+// The pad it captures from is the one GamepadSelect has selected
+// (src/common/input.h), the same choice shadLauncher4's ActiveGamepadBox
+// makes -- not simply the first one plugged in.
 class KeyCaptureDialog : public QDialog {
     Q_OBJECT
 public:
@@ -51,25 +53,25 @@ protected:
 
 private:
     void UpdatePreview();
-    void OpenFirstGamepad();
-    void PollGamepad();
+    void OpenSelectedGamepad();
+    void OnSdlEvent(int type, int input, int value);
     void TryCapture(const std::string& name);
     // Returns the input-vocabulary name for a key press, or empty if this
     // key isn't one the emulator's input vocabulary can name.
     static std::string NameForKeyEvent(QKeyEvent* event);
-    // SDL_GamepadButton -> input-vocabulary name (docs/input-bindings.md
-    // section 7, "Inputs -- pad"), same mapping shadLauncher4's
-    // ControlSettings::processSDLEvents uses.
-    static std::string NameForGamepadButton(SDL_GamepadButton button);
+    // The pad name tables live in gamepad_selector.h so this dialog and the
+    // live view cannot disagree about what a control is called.
 
     QLabel* m_preview_label = nullptr;
     QLabel* m_gamepad_label = nullptr;
     std::vector<std::string> m_captured;
 
-    QTimer* m_poll_timer = nullptr;
     SDL_Gamepad* m_gamepad = nullptr;
     bool m_l2_pressed = false;
     bool m_r2_pressed = false;
+    // A stick has to return to centre before it can be captured again,
+    // otherwise one push writes the same axis three times over.
+    bool m_axis_captured = false;
 };
 
 class HotkeysEditorDialog : public QDialog {

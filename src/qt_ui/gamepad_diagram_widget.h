@@ -45,6 +45,13 @@ public:
     // doesn't draw are ignored.
     void SetBoundOutputs(const QSet<QString>& outputNames);
 
+    // What is being held on the real pad right now, drawn as its own state.
+    // A stick axis lights its stick: there is no separate place on a pad for
+    // "axis_left_x", and lighting l3 is what a person pushing the stick
+    // expects to see.
+    void SetPressedControl(const QString& name, bool pressed);
+    void ClearPressed();
+
     // Small on purpose. This is a picker, not the point of the window, and
     // its old floor of 207px was a third of the dialog's height before
     // anything else had asked for any.
@@ -87,6 +94,7 @@ private:
         QColor fill;
         QColor pen;
         bool bound = false;
+        bool pressed = false;
     };
     [[nodiscard]] Look LookFor(const std::string& output) const;
     void DrawBound(QPainter& p, const QRectF& rect, const Look& look) const;
@@ -104,4 +112,6 @@ private:
     QString m_highlighted;
     std::string m_hovered;
     QSet<QString> m_bound;
+    QSet<QString> m_pressed_controls; // what is held, by input name
+    QSet<QString> m_pressed;          // the regions those light up
 };

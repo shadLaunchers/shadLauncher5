@@ -122,6 +122,8 @@ set(COMMON src/common/types.h
            src/common/concepts.h
            src/common/enum.h
            src/common/singleton.h
+           src/common/input.cpp
+           src/common/input.h
            src/common/path_util.cpp
            src/common/path_util.h
            src/common/versions.cpp
@@ -202,6 +204,10 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/input_bindings_dialog.h
           src/qt_ui/gamepad_diagram_widget.cpp
           src/qt_ui/gamepad_diagram_widget.h
+          src/qt_ui/gamepad_selector.cpp
+          src/qt_ui/gamepad_selector.h
+          src/qt_ui/sdl_event_wrapper.cpp
+          src/qt_ui/sdl_event_wrapper.h
           src/qt_ui/custom_dock_widget.h
           src/qt_ui/game_item_base.h
           src/qt_ui/game_item_base.cpp

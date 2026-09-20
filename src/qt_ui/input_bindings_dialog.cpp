@@ -29,6 +29,7 @@
 #include "core/input/input_ids.h"
 #include "game_info.h"
 #include "gamepad_diagram_widget.h"
+#include "gamepad_selector.h"
 #include "hotkeys_editor_dialog.h" // reuses KeyCaptureDialog
 #include "input_bindings_dialog.h"
 
@@ -387,6 +388,14 @@ void PortBindingsPage::Reload() {
     RefreshOutputMarkers();
 }
 
+void PortBindingsPage::ShowPressed(const QString& name, bool pressed) {
+    m_diagram->SetPressedControl(name, pressed);
+}
+
+void PortBindingsPage::ClearPressed() {
+    m_diagram->ClearPressed();
+}
+
 void PortBindingsPage::RefreshBindingsList() {
     m_bindings_list->clear();
     if (!IsAssigned()) {
@@ -450,16 +459,17 @@ void PortBindingsPage::RefreshBindingsList() {
         }
     }
 
-    // Only an axis may drive an analog output, and the capture dialog can
-    // only capture buttons -- so offering "Add a way..." here would only ever
-    // produce a binding the emulator rejects.
+    // Only an axis may drive an analog output. The capture dialog can take
+    // one now (push the stick past half travel), so these are bindable --
+    // the hint just says what it will accept, since pressing a button here
+    // produces a pairing the emulator rejects.
     const bool analog = IsAnalogOutput(name);
-    m_add_btn->setEnabled(IsAssigned() && !analog);
-    m_unmapped_btn->setEnabled(IsAssigned() && !analog);
+    m_add_btn->setEnabled(IsAssigned());
+    m_unmapped_btn->setEnabled(IsAssigned());
 
     if (analog) {
         m_hint_label->setText(
-            tr("%1 takes a stick or trigger axis, which this editor can't capture yet.")
+            tr("%1 takes a stick or trigger axis -- push one past halfway to capture it.")
                 .arg(FriendlyOutputName(name)));
     } else if (shown > 0 || shown_global > 0) {
         m_hint_label->setText(
@@ -609,6 +619,42 @@ void InputBindingsDialog::BuildUi() {
     connect(browse_btn, &QPushButton::clicked, this, &InputBindingsDialog::OnBrowseForGame);
     picker_row->addWidget(browse_btn);
     outer->addLayout(picker_row);
+
+    // Which pad the editor is listening to, and what it is doing. Same
+    // question shadLauncher4 asks with ActiveGamepadBox; here it also drives
+    // the diagram, so pressing a button shows you which control it is before
+    // you bind anything.
+    auto* pad_row = new QHBoxLayout();
+    m_gamepad = new GamepadSelector(this);
+    pad_row->addWidget(m_gamepad, 1);
+    auto* pad_hint = new QLabel(tr("Press a control to find it on the diagram."), this);
+    Muted(pad_hint);
+    pad_row->addWidget(pad_hint);
+    outer->addLayout(pad_row);
+
+    connect(m_gamepad, &GamepadSelector::ControlPressed, this, [this](const QString& name) {
+        for (auto* page : m_pages) {
+            if (page != nullptr) {
+                page->ShowPressed(name, true);
+            }
+        }
+    });
+    connect(m_gamepad, &GamepadSelector::ControlReleased, this, [this](const QString& name) {
+        for (auto* page : m_pages) {
+            if (page != nullptr) {
+                page->ShowPressed(name, false);
+            }
+        }
+    });
+    // A pad unplugged mid-press would otherwise leave its last control lit.
+    connect(m_gamepad, &GamepadSelector::SelectionChanged, this, [this] {
+        for (auto* page : m_pages) {
+            if (page != nullptr) {
+                page->ClearPressed();
+            }
+        }
+    });
+
     PopulateFilePicker();
     connect(m_file_picker, qOverload<int>(&QComboBox::currentIndexChanged), this,
             &InputBindingsDialog::OnFilePickerChanged);

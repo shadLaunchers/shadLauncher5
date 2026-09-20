@@ -48,6 +48,7 @@ class QLabel;
 class QPushButton;
 class QTabWidget;
 class GamepadDiagramWidget;
+class GamepadSelector;
 
 // One port's page: an output list on the left, that output's ways-to-press
 // on the right, gated by an "assigned" checkbox. Mirrors
@@ -70,6 +71,10 @@ public:
     // Call after m_config has been reloaded in place (a new target path)
     // to re-render with the fresh data.
     void Reload();
+
+    // Live feedback from the selected pad: light the control being held.
+    void ShowPressed(const QString& name, bool pressed);
+    void ClearPressed();
 
     // The outputs on this page that have at least one binding, for the
     // diagram's dots and the list's markers.
@@ -94,8 +99,8 @@ private:
     void UpdateEnabledState();
     [[nodiscard]] std::string CurrentOutputName() const;
     [[nodiscard]] static QString DisplayChord(const std::vector<std::string>& input);
-    // True for axis_left_x and friends: valid outputs, but only an axis may
-    // drive them, and KeyCaptureDialog cannot capture one.
+    // True for axis_left_x and friends: only an axis may drive them, which
+    // changes what the hint tells you to press.
     [[nodiscard]] static bool IsAnalogOutput(const std::string& name);
 
     int m_port_number;
@@ -164,6 +169,7 @@ private:
     std::unique_ptr<Core::Input::BindingsConfig> m_global_overlay; // set only when editing a game file
 
     QComboBox* m_file_picker = nullptr;
+    GamepadSelector* m_gamepad = nullptr;
     QLabel* m_subtitle_label = nullptr;
     QLabel* m_unreadable_label = nullptr;
     QPushButton* m_save_btn = nullptr;

@@ -151,6 +151,49 @@ void GamepadDiagramWidget::SetBoundOutputs(const QSet<QString>& outputNames) {
     update();
 }
 
+// A stick axis has no region of its own; it lights the stick it belongs to,
+// which is the thing the person is actually holding.
+static QString RegionForControl(const QString& name) {
+    if (name.startsWith(QLatin1String("axis_left"))) {
+        return QStringLiteral("l3");
+    }
+    if (name.startsWith(QLatin1String("axis_right"))) {
+        return QStringLiteral("r3");
+    }
+    return name;
+}
+
+void GamepadDiagramWidget::SetPressedControl(const QString& name, bool pressed) {
+    // What is held is tracked by the name that arrived, and the lit regions
+    // are derived from that -- not the other way round. Two names can share
+    // one region (axis_left_x and axis_left_y are both the left stick), and
+    // holding the stick diagonally then letting go of one axis would
+    // otherwise darken it while the other axis was still held.
+    if (pressed) {
+        m_pressed_controls.insert(name);
+    } else {
+        m_pressed_controls.remove(name);
+    }
+
+    QSet<QString> regions;
+    for (const QString& held : m_pressed_controls) {
+        regions.insert(RegionForControl(held));
+    }
+    if (regions != m_pressed) {
+        m_pressed = std::move(regions);
+        update();
+    }
+}
+
+void GamepadDiagramWidget::ClearPressed() {
+    m_pressed_controls.clear();
+    if (m_pressed.isEmpty()) {
+        return;
+    }
+    m_pressed.clear();
+    update();
+}
+
 void GamepadDiagramWidget::mousePressEvent(QMouseEvent* event) {
     const std::string hit = OutputAt(event->position());
     if (!hit.empty()) {
@@ -183,12 +226,19 @@ GamepadDiagramWidget::Look GamepadDiagramWidget::LookFor(const std::string& outp
     const QColor text = palette().color(QPalette::WindowText);
     const QColor accent = palette().color(QPalette::Highlight);
 
+    const QString id = QString::fromStdString(output);
     Look look;
     look.fill = base;
     look.pen = WithAlpha(text, 150);
-    look.bound = m_bound.contains(QString::fromStdString(output));
+    look.bound = m_bound.contains(id);
+    look.pressed = m_pressed.contains(id);
 
-    if (m_highlighted.toStdString() == output) {
+    if (look.pressed) {
+        // Being held wins over every other state: it is the one that is
+        // happening right now, and it is how you check a pad is working.
+        look.fill = Mix(base, text, 0.72);
+        look.pen = WithAlpha(text, 235);
+    } else if (m_highlighted.toStdString() == output) {
         look.fill = accent;
         look.pen = accent.darker(130);
     } else if (m_hovered == output) {
@@ -309,7 +359,8 @@ void GamepadDiagramWidget::DrawTouchpad(QPainter& p) const {
             continue;
         }
         const Look look = LookFor(name);
-        const bool active = m_highlighted.toStdString() == name || m_hovered == name;
+        const bool active = m_highlighted.toStdString() == name || m_hovered == name ||
+                            look.pressed;
         if (active) {
             p.setPen(Qt::NoPen);
             p.setBrush(look.fill);

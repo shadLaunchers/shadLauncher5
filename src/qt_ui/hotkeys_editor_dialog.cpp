@@ -14,10 +14,12 @@
 #include <QPainter>
 #include <QPushButton>
 #include <QStyleHints>
-#include <QTimer>
 #include <QVBoxLayout>
 
 #include "core/input/input_ids.h"
+#include "gamepad_selector.h"
+#include "common/input.h"
+#include "sdl_event_wrapper.h"
 #include "hotkeys_editor_dialog.h"
 
 namespace {
@@ -78,15 +80,16 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent) : QDialog(parent) {
     setModal(true);
     setFocusPolicy(Qt::StrongFocus);
 
-    // Same lifecycle shadLauncher4's ControlSettings uses (control_settings.cpp):
-    // init the subsystems this dialog needs, scoped to its own lifetime.
-    SDL_InitSubSystem(SDL_INIT_GAMEPAD | SDL_INIT_EVENTS);
-    OpenFirstGamepad();
+    // One SDL reader for the whole process; this dialog just listens.
+    SdlEventWrapper::Wrapper::Acquire();
+    connect(SdlEventWrapper::Wrapper::GetInstance(), &SdlEventWrapper::Wrapper::SDLEvent, this,
+            &KeyCaptureDialog::OnSdlEvent);
+    OpenSelectedGamepad();
 
     auto* layout = new QVBoxLayout(this);
     auto* instructions =
-        new QLabel(tr("Press up to 3 keys, mouse buttons, or pad buttons together, then "
-                      "click Done."),
+        new QLabel(tr("Press up to 3 keys, mouse buttons, pad buttons or a stick together, "
+                      "then click Done."),
                    this);
     instructions->setWordWrap(true);
     layout->addWidget(instructions);
@@ -134,62 +137,82 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent) : QDialog(parent) {
 
     resize(420, 200);
 
-    // Poll on the UI thread instead of shadLauncher4's background
-    // SdlEventWrapper thread -- this dialog is short-lived and modal, so
-    // there's no persistent window that needs SDL events delivered while
-    // the rest of the UI stays responsive.
-    m_poll_timer = new QTimer(this);
-    connect(m_poll_timer, &QTimer::timeout, this, &KeyCaptureDialog::PollGamepad);
-    m_poll_timer->start(16);
 }
 
 KeyCaptureDialog::~KeyCaptureDialog() {
-    if (m_poll_timer) {
-        m_poll_timer->stop();
-    }
     if (m_gamepad) {
         SDL_CloseGamepad(m_gamepad);
         m_gamepad = nullptr;
     }
-    SDL_QuitSubSystem(SDL_INIT_GAMEPAD | SDL_INIT_EVENTS);
+    SdlEventWrapper::Wrapper::Release();
 }
 
-void KeyCaptureDialog::OpenFirstGamepad() {
+void KeyCaptureDialog::OpenSelectedGamepad() {
+    if (m_gamepad) {
+        SDL_CloseGamepad(m_gamepad);
+        m_gamepad = nullptr;
+    }
     int count = 0;
     SDL_JoystickID* ids = SDL_GetGamepads(&count);
     if (ids && count > 0) {
-        m_gamepad = SDL_OpenGamepad(ids[0]);
+        // The pad the person chose in the bindings editor, if it is still
+        // plugged in; otherwise the first one, which is what this dialog
+        // always used to do.
+        int index = GamepadSelect::GetIndexfromGUID(ids, count,
+                                                    GamepadSelect::GetSelectedGamepad());
+        if (index == -1) {
+            index = 0;
+        }
+        m_gamepad = SDL_OpenGamepad(ids[index]);
     }
     if (ids) {
         SDL_free(ids);
     }
+    if (m_gamepad_label) {
+        m_gamepad_label->setText(m_gamepad
+                                     ? tr("Pad detected: %1")
+                                           .arg(QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
+                                     : tr("No pad detected"));
+    }
 }
 
-std::string KeyCaptureDialog::NameForGamepadButton(SDL_GamepadButton button) {
-    // Matches shadLauncher4's ControlSettings::processSDLEvents mapping
-    // (control_settings.cpp) and docs/input-bindings.md section 7's pad
-    // vocabulary.
-    switch (button) {
-    case SDL_GAMEPAD_BUTTON_SOUTH: return "cross";
-    case SDL_GAMEPAD_BUTTON_EAST: return "circle";
-    case SDL_GAMEPAD_BUTTON_WEST: return "square";
-    case SDL_GAMEPAD_BUTTON_NORTH: return "triangle";
-    case SDL_GAMEPAD_BUTTON_BACK: return "back";
-    case SDL_GAMEPAD_BUTTON_START: return "options";
-    case SDL_GAMEPAD_BUTTON_LEFT_STICK: return "l3";
-    case SDL_GAMEPAD_BUTTON_RIGHT_STICK: return "r3";
-    case SDL_GAMEPAD_BUTTON_LEFT_SHOULDER: return "l1";
-    case SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER: return "r1";
-    case SDL_GAMEPAD_BUTTON_DPAD_UP: return "pad_up";
-    case SDL_GAMEPAD_BUTTON_DPAD_DOWN: return "pad_down";
-    case SDL_GAMEPAD_BUTTON_DPAD_LEFT: return "pad_left";
-    case SDL_GAMEPAD_BUTTON_DPAD_RIGHT: return "pad_right";
-    case SDL_GAMEPAD_BUTTON_TOUCHPAD: return "touchpad_center";
-    case SDL_GAMEPAD_BUTTON_LEFT_PADDLE1: return "lpaddle_high";
-    case SDL_GAMEPAD_BUTTON_LEFT_PADDLE2: return "lpaddle_low";
-    case SDL_GAMEPAD_BUTTON_RIGHT_PADDLE1: return "rpaddle_high";
-    case SDL_GAMEPAD_BUTTON_RIGHT_PADDLE2: return "rpaddle_low";
-    default: return {};
+void KeyCaptureDialog::OnSdlEvent(int type, int input, int value) {
+    switch (type) {
+    case SDL_EVENT_GAMEPAD_ADDED:
+    case SDL_EVENT_GAMEPAD_REMOVED:
+        OpenSelectedGamepad();
+        break;
+    case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+        TryCapture(GamepadButtonName(static_cast<SDL_GamepadButton>(input)).toStdString());
+        break;
+    case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
+        const auto axis = static_cast<SDL_GamepadAxis>(input);
+        // Triggers are axes but bind as buttons -- same half-press threshold
+        // shadLauncher4 uses (control_settings.cpp).
+        if (axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER || axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) {
+            bool& held = axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ? m_l2_pressed : m_r2_pressed;
+            const bool pressed = value > 16000;
+            if (pressed && !held) {
+                TryCapture(GamepadAxisName(axis).toStdString());
+            }
+            held = pressed;
+            break;
+        }
+        // A stick captures as an axis, which is the only thing an analog
+        // output (axis_left_x and friends) can be driven by. Held until it
+        // comes back to centre, so one push does not fill all three slots.
+        if (value > 16000 || value < -16000) {
+            if (!m_axis_captured) {
+                m_axis_captured = true;
+                TryCapture(GamepadAxisName(axis).toStdString());
+            }
+        } else if (value > -8000 && value < 8000) {
+            m_axis_captured = false;
+        }
+        break;
+    }
+    default:
+        break;
     }
 }
 
@@ -200,48 +223,6 @@ void KeyCaptureDialog::TryCapture(const std::string& name) {
     if (std::find(m_captured.begin(), m_captured.end(), name) == m_captured.end()) {
         m_captured.push_back(name);
         UpdatePreview();
-    }
-}
-
-void KeyCaptureDialog::PollGamepad() {
-    SDL_Event event;
-    while (SDL_PollEvent(&event)) {
-        switch (event.type) {
-        case SDL_EVENT_GAMEPAD_ADDED:
-            if (!m_gamepad) {
-                OpenFirstGamepad();
-                if (m_gamepad_label) {
-                    m_gamepad_label->setText(
-                        m_gamepad ? tr("Pad detected: %1").arg(
-                                        QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
-                                 : tr("No pad detected"));
-                }
-            }
-            break;
-        case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-            TryCapture(NameForGamepadButton(
-                static_cast<SDL_GamepadButton>(event.gbutton.button)));
-            break;
-        case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-            // L2/R2 are axes, not buttons (input-bindings.md section 7).
-            // Same half-press threshold shadLauncher4 uses.
-            if (event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER) {
-                const bool pressed = event.gaxis.value > 16000;
-                if (pressed && !m_l2_pressed) {
-                    TryCapture("l2");
-                }
-                m_l2_pressed = pressed;
-            } else if (event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) {
-                const bool pressed = event.gaxis.value > 16000;
-                if (pressed && !m_r2_pressed) {
-                    TryCapture("r2");
-                }
-                m_r2_pressed = pressed;
-            }
-            break;
-        default:
-            break;
-        }
     }
 }
 
