@@ -337,11 +337,27 @@ std::string KeyCaptureDialog::NameForKeyEvent(QKeyEvent* event) {
     case Qt::Key_Alt:
         return event->nativeScanCode() == LALT_KEY ? "lalt" : "ralt";
     case Qt::Key_Meta:
-        // The emulator knows lwin/rwin and lmeta/rmeta as separate names;
-        // shadLauncher4 picks by platform, and there is no scancode constant
-        // for the right-hand one in either launcher, so both stay left.
+        // The emulator has lwin/rwin and lmeta/rmeta as four separate names.
+        // shadLauncher4 picks the left one by platform and stops there; the
+        // side comes from nativeVirtualKey() here rather than a scancode,
+        // because for this key the virtual keys are the documented,
+        // unambiguous pair on both platforms: VK_LWIN/VK_RWIN on Windows,
+        // XK_Super_L/XK_Super_R (and the Meta_L/Meta_R Qt also folds into
+        // Key_Meta) under X11.
+        //
+        // Anything else falls through to the left name, which is what every
+        // platform did before, so a platform whose virtual keys are not one
+        // of these is no worse off than it was.
 #ifdef _WIN32
-        return "lwin";
+        return event->nativeVirtualKey() == 0x5C /* VK_RWIN */ ? "rwin" : "lwin";
+#elif defined(__linux__) || defined(__FreeBSD__)
+        switch (event->nativeVirtualKey()) {
+        case 0xffec: // XK_Super_R
+        case 0xffe8: // XK_Meta_R
+            return "rmeta";
+        default:
+            return "lmeta";
+        }
 #else
         return "lmeta";
 #endif

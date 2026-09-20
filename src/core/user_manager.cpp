@@ -145,6 +145,17 @@ User UserManager::GetDefaultUser() {
     return *GetUserByPlayerIndex(1);
 }
 
+void UserManager::ClearPinnedDevice(u32 user_id) {
+    for (auto& u : m_users.user) {
+        if (u.user_id == user_id) {
+            u.device_guid.clear();
+            u.device_serial.clear();
+            u.device_path.clear();
+        }
+    }
+    Save();
+}
+
 void UserManager::SetControllerPort(u32 user_id, int port) {
     for (auto& u : m_users.user) {
         if (u.user_id != user_id && u.player_index == port)

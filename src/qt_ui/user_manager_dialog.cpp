@@ -27,10 +27,11 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setContextMenuPolicy(Qt::CustomContextMenu);
-    m_table->setColumnCount(4); // User ID, Name, Color, Port
+    m_table->setColumnCount(5); // User ID, Name, Color, Port, Pinned device
     m_table->setCornerButtonEnabled(false);
     m_table->setAlternatingRowColors(true);
-    m_table->setHorizontalHeaderLabels({"User ID", "User Name", "Color", "Controller Port"});
+    m_table->setHorizontalHeaderLabels(
+        {"User ID", "User Name", "Color", "Controller Port", "Pinned Device"});
     m_table->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setDefaultSectionSize(150);
@@ -54,6 +55,11 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
 
     push_set_controller = new QPushButton(tr("&Set Controller Port"), this);
     push_set_controller->setAutoDefault(false);
+    push_clear_device = new QPushButton(tr("&Clear Pinned Device"), this);
+    push_clear_device->setAutoDefault(false);
+    push_clear_device->setToolTip(
+        tr("Forget which physical controller drives this user's port, so the port is filled "
+          "in plug order again."));
 
     push_close = new QPushButton(tr("&Close"), this);
     push_close->setAutoDefault(false);
@@ -66,6 +72,7 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     hbox_buttons->addWidget(push_set_default);
     hbox_buttons->addWidget(push_set_color);
     hbox_buttons->addWidget(push_set_controller);
+    hbox_buttons->addWidget(push_clear_device);
     hbox_buttons->addStretch();
     hbox_buttons->addWidget(push_close);
 
@@ -89,6 +96,10 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
         push_set_default->setEnabled(valid && key != m_active_user);
         push_set_color->setEnabled(valid);
         push_set_controller->setEnabled(valid);
+        // Only meaningful when there is actually a pin to clear.
+        const User* selected = valid ? UserManagement.GetUserByID(GetUserKey()) : nullptr;
+        push_clear_device->setEnabled(selected != nullptr &&
+                                      !DescribePinnedDevice(*selected).isEmpty());
     };
 
     enable_buttons();
@@ -101,6 +112,8 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     connect(push_set_color, &QAbstractButton::clicked, this, &UserManagerDialog::OnUserSetColor);
     connect(push_set_controller, &QAbstractButton::clicked, this,
             &UserManagerDialog::OnUserSetControllerPort);
+    connect(push_clear_device, &QAbstractButton::clicked, this,
+            &UserManagerDialog::OnUserClearPinnedDevice);
     connect(push_close, &QAbstractButton::clicked, this, &QDialog::accept);
     connect(m_table, &QTableWidget::itemSelectionChanged, this, enable_buttons);
     connect(m_table->horizontalHeader(), &QHeaderView::sectionClicked, this,
@@ -159,6 +172,20 @@ void UserManagerDialog::UpdateTable(bool mark_only) {
         controller_item->setFlags(controller_item->flags() & ~Qt::ItemIsEditable);
         m_table->setItem(row, 3, controller_item);
 
+        // Pinned device. The emulator writes this when a pad claims a port
+        // (src/core/user_manager.h's device_* fields); the launcher only
+        // shows it and can forget it.
+        const QString pinned = DescribePinnedDevice(u);
+        QTableWidgetItem* device_item = new QTableWidgetItem(pinned.isEmpty() ? "-" : pinned);
+        device_item->setFlags(device_item->flags() & ~Qt::ItemIsEditable);
+        if (!pinned.isEmpty()) {
+            device_item->setToolTip(tr("GUID: %1\nSerial: %2\nPath: %3")
+                                        .arg(QString::fromStdString(u.device_guid),
+                                             QString::fromStdString(u.device_serial),
+                                             QString::fromStdString(u.device_path)));
+        }
+        m_table->setItem(row, 4, device_item);
+
         // Bold if active
         bool is_active = (m_active_user == u.user_id);
         if (is_active) {
@@ -166,6 +193,7 @@ void UserManagerDialog::UpdateTable(bool mark_only) {
             username_item->setFont(bold_font);
             color_item->setFont(bold_font);
             controller_item->setFont(bold_font);
+            device_item->setFont(bold_font);
         }
     }
 
@@ -338,6 +366,52 @@ void UserManagerDialog::OnUserSetControllerPort() {
     }
 }
 
+QString UserManagerDialog::DescribePinnedDevice(const User& user) {
+    if (user.device_guid.empty()) {
+        return {};
+    }
+    // "keyboard" is the emulator's own spelling for the one device with no
+    // GUID of its own (user_manager.h).
+    if (user.device_guid == "keyboard") {
+        return tr("Keyboard");
+    }
+    // A GUID names a model, not a unit, so the serial or the socket path is
+    // what actually distinguishes two identical pads -- show whichever one
+    // this pin has. The GUID's leading half is bus and vendor, the same for
+    // every pad of a kind, so only the tail is worth showing.
+    const QString guid = QString::fromStdString(user.device_guid).right(16);
+    if (!user.device_serial.empty()) {
+        return tr("%1 (serial %2)").arg(guid, QString::fromStdString(user.device_serial));
+    }
+    if (!user.device_path.empty()) {
+        return tr("%1 (port %2)").arg(guid, QString::fromStdString(user.device_path));
+    }
+    return guid;
+}
+
+void UserManagerDialog::OnUserClearPinnedDevice() {
+    const u32 user_id = GetUserKey();
+    if (user_id == 0) {
+        return;
+    }
+    const User* user = UserManagement.GetUserByID(user_id);
+    if (user == nullptr || DescribePinnedDevice(*user).isEmpty()) {
+        return;
+    }
+
+    if (QMessageBox::question(
+            this, tr("Clear Pinned Device"),
+            tr("Forget that %1 drives %2's port?\n\nThe port will be filled in plug order "
+              "again until something claims it.")
+                .arg(DescribePinnedDevice(*user), QString::fromStdString(user->user_name)),
+            QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+        return;
+    }
+
+    UserManagement.ClearPinnedDevice(user_id);
+    UpdateTable();
+}
+
 void UserManagerDialog::OnSort(int logicalIndex) {
     if (logicalIndex < 0) {
         return;
@@ -374,6 +448,7 @@ void UserManagerDialog::ShowContextMenu(const QPoint& pos) {
     QAction* default_user_act = context_menu->addAction(tr("&Set Default User"));
     QAction* color_act = context_menu->addAction(tr("&Set Color"));
     QAction* port_act = context_menu->addAction(tr("&Set Controller Port"));
+    QAction* clear_device_act = context_menu->addAction(tr("&Clear Pinned Device"));
     QAction* show_dir_act = context_menu->addAction(tr("&Open User Directory"));
 
     bool enabled = key != m_active_user; // don't allow removing or setting default on active user
@@ -381,12 +456,18 @@ void UserManagerDialog::ShowContextMenu(const QPoint& pos) {
     remove_act->setEnabled(enabled);
     rename_act->setEnabled(enabled);
 
+    const User* selected = UserManagement.GetUserByID(key);
+    clear_device_act->setEnabled(selected != nullptr &&
+                                 !DescribePinnedDevice(*selected).isEmpty());
+
     // Connects and Events
     connect(remove_act, &QAction::triggered, this, &UserManagerDialog::OnUserRemove);
     connect(rename_act, &QAction::triggered, this, &UserManagerDialog::OnUserRename);
     connect(default_user_act, &QAction::triggered, this, &UserManagerDialog::OnUserSetDefault);
     connect(color_act, &QAction::triggered, this, &UserManagerDialog::OnUserSetColor);
     connect(port_act, &QAction::triggered, this, &UserManagerDialog::OnUserSetControllerPort);
+    connect(clear_device_act, &QAction::triggered, this,
+            &UserManagerDialog::OnUserClearPinnedDevice);
 
     connect(show_dir_act, &QAction::triggered, this, [this, key]() {
         QString userDirPath;

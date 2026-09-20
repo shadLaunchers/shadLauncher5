@@ -66,6 +66,12 @@ public:
     bool SetDefaultUser(u32 user_id);
     User GetDefaultUser();
     void SetControllerPort(u32 user_id, int port);
+    // Forgets which physical device drives this user's port, so the port is
+    // filled in plug order again. The emulator writes the pin (see the
+    // device_* fields above); nothing else here ever sets one, and without
+    // this a pad pinned to the wrong user could only be undone by editing
+    // users.json by hand.
+    void ClearPinnedDevice(u32 user_id);
     std::vector<User> GetValidUsers() const;
     LoggedInUsers GetLoggedInUsers() const;
 

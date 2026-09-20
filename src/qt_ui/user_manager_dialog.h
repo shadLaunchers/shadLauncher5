@@ -9,6 +9,7 @@
 #include <string>
 #include <QDialog>
 #include <QTableWidget>
+#include <core/user_manager.h>
 
 class GUISettings;
 class EmulatorSettingsImpl;
@@ -28,6 +29,7 @@ private Q_SLOTS:
     void OnUserSetDefault();
     void OnUserSetColor();
     void OnUserSetControllerPort();
+    void OnUserClearPinnedDevice();
     void OnSort(int logicalIndex);
 
 private:
@@ -59,6 +61,9 @@ private:
             return "Unknown";
         }
     }
+    // How a user's pinned device reads in the table. Empty means nothing is
+    // pinned and the port is filled in plug order.
+    static QString DescribePinnedDevice(const User& user);
     void UpdateTable(bool mark_only = false);
     u32 GetUserKey() const;
     void ShowContextMenu(const QPoint& pos);
@@ -75,6 +80,7 @@ private:
     QPushButton* push_set_default;
     QPushButton* push_set_color;
     QPushButton* push_set_controller;
+    QPushButton* push_clear_device;
     QPushButton* push_close;
 
     int m_sort_column = 1;
