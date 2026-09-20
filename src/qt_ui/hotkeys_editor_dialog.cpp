@@ -76,7 +76,8 @@ QString FriendlyHotkeyName(const std::string& id) {
 // KeyCaptureDialog
 // ---------------------------------------------------------------------
 
-KeyCaptureDialog::KeyCaptureDialog(QWidget* parent) : QDialog(parent) {
+KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QString& reason)
+    : QDialog(parent), m_accepts(accepts), m_reason(reason) {
     setWindowTitle(tr("Press Keys"));
     setModal(true);
     setFocusPolicy(Qt::StrongFocus);
@@ -88,12 +89,41 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent) : QDialog(parent) {
     OpenSelectedGamepad();
 
     auto* layout = new QVBoxLayout(this);
-    auto* instructions =
-        new QLabel(tr("Press up to 3 keys, mouse buttons, pad buttons or a stick together, "
-                      "then click Done."),
-                   this);
+    QString what;
+    switch (m_accepts) {
+    case Accepts::KeyboardAndMouse:
+        what = tr("Press up to 3 keys or mouse buttons together, then click Done.");
+        break;
+    case Accepts::Gamepad:
+        what = tr("Press up to 3 pad buttons, or a stick or trigger, then click Done.");
+        break;
+    case Accepts::Any:
+        what = tr("Press up to 3 keys, mouse buttons, pad buttons or a stick together, "
+                  "then click Done.");
+        break;
+    }
+    auto* instructions = new QLabel(what, this);
     instructions->setWordWrap(true);
     layout->addWidget(instructions);
+
+    // Why it is restricted, in the person's own terms. Silence here would make
+    // a rejected press look like a dead dialog.
+    m_rule_label = new QLabel(this);
+    m_rule_label->setWordWrap(true);
+    m_rule_label->setAlignment(Qt::AlignCenter);
+    {
+        QPalette pal = m_rule_label->palette();
+        const QColor text = pal.color(QPalette::WindowText);
+        const QColor back = pal.color(QPalette::Window);
+        pal.setColor(QPalette::WindowText,
+                     QColor::fromRgbF(text.redF() * 0.55 + back.redF() * 0.45,
+                                      text.greenF() * 0.55 + back.greenF() * 0.45,
+                                      text.blueF() * 0.55 + back.blueF() * 0.45));
+        m_rule_label->setPalette(pal);
+    }
+    m_rule_label->setText(m_reason);
+    m_rule_label->setVisible(!m_reason.isEmpty());
+    layout->addWidget(m_rule_label);
 
     auto* pad_row = new QHBoxLayout();
     auto* pad_icon = new QLabel(this);
@@ -217,8 +247,35 @@ void KeyCaptureDialog::OnSdlEvent(int type, int input, int value) {
     }
 }
 
+bool KeyCaptureDialog::Allows(const std::string& name) const {
+    switch (m_accepts) {
+    case Accepts::KeyboardAndMouse:
+        return Core::Input::IsKnownKeyboardOrMouseInput(name);
+    case Accepts::Gamepad:
+        return Core::Input::IsKnownPadInputName(name);
+    case Accepts::Any:
+        break;
+    }
+    return true;
+}
+
 void KeyCaptureDialog::TryCapture(const std::string& name) {
     if (name.empty() || m_captured.size() >= 3) {
+        return;
+    }
+    if (!Allows(name)) {
+        // Said out loud rather than ignored. A press that does nothing and
+        // explains nothing is the thing people file bugs about.
+        if (m_rule_label != nullptr) {
+            const QString what = m_accepts == Accepts::KeyboardAndMouse
+                                     ? tr("a key or mouse button")
+                                     : tr("a pad control");
+            m_rule_label->setText(tr("\"%1\" cannot reach this port. %2Press %3.")
+                                      .arg(QString::fromStdString(name),
+                                           m_reason.isEmpty() ? QString() : m_reason + QStringLiteral(" "),
+                                           what));
+            m_rule_label->setVisible(true);
+        }
         return;
     }
     if (std::find(m_captured.begin(), m_captured.end(), name) == m_captured.end()) {

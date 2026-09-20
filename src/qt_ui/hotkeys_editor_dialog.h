@@ -53,7 +53,22 @@ class QLabel;
 class KeyCaptureDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit KeyCaptureDialog(QWidget* parent = nullptr);
+    // What this capture will accept. A port whose device is pinned in the user
+    // manager can only ever be pressed by that device, so offering to capture
+    // anything else produces a binding that cannot fire -- the editor would be
+    // writing a line that does nothing and saying nothing about it.
+    //
+    // Any is for callers with no port in hand (the hotkeys editor, which is
+    // not per-port at all) and for a port with nothing pinned, where pads fill
+    // the port in plug order and either kind may end up driving it.
+    enum class Accepts {
+        Any,
+        KeyboardAndMouse,
+        Gamepad,
+    };
+
+    explicit KeyCaptureDialog(QWidget* parent = nullptr, Accepts accepts = Accepts::Any,
+                              const QString& reason = {});
     ~KeyCaptureDialog() override;
 
     // Valid only if the dialog was accepted.
@@ -72,6 +87,10 @@ private:
     void OpenSelectedGamepad();
     void OnSdlEvent(int type, int input, int value);
     void TryCapture(const std::string& name);
+    // True if `name` is a kind this capture accepts. Both the keyboard path
+    // and the SDL path funnel through TryCapture, so this is the only place
+    // the rule has to live.
+    [[nodiscard]] bool Allows(const std::string& name) const;
     // Returns the input-vocabulary name for a key press, or empty if this
     // key isn't one the emulator's input vocabulary can name.
     static std::string NameForKeyEvent(QKeyEvent* event);
@@ -80,6 +99,9 @@ private:
 
     QLabel* m_preview_label = nullptr;
     QLabel* m_gamepad_label = nullptr;
+    QLabel* m_rule_label = nullptr; // what this capture takes, and why
+    Accepts m_accepts = Accepts::Any;
+    QString m_reason;              // the port/device sentence, for the label
     std::vector<std::string> m_captured;
 
     SDL_Gamepad* m_gamepad = nullptr;

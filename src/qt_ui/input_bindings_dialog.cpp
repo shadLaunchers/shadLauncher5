@@ -166,6 +166,22 @@ PortDevice DeviceForPort(int port) {
     return out;
 }
 
+// What a port's pinned device can actually press. users.json stores the
+// literal "keyboard" for the one device with no GUID of its own
+// (src/bridge/core/input_devices.h); anything else is a pad.
+//
+// Nothing pinned means Any on purpose: pads fill the port in plug order, so
+// either kind may end up driving it and the editor has no business narrowing
+// what can be bound.
+KeyCaptureDialog::Accepts AcceptsForPort(const PortDevice& device) {
+    if (!device.pinned) {
+        return KeyCaptureDialog::Accepts::Any;
+    }
+    return device.guid == QStringLiteral("keyboard")
+               ? KeyCaptureDialog::Accepts::KeyboardAndMouse
+               : KeyCaptureDialog::Accepts::Gamepad;
+}
+
 // One line of prose for the top of a port page. Deliberately says which of
 // the three states it is in -- no user, a user with no pinned device, or a
 // pinned device that may or may not be plugged in right now -- because each
@@ -588,7 +604,21 @@ void PortBindingsPage::OnAddWay() {
     if (name.empty()) {
         return;
     }
-    KeyCaptureDialog capture(this);
+    // A port pinned to one device can only ever be pressed by that device, so
+    // the capture only takes what that device can send. Binding a pad button
+    // on a keyboard-pinned port would write a line that never fires, with
+    // nothing anywhere saying why.
+    const auto device = DeviceForPort(m_port_number);
+    QString reason;
+    if (device.pinned) {
+        const QString named = device.device_name.isEmpty()
+                                  ? (device.guid == QStringLiteral("keyboard")
+                                         ? tr("the keyboard")
+                                         : tr("a pad"))
+                                  : device.device_name;
+        reason = tr("Port %1 is pinned to %2.").arg(m_port_number).arg(named);
+    }
+    KeyCaptureDialog capture(this, AcceptsForPort(device), reason);
     if (capture.exec() != QDialog::Accepted) {
         return;
     }
