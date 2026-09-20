@@ -306,6 +306,7 @@
    <addaction name="toolbar_stop"/>
    <addaction name="separator"/>
    <addaction name="toolbar_config"/>
+   <addaction name="toolbar_controls"/>
    <addaction name="toolbar_fullscreen"/>
    <addaction name="separator"/>
    <addaction name="toolbar_refresh"/>

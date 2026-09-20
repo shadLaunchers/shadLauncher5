@@ -58,6 +58,19 @@ public:
     // The human name of the selected pad, for confirmations.
     [[nodiscard]] QString SelectedName() const;
 
+    // Point the selector at a particular device rather than letting the
+    // person choose. Used where the pad is decided by something else -- the
+    // bindings editor follows the device pinned to the port whose tab is
+    // open, so pressing a button lights the page it belongs to. A GUID that
+    // is not connected leaves the current selection alone and returns false.
+    bool SelectByGuid(const QString& guid);
+
+    // Hides the combo and the GUID label, leaving the selector as a listener
+    // only. The bindings editor no longer asks "which pad?" -- users.json
+    // answers that -- but it still wants the live press feedback, which
+    // needs an open device.
+    void HideChooser();
+
 signals:
     // A button went down or up, or an axis moved, on the selected pad.
     // `name` is an input-vocabulary name (input_ids.h) -- "cross", "l2",
@@ -101,3 +114,10 @@ private:
 // called. Empty when the vocabulary has no name for it.
 [[nodiscard]] QString GamepadButtonName(SDL_GamepadButton button);
 [[nodiscard]] QString GamepadAxisName(SDL_GamepadAxis axis);
+
+// The human name of whichever connected pad carries this GUID, or an empty
+// string when none does. users.json stores a GUID and nothing else readable,
+// so this is what turns a pin into something worth showing a person. The
+// literal "keyboard" is the emulator's sentinel for the one device with no
+// GUID of its own (src/bridge/core/input_devices.h) and gets its own name.
+[[nodiscard]] QString GamepadNameForGuid(const QString& guid);

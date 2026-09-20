@@ -3,8 +3,7 @@
 //
 // The full pad-control binding editor (docs/input-bindings.md), as opposed
 // to hotkeys_editor_dialog.h which only handles hotkeys.json. One QTabWidget
-// page per port (1-4); a port's page is only editable once its "this port
-// is assigned" checkbox is on.
+// page per port (1-4), all of them editable.
 //
 // FIRST PASS -- scope deliberately narrower than the full spec for now:
 //  - A page shows the bindings that drive *that player's pad*
@@ -17,12 +16,20 @@
 //    pad survives a round-trip. Right-clicking a row sets which device may
 //    press it (the "gamepad" field); an input-side ":n" is preserved but
 //    still not something the editor writes from scratch.
-//  - "Port assigned" is this editor's own concept, not read from the
-//    emulator: docs/multi-user.md (which this editor hasn't been given)
-//    covers how a *device* actually gets a port at runtime. Here it just
-//    means "show and let me edit this port's bindings" -- unchecking it
-//    does not delete anything already saved for that port, it only hides
-//    the tab's controls.
+//  - Which device drives a port is not this editor's to decide, and it no
+//    longer pretends otherwise. It used to carry a "this port is assigned"
+//    checkbox of its own invention -- ticking it assigned nothing, and
+//    unticking it only hid controls. The user manager pins a device to a
+//    user and a user holds a port, so each page now reads users.json and
+//    says what is actually there. A port with nothing pinned is still
+//    editable; its tab is dimmed and its line says so.
+//
+// A game's file REPLACES default.json rather than layering over it: the
+// emulator reads input_config/<title id>.json if it exists and default.json
+// otherwise, never both (BindingsFile in the emulator's input_config.cpp).
+// So opening a game's file for the first time pre-fills the editor with
+// default.json's bindings -- otherwise saving an empty editor would silently
+// take away every default that game had. An existing file is left alone.
 //
 // File picker (section 2): the person can switch between global.json and a
 // specific game's input_config/<title id>.json. When editing a game's
@@ -43,7 +50,6 @@
 
 #include "core/input/bindings_config.h"
 
-class QCheckBox;
 class QComboBox;
 class QLabel;
 class QPushButton;
@@ -62,7 +68,15 @@ public:
     [[nodiscard]] int PortNumber() const {
         return m_port_number;
     }
-    [[nodiscard]] bool IsAssigned() const;
+    // Whether users.json pins a device to this port. Used by the dialog to
+    // dim the tab of a port nothing is driving -- the page stays editable
+    // either way.
+    [[nodiscard]] bool HasPinnedDevice() const;
+
+    // Re-reads users.json and redraws the line at the top of the page.
+    // Called when the dialog is shown and whenever a pad is plugged in or
+    // out, since that changes whether a pinned device has a name.
+    void RefreshDeviceLabel();
 
     // Read-only global.json bindings to show alongside this page's own,
     // when this page belongs to a dialog editing a specific game's file.
@@ -100,7 +114,6 @@ private:
     void PopulateOutputList();
     void RefreshBindingsList();
     void RefreshOutputMarkers();
-    void UpdateEnabledState();
     [[nodiscard]] std::string CurrentOutputName() const;
     [[nodiscard]] static QString DisplayChord(const std::vector<std::string>& input);
     // True for axis_left_x and friends: only an axis may drive them, which
@@ -111,7 +124,7 @@ private:
     Core::Input::BindingsConfig* m_config; // not owned
     Core::Input::BindingsConfig* m_global_overlay = nullptr; // not owned; read-only display
 
-    QCheckBox* m_assigned_check = nullptr;
+    QLabel* m_device_label = nullptr;
     GamepadDiagramWidget* m_diagram = nullptr;
     class QLineEdit* m_filter = nullptr;
     QListWidget* m_output_list = nullptr;
@@ -155,6 +168,16 @@ protected:
 private:
     void BuildUi();
     QWidget* BuildSettingsPage();
+    // The port page on screen, or nullptr when the Settings tab is open.
+    [[nodiscard]] PortBindingsPage* CurrentPage() const;
+    // Greys the tab of any port with no device pinned to it, and hangs the
+    // same sentence the page shows on each tab as a tooltip.
+    void RefreshPortTabs();
+    // A game file that does not exist yet starts from default.json's
+    // bindings, because the emulator reads one or the other and never both.
+    // Returns true if it seeded. Never touches global.json or default.json.
+    bool SeedFromDefaultsIfNew(const std::filesystem::path& path);
+    void RefreshSeededBanner();
     void PopulateFilePicker();
     // Switches the dialog to edit `path` in place -- reloads m_config (and
     // the global.json overlay, if `path` isn't global.json itself), then
@@ -176,6 +199,8 @@ private:
     GamepadSelector* m_gamepad = nullptr;
     QLabel* m_subtitle_label = nullptr;
     QLabel* m_unreadable_label = nullptr;
+    QLabel* m_seeded_label = nullptr;
+    bool m_seeded_from_defaults = false;
     QPushButton* m_save_btn = nullptr;
     QPushButton* m_revert_btn = nullptr;
     QTabWidget* m_tabs = nullptr;

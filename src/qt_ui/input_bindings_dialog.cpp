@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
-#include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFileDialog>
@@ -28,6 +27,7 @@
 
 #include "common/path_util.h"
 #include "core/input/input_ids.h"
+#include "core/user_settings.h" // UserManagement: which device is pinned to which port
 #include "game_info.h"
 #include "gamepad_diagram_widget.h"
 #include "gamepad_selector.h"
@@ -136,6 +136,63 @@ QIcon TintedGamepadIcon() {
     return out;
 }
 
+// What users.json says drives a given port. The editor used to ask this with
+// a checkbox the person ticked themselves ("this port is assigned"), which
+// was this editor's own idea and agreed with the emulator only by luck. The
+// user manager pins a device to a user, and a user holds a port, so the
+// answer is on disk -- this just reads it.
+struct PortDevice {
+    bool pinned = false;
+    QString user_name; // the user holding this port, pinned or not
+    QString guid;
+    QString device_name; // empty when the pinned device is not plugged in
+};
+
+PortDevice DeviceForPort(int port) {
+    PortDevice out;
+    for (const auto& user : UserManagement.GetAllUsers()) {
+        if (user.player_index != port) {
+            continue;
+        }
+        out.user_name = QString::fromStdString(user.user_name);
+        if (!user.device_guid.empty()) {
+            out.pinned = true;
+            out.guid = QString::fromStdString(user.device_guid);
+            out.device_name = GamepadNameForGuid(out.guid);
+        }
+        break;
+    }
+    return out;
+}
+
+// One line of prose for the top of a port page. Deliberately says which of
+// the three states it is in -- no user, a user with no pinned device, or a
+// pinned device that may or may not be plugged in right now -- because each
+// one wants a different thing done about it.
+QString DeviceLineFor(int port, const PortDevice& device) {
+    if (device.user_name.isEmpty()) {
+        return QObject::tr("Port %1 — no user holds this port. "
+                           "Assign one in User Manager.")
+            .arg(port);
+    }
+    if (!device.pinned) {
+        return QObject::tr("Port %1 — %2, no device pinned. "
+                           "Pads fill this port in the order they are plugged in.")
+            .arg(port)
+            .arg(device.user_name);
+    }
+    if (device.device_name.isEmpty()) {
+        return QObject::tr("Port %1 — %2, pinned device not connected (%3).")
+            .arg(port)
+            .arg(device.user_name)
+            .arg(device.guid.right(16));
+    }
+    return QObject::tr("Port %1 — %2, %3.")
+        .arg(port)
+        .arg(device.user_name)
+        .arg(device.device_name);
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------
@@ -149,16 +206,19 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     outer->setContentsMargins(8, 6, 8, 6);
     outer->setSpacing(6);
 
-    m_assigned_check =
-        new QCheckBox(tr("This port is assigned (edit its bindings)"), this);
-    QFont check_font = m_assigned_check->font();
-    check_font.setBold(true);
-    m_assigned_check->setFont(check_font);
-    // Port 1 on by default -- the common single-player case; the person
-    // turns on more as they actually use them.
-    m_assigned_check->setChecked(port_number == 1);
-    connect(m_assigned_check, &QCheckBox::toggled, this, &PortBindingsPage::UpdateEnabledState);
-    outer->addWidget(m_assigned_check);
+    // Where the "this port is assigned" checkbox used to be. That checkbox
+    // was the editor's own bookkeeping -- ticking it did not assign anything
+    // and unticking it only hid controls -- so it has been replaced by the
+    // answer itself, read from users.json. Every port is editable now; what
+    // varies is whether anything is actually driving it, which this says.
+    m_device_label = new QLabel(this);
+    m_device_label->setWordWrap(true);
+    m_device_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    QFont device_font = m_device_label->font();
+    device_font.setBold(true);
+    m_device_label->setFont(device_font);
+    outer->addWidget(m_device_label);
+    RefreshDeviceLabel();
 
     // No group box and no caption line: between them they cost about 60px of
     // height to say what one tooltip says, and this dialog had none to spare.
@@ -231,7 +291,8 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     });
 
     PopulateOutputList();
-    UpdateEnabledState();
+    RefreshBindingsList();
+    RefreshOutputMarkers();
 }
 
 void PortBindingsPage::PopulateOutputList() {
@@ -261,20 +322,26 @@ void PortBindingsPage::PopulateOutputList() {
     }
 }
 
-bool PortBindingsPage::IsAssigned() const {
-    return m_assigned_check->isChecked();
+bool PortBindingsPage::HasPinnedDevice() const {
+    return DeviceForPort(m_port_number).pinned;
 }
 
-void PortBindingsPage::UpdateEnabledState() {
-    const bool enabled = IsAssigned();
-    m_filter->setEnabled(enabled);
-    m_output_list->setEnabled(enabled);
-    m_bindings_list->setEnabled(enabled);
-    m_add_btn->setEnabled(enabled);
-    m_unmapped_btn->setEnabled(enabled);
-    m_remove_btn->setEnabled(enabled);
-    RefreshBindingsList();
-    RefreshOutputMarkers();
+void PortBindingsPage::RefreshDeviceLabel() {
+    if (m_device_label == nullptr) {
+        return;
+    }
+    const auto device = DeviceForPort(m_port_number);
+    m_device_label->setText(DeviceLineFor(m_port_number, device));
+    // Muted when nothing is pinned, so a page you are editing "blind" looks
+    // different from one backed by a real pad without being disabled -- the
+    // bindings still work, they just have nothing pointed at them yet. The
+    // pinned case clears the override rather than setting a colour of its
+    // own, so it follows the theme like every other label.
+    if (device.pinned) {
+        m_device_label->setPalette(QPalette());
+    } else {
+        Muted(m_device_label);
+    }
 }
 
 bool PortBindingsPage::IsAnalogOutput(const std::string& name) {
@@ -402,10 +469,6 @@ void PortBindingsPage::ClearPressed() {
 
 void PortBindingsPage::RefreshBindingsList() {
     m_bindings_list->clear();
-    if (!IsAssigned()) {
-        m_hint_label->setText(tr("Turn on \"This port is assigned\" above to edit its bindings."));
-        return;
-    }
     const std::string name = CurrentOutputName();
     if (name.empty()) {
         m_hint_label->clear();
@@ -468,8 +531,8 @@ void PortBindingsPage::RefreshBindingsList() {
     // the hint just says what it will accept, since pressing a button here
     // produces a pairing the emulator rejects.
     const bool analog = IsAnalogOutput(name);
-    m_add_btn->setEnabled(IsAssigned());
-    m_unmapped_btn->setEnabled(IsAssigned());
+    m_add_btn->setEnabled(true);
+    m_unmapped_btn->setEnabled(true);
 
     if (analog) {
         m_hint_label->setText(
@@ -545,9 +608,6 @@ void PortBindingsPage::OnSetUnmapped() {
 }
 
 void PortBindingsPage::OnBindingsContextMenu(const QPoint& pos) {
-    if (!IsAssigned()) {
-        return;
-    }
     const std::string name = CurrentOutputName();
     QListWidgetItem* item = m_bindings_list->itemAt(pos);
     if (name.empty() || item == nullptr) {
@@ -644,6 +704,7 @@ InputBindingsDialog::InputBindingsDialog(const std::filesystem::path& targetFile
                                           "global.json"),
       m_config(std::make_unique<Core::Input::BindingsConfig>()) {
     m_config->Load(targetFile);
+    SeedFromDefaultsIfNew(targetFile);
     if (targetFile != m_global_json_path) {
         m_global_overlay = std::make_unique<Core::Input::BindingsConfig>();
         m_global_overlay->Load(m_global_json_path);
@@ -683,39 +744,40 @@ void InputBindingsDialog::BuildUi() {
     picker_row->addWidget(browse_btn);
     outer->addLayout(picker_row);
 
-    // Which pad the editor is listening to, and what it is doing. Same
-    // question shadLauncher4 asks with ActiveGamepadBox; here it also drives
-    // the diagram, so pressing a button shows you which control it is before
-    // you bind anything.
-    auto* pad_row = new QHBoxLayout();
+    // The editor no longer asks which pad it is listening to -- users.json
+    // answers that, and each port page says so in its own line. The selector
+    // stays as a listener: something has to hold the device open for the
+    // live press feedback, and it already knows how. Its combo and GUID
+    // label are hidden rather than the whole class being rewritten around a
+    // question nobody is asked any more.
     m_gamepad = new GamepadSelector(this);
-    pad_row->addWidget(m_gamepad, 1);
-    auto* pad_hint = new QLabel(tr("Press a control to find it on the diagram."), this);
-    Muted(pad_hint);
-    pad_row->addWidget(pad_hint);
-    outer->addLayout(pad_row);
+    m_gamepad->HideChooser();
+    m_gamepad->hide();
 
+    // Feedback goes to the page you are looking at. It used to light the
+    // same control on all four, which said nothing about which port the
+    // press belongs to.
     connect(m_gamepad, &GamepadSelector::ControlPressed, this, [this](const QString& name) {
-        for (auto* page : m_pages) {
-            if (page != nullptr) {
-                page->ShowPressed(name, true);
-            }
+        if (auto* page = CurrentPage(); page != nullptr) {
+            page->ShowPressed(name, true);
         }
     });
     connect(m_gamepad, &GamepadSelector::ControlReleased, this, [this](const QString& name) {
-        for (auto* page : m_pages) {
-            if (page != nullptr) {
-                page->ShowPressed(name, false);
-            }
+        if (auto* page = CurrentPage(); page != nullptr) {
+            page->ShowPressed(name, false);
         }
     });
-    // A pad unplugged mid-press would otherwise leave its last control lit.
+    // A pad plugged in or out changes both which device is open and whether a
+    // pinned GUID has a name to show, so both follow the same signal. A pad
+    // unplugged mid-press would otherwise leave its last control lit.
     connect(m_gamepad, &GamepadSelector::SelectionChanged, this, [this] {
         for (auto* page : m_pages) {
             if (page != nullptr) {
                 page->ClearPressed();
+                page->RefreshDeviceLabel();
             }
         }
+        RefreshPortTabs();
     });
 
     PopulateFilePicker();
@@ -732,6 +794,15 @@ void InputBindingsDialog::BuildUi() {
     m_unreadable_label->setStyleSheet("color: #E05555; font-weight: bold;");
     outer->addWidget(m_unreadable_label);
 
+    // Says where a brand-new game file's contents came from. Hidden the rest
+    // of the time, which is most of it.
+    m_seeded_label = new QLabel(this);
+    m_seeded_label->setWordWrap(true);
+    Muted(m_seeded_label);
+    m_seeded_label->setVisible(false);
+    outer->addWidget(m_seeded_label);
+    RefreshSeededBanner();
+
     m_tabs = new QTabWidget(this);
     const QIcon tab_icon = TintedGamepadIcon();
     for (int port = 1; port <= 4; port++) {
@@ -744,6 +815,20 @@ void InputBindingsDialog::BuildUi() {
     }
     m_tabs->addTab(BuildSettingsPage(), tr("Settings"));
     outer->addWidget(m_tabs, 1);
+
+    // Opening a port's tab points the listener at that port's pinned pad, so
+    // the feedback on the diagram is the device that page is about rather
+    // than whichever one SDL happened to enumerate first.
+    connect(m_tabs, &QTabWidget::currentChanged, this, [this](int) {
+        if (auto* page = CurrentPage(); page != nullptr) {
+            page->ClearPressed();
+            const auto device = DeviceForPort(page->PortNumber());
+            if (device.pinned) {
+                m_gamepad->SelectByGuid(device.guid);
+            }
+        }
+    });
+    RefreshPortTabs();
 
     // One tabbed box, not two stacked group boxes: both lists are empty in
     // the normal case and were costing ~240px of height to say so.
@@ -860,6 +945,95 @@ void InputBindingsDialog::closeEvent(QCloseEvent* event) {
 void InputBindingsDialog::reject() {
     if (ConfirmDiscardingEdits()) {
         QDialog::reject();
+    }
+}
+
+bool InputBindingsDialog::SeedFromDefaultsIfNew(const std::filesystem::path& path) {
+    m_seeded_from_defaults = false;
+
+    // Only a game's own file, and only one that does not exist yet. global.json
+    // is a layer of its own and is always appended, so it needs no seeding;
+    // default.json is the source and must never be written from here
+    // (input-bindings.md section 3 -- its comments are the documentation).
+    const auto defaults_path =
+        Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "default.json";
+    if (path == m_global_json_path || path == defaults_path) {
+        return false;
+    }
+    std::error_code ec;
+    if (std::filesystem::exists(path, ec)) {
+        return false; // an existing file is the person's; leave it alone
+    }
+    if (!std::filesystem::is_regular_file(defaults_path, ec)) {
+        return false;
+    }
+
+    Core::Input::BindingsConfig defaults;
+    if (!defaults.Load(defaults_path) || !defaults.IsLoaded()) {
+        return false;
+    }
+
+    // The emulator reads a game's file INSTEAD of default.json, never both
+    // (BindingsFile in its input_config.cpp). An empty new file therefore does
+    // not mean "the defaults plus nothing" -- it means the game loses every
+    // default it had. So the editor starts from them.
+    std::map<std::string, std::vector<Core::Input::PortedBinding>> by_output;
+    for (const auto& flat : defaults.GetAllBindings()) {
+        by_output[flat.output].push_back(flat.binding);
+    }
+    if (by_output.empty()) {
+        return false;
+    }
+    for (auto& [output, list] : by_output) {
+        // Dirty on purpose: these only reach the disk if the person saves,
+        // and if they save they must get the defaults rather than an empty
+        // file. It also means closing without saving asks first, which is
+        // honest -- there is something pending.
+        m_config->SetBindings(output, std::move(list));
+    }
+    m_seeded_from_defaults = true;
+    return true;
+}
+
+void InputBindingsDialog::RefreshSeededBanner() {
+    if (m_seeded_label == nullptr) {
+        return;
+    }
+    m_seeded_label->setVisible(m_seeded_from_defaults);
+    if (m_seeded_from_defaults) {
+        m_seeded_label->setText(
+            tr("New file, started from default.json. A game's own file replaces the defaults "
+               "rather than adding to them, so save to keep these."));
+    }
+}
+
+PortBindingsPage* InputBindingsDialog::CurrentPage() const {
+    for (auto* page : m_pages) {
+        if (page != nullptr && page == m_tabs->currentWidget()) {
+            return page;
+        }
+    }
+    return nullptr; // the Settings tab
+}
+
+void InputBindingsDialog::RefreshPortTabs() {
+    for (int port = 1; port <= 4; port++) {
+        auto* page = m_pages[static_cast<size_t>(port - 1)];
+        if (page == nullptr) {
+            continue;
+        }
+        const int index = m_tabs->indexOf(page);
+        if (index < 0) {
+            continue;
+        }
+        // Dimmed, not disabled: a port with nothing pinned is still a port
+        // whose bindings you may want to write before the pad arrives. The
+        // grey just says which tabs are backed by a real device today.
+        const bool pinned = page->HasPinnedDevice();
+        m_tabs->tabBar()->setTabTextColor(
+            index, pinned ? QColor() : MutedColor(m_tabs->palette()));
+        const auto device = DeviceForPort(port);
+        m_tabs->setTabToolTip(index, DeviceLineFor(port, device));
     }
 }
 
@@ -1025,6 +1199,7 @@ void InputBindingsDialog::SwitchTarget(const std::filesystem::path& path) {
         return;
     }
     m_config->Load(path);
+    SeedFromDefaultsIfNew(path);
     if (path != m_global_json_path) {
         if (!m_global_overlay) {
             m_global_overlay = std::make_unique<Core::Input::BindingsConfig>();
@@ -1044,6 +1219,7 @@ void InputBindingsDialog::SwitchTarget(const std::filesystem::path& path) {
     }
     ReloadSettingsTab();
     RefreshLoadedState();
+    RefreshSeededBanner();
     RefreshConflicts();
     RefreshProblemsList();
     PopulateFilePicker();

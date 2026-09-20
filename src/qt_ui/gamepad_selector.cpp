@@ -70,6 +70,29 @@ QString GamepadAxisName(SDL_GamepadAxis axis) {
     }
 }
 
+QString GamepadNameForGuid(const QString& guid) {
+    if (guid.isEmpty()) {
+        return {};
+    }
+    if (guid == QStringLiteral("keyboard")) {
+        return QObject::tr("Keyboard and mouse");
+    }
+
+    int count = 0;
+    SDL_JoystickID* ids = SDL_GetGamepads(&count);
+    if (ids == nullptr) {
+        return {};
+    }
+    QString name;
+    const int index = GamepadSelect::GetIndexfromGUID(ids, count, guid.toStdString());
+    if (index >= 0) {
+        const char* text = SDL_GetGamepadNameForID(ids[index]);
+        name = text == nullptr ? QString() : QString::fromUtf8(text);
+    }
+    SDL_free(ids);
+    return name;
+}
+
 GamepadSelector::GamepadSelector(QWidget* parent) : QWidget(parent) {
     auto* layout = new QHBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);
@@ -208,6 +231,41 @@ QString GamepadSelector::SelectedName() const {
     }
     const char* name = SDL_GetGamepadName(m_gamepad);
     return name == nullptr ? QString() : QString::fromUtf8(name);
+}
+
+bool GamepadSelector::SelectByGuid(const QString& guid) {
+    if (guid.isEmpty() || m_gamepads == nullptr) {
+        return false;
+    }
+    const int index =
+        GamepadSelect::GetIndexfromGUID(m_gamepads, m_gamepad_count, guid.toStdString());
+    if (index < 0) {
+        return false; // pinned, but not plugged in right now
+    }
+    if (index == m_box->currentIndex() && m_gamepad != nullptr) {
+        return true; // already the open one; reopening would drop held state
+    }
+
+    // Move the combo too, even when it is hidden: it is what OnCurrentIndex-
+    // Changed reads, and a hidden widget that disagrees with the open device
+    // is exactly the kind of thing that bites the next person.
+    m_refreshing = true;
+    m_box->setCurrentIndex(index);
+    m_refreshing = false;
+    OpenSelected(index);
+    return true;
+}
+
+void GamepadSelector::HideChooser() {
+    m_box->hide();
+    m_id_label->hide();
+    // The "Pad:" caption belongs to the combo, not to us, so it is found
+    // rather than remembered -- there is exactly one and it is our own child.
+    for (auto* label : findChildren<QLabel*>()) {
+        if (label != m_id_label) {
+            label->hide();
+        }
+    }
 }
 
 void GamepadSelector::OnCurrentIndexChanged(int index) {

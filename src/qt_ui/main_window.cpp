@@ -356,6 +356,15 @@ void MainWindow::createConnects() {
 
     connect(ui->toolbar_config, &QAction::triggered, this, [=]() { open_settings(0); });
 
+    // The action and its icon were already declared in main_window.ui; it had
+    // simply never been put on the toolbar or connected to anything. Same
+    // editor the Settings menu opens, one click closer -- controls are the
+    // thing people come back to change.
+    connect(ui->toolbar_controls, &QAction::triggered, this, [this] {
+        InputBindingsDialog dialog(this);
+        dialog.exec();
+    });
+
     connect(ui->versionManagerButton, &QPushButton::clicked, this, [this]() {
         auto versionDialog = new VersionDialog(m_gui_settings, this);
         connect(versionDialog, &QDialog::finished, this, [this](int) { LoadVersionComboBox(); });
