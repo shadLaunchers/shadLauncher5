@@ -41,8 +41,8 @@
 #include "game_list_context_menu.h"
 #include "game_list_frame.h"
 #include "gui_application.h"
-#include "input_bindings_dialog.h"
 #include "gui_settings.h"
+#include "input_bindings_dialog.h"
 #include "localized.h"
 #include "npbind_dialog.h"
 #include "param_viewer_dialog.h"
@@ -932,9 +932,9 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
     // file from the settings above, and independent of it: a game can have
     // one, the other, both or neither, which is why the list draws a badge
     // for each.
-    QAction* configure_input = addAction(gameinfo->has_custom_pad_config
-                                             ? tr("Change Custom &Input Settings")
-                                             : tr("Create Custom &Input Settings"));
+    QAction* configure_input =
+        addAction(gameinfo->has_custom_pad_config ? tr("Change Custom &Input Settings")
+                                                  : tr("Create Custom &Input Settings"));
 
     // this will work only for separate updates install (-UPDATE or -patch folders)
     const std::string update_path = current_game.update_path;
@@ -1351,8 +1351,7 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
         });
     }
     if (gameinfo->has_custom_pad_config) {
-        QAction* remove_custom_input =
-            delete_menu->addAction(tr("Remove Custom &Input Settings"));
+        QAction* remove_custom_input = delete_menu->addAction(tr("Remove Custom &Input Settings"));
         connect(remove_custom_input, &QAction::triggered, frame, [frame, serial, gameinfo]() {
             if (frame->RemoveCustomInputConfiguration(serial, gameinfo)) {
                 frame->ShowCustomConfigIcon(gameinfo);
