@@ -1742,6 +1742,7 @@ bool GameListFrame::RemoveCustomConfiguration(const QString& serial, const game_
 }
 
 bool GameListFrame::RemoveCustomInputConfiguration(const QString& serial, const game_info& game) {
+
     const auto path = Common::FS::GetUserPath(Common::FS::PathType::CustomInputConfigs) /
                       (serial + ".json").toStdString();
 
