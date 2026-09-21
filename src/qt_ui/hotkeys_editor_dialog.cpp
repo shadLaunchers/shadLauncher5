@@ -23,7 +23,7 @@
 #include "hotkeys_editor_dialog.h"
 #include "sdl_event_wrapper.h"
 
-QIcon TintedGamepadIcon() {
+QIcon HotKeyTintedGamepadIcon() {
     const QIcon source(":/images/menu/gamepad.svg");
     const bool dark = QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;
     const QColor color = dark ? QColor(0xF5, 0xF5, 0xF7) : QColor(0x1D, 0x1D, 0x1F);
@@ -111,7 +111,7 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QStri
 
     auto* pad_row = new QHBoxLayout();
     auto* pad_icon = new QLabel(this);
-    pad_icon->setPixmap(TintedGamepadIcon().pixmap(20, 20));
+    pad_icon->setPixmap(HotKeyTintedGamepadIcon().pixmap(20, 20));
     pad_row->addStretch();
     pad_row->addWidget(pad_icon);
     m_gamepad_label = new QLabel(this);
