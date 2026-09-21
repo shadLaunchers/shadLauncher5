@@ -56,7 +56,7 @@ public:
     // its old floor of 207px was a third of the dialog's height before
     // anything else had asked for any.
     [[nodiscard]] QSize sizeHint() const override {
-        return QSize(340, 234);
+        return QSize(400, 276);
     }
     [[nodiscard]] QSize minimumSizeHint() const override {
         return QSize(200, 138);
