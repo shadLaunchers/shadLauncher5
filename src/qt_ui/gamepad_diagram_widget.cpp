@@ -1,29 +1,23 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <algorithm>
+#include <string_view>
 #include <QEvent>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPainterPath>
 #include <QToolTip>
-#include <algorithm>
-#include <string_view>
 
 #include "gamepad_diagram_widget.h"
 
-namespace {
-
-// The diagram is authored in a 1.45:1 box and scaled into whatever the widget
-// gets, so its proportions never depend on the layout around it.
-constexpr qreal kAspect = 1.45;
+constexpr qreal Aspect = 1.45;
 
 struct NormRegion {
     const char* output;
     qreal x, y, w, h; // fractions of the canvas
 };
 
-// Invented proportions. Sticks side by side below the face buttons, which is
-// the layout the binding vocabulary assumes (l3/r3 as pressable sticks).
 constexpr NormRegion kLayout[] = {
     // Triggers sit above the shoulders, both fully inside the canvas -- the
     // old layout put them at y = -0.04, half of each clipped off the top.
@@ -71,8 +65,6 @@ QColor WithAlpha(QColor c, int alpha) {
     return c;
 }
 
-} // namespace
-
 GamepadDiagramWidget::GamepadDiagramWidget(QWidget* parent) : QWidget(parent) {
     setMouseTracking(true); // for hover feedback
     setCursor(Qt::ArrowCursor);
@@ -89,10 +81,10 @@ QRectF GamepadDiagramWidget::Canvas() const {
     const qreal avail_w = w - 8.0;
     const qreal avail_h = h - 8.0;
     qreal cw = avail_w;
-    qreal ch = cw / kAspect;
+    qreal ch = cw / Aspect;
     if (ch > avail_h) {
         ch = avail_h;
-        cw = ch * kAspect;
+        cw = ch * Aspect;
     }
     return {(w - cw) / 2.0, (h - ch) / 2.0, cw, ch};
 }
@@ -120,8 +112,6 @@ const QRectF* GamepadDiagramWidget::RectFor(const std::string& output) const {
 }
 
 std::string GamepadDiagramWidget::OutputAt(const QPointF& pos) const {
-    // Smallest match wins, so a touchpad zone is not swallowed by anything
-    // drawn around it.
     const Region* best = nullptr;
     for (const auto& r : m_regions) {
         if (!r.rect.contains(pos)) {
@@ -151,8 +141,6 @@ void GamepadDiagramWidget::SetBoundOutputs(const QSet<QString>& outputNames) {
     update();
 }
 
-// A stick axis has no region of its own; it lights the stick it belongs to,
-// which is the thing the person is actually holding.
 static QString RegionForControl(const QString& name) {
     if (name.startsWith(QLatin1String("axis_left"))) {
         return QStringLiteral("l3");
@@ -164,11 +152,6 @@ static QString RegionForControl(const QString& name) {
 }
 
 void GamepadDiagramWidget::SetPressedControl(const QString& name, bool pressed) {
-    // What is held is tracked by the name that arrived, and the lit regions
-    // are derived from that -- not the other way round. Two names can share
-    // one region (axis_left_x and axis_left_y are both the left stick), and
-    // holding the stick diagonally then letting go of one axis would
-    // otherwise darken it while the other axis was still held.
     if (pressed) {
         m_pressed_controls.insert(name);
     } else {
@@ -234,8 +217,6 @@ GamepadDiagramWidget::Look GamepadDiagramWidget::LookFor(const std::string& outp
     look.pressed = m_pressed.contains(id);
 
     if (look.pressed) {
-        // Being held wins over every other state: it is the one that is
-        // happening right now, and it is how you check a pad is working.
         look.fill = Mix(base, text, 0.72);
         look.pen = WithAlpha(text, 235);
     } else if (m_highlighted.toStdString() == output) {
@@ -252,8 +233,6 @@ void GamepadDiagramWidget::DrawBound(QPainter& p, const QRectF& rect, const Look
     if (!look.bound) {
         return;
     }
-    // A dot just outside the control's top-right. Its own channel: a bound
-    // control still reads as bound while a different one is selected.
     const qreal r = std::max(1.8, m_canvas.width() * 0.0055);
     const QPointF at(rect.right() - r * 0.2, rect.top() + r * 0.2);
     p.save();
@@ -273,7 +252,7 @@ void GamepadDiagramWidget::DrawBody(QPainter& p) const {
         return QPointF(c.x() + (1.0 - x) * c.width(), c.y() + y * c.height());
     };
 
-    // One closed outline rather than a slab with two grips unioned onto it --
+    // One closed outline rather than a slab with two grips unioned onto it
     // the union left a visible seam where the shapes met.
     QPainterPath body;
     body.moveTo(px(0.500, 0.148));
@@ -359,8 +338,8 @@ void GamepadDiagramWidget::DrawTouchpad(QPainter& p) const {
             continue;
         }
         const Look look = LookFor(name);
-        const bool active = m_highlighted.toStdString() == name || m_hovered == name ||
-                            look.pressed;
+        const bool active =
+            m_highlighted.toStdString() == name || m_hovered == name || look.pressed;
         if (active) {
             p.setPen(Qt::NoPen);
             p.setBrush(look.fill);
@@ -466,7 +445,7 @@ void GamepadDiagramWidget::DrawSticks(QPainter& p) const {
         const Look look = LookFor(name);
         const QColor text = palette().color(QPalette::WindowText);
 
-        // A well, then the cap sitting in it -- two circles read as a stick
+        // A well, then the cap sitting in it ,two circles read as a stick
         // where one reads as a button.
         p.setPen(QPen(WithAlpha(text, 70), std::max(1.0, m_canvas.width() * 0.003)));
         p.setBrush(Mix(palette().color(QPalette::Window), text, 0.22));
@@ -501,11 +480,6 @@ void GamepadDiagramWidget::DrawCentreButtons(QPainter& p) const {
     p.drawRoundedRect(*options, radius, radius);
     DrawBound(p, *options, look);
 
-    // The mirror of it on the left is where `back`/`share` would be. That name
-    // is input-only -- nothing in this editor can be bound to it -- so the
-    // shape is drawn inert, and is not in m_regions: clicking it does nothing
-    // rather than silently selecting nothing, which is what the old diagram
-    // did with a "back" region that matched no row in the output list.
     const QRectF mirror(m_canvas.x() + (1.0 - 0.632 - 0.036) * m_canvas.width(), options->y(),
                         options->width(), options->height());
     p.setPen(QPen(WithAlpha(palette().color(QPalette::WindowText), 55),

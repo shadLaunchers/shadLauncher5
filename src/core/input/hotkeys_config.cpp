@@ -17,7 +17,6 @@ namespace Core::Input {
 using Common::FS::GetUserPath;
 using Common::FS::PathType;
 
-namespace {
 constexpr const char* kFreshFileTemplate =
     "{\n    \"version\": 1,\n\n    \"bindings\": [\n    ]\n}\n";
 
@@ -32,17 +31,14 @@ std::string FormatHotkeyEntry(const std::string& name, const HotkeyBinding& bind
     return entry.dump();
 }
 
-// True if `trivia` ends part-way through a "//" comment, so whatever is
-// appended next would be swallowed by that comment's line.
-bool EndsInsideLineComment(const std::string& trivia) {
+bool HotKeyEndsInsideLineComment(const std::string& trivia) {
     const auto slashes = trivia.rfind("//");
     return slashes != std::string::npos && trivia.find('\n', slashes) == std::string::npos;
 }
 
-bool HasComment(const std::string& trivia) {
+bool HotKeyHasComment(const std::string& trivia) {
     return trivia.find("//") != std::string::npos || trivia.find("/*") != std::string::npos;
 }
-} // namespace
 
 bool HotkeysConfig::Load() {
     m_path = GetUserPath(PathType::UserDir) / "hotkeys.json";
@@ -51,8 +47,6 @@ bool HotkeysConfig::Load() {
     m_valid = false;
 
     if (!std::filesystem::exists(m_path)) {
-        // Not an error: the emulator writes this file itself on first run.
-        // Every known hotkey just has no bindings loaded yet.
         m_raw_text = kFreshFileTemplate;
         m_root = nlohmann::ordered_json::object();
         m_root["version"] = 1;
@@ -63,7 +57,7 @@ bool HotkeysConfig::Load() {
 
     std::ifstream file(m_path, std::ios::binary);
     if (!file) {
-        LOG_ERROR(Common_Filesystem, "Failed to open {}", m_path.string());
+        LOG_ERROR(Input, "Failed to open {}", m_path.string());
         return false;
     }
     std::ostringstream ss;
@@ -75,11 +69,11 @@ bool HotkeysConfig::Load() {
         // (docs/input-bindings.md section 4).
         m_root = TextJson::ParseTolerant<nlohmann::ordered_json>(m_raw_text);
     } catch (const nlohmann::json::exception& e) {
-        LOG_ERROR(Common_Filesystem, "Failed to parse {}: {}", m_path.string(), e.what());
+        LOG_ERROR(Input, "Failed to parse {}: {}", m_path.string(), e.what());
         return false;
     }
     if (!m_root.is_object()) {
-        LOG_ERROR(Common_Filesystem, "{} root is not an object", m_path.string());
+        LOG_ERROR(Input, "{} root is not an object", m_path.string());
         return false;
     }
     if (!m_root.contains("bindings") || !m_root["bindings"].is_array()) {
@@ -94,7 +88,7 @@ std::vector<HotkeyBinding> HotkeysConfig::ParseBindingsFor(
     std::vector<HotkeyBinding> result;
     for (const auto& entry : bindings_array) {
         if (!entry.is_object()) {
-            continue; // "entry is not an object" -> skip (section 9)
+            continue;
         }
         const auto output_it = entry.find("output");
         if (output_it == entry.end() || !output_it->is_string() ||
@@ -103,7 +97,7 @@ std::vector<HotkeyBinding> HotkeysConfig::ParseBindingsFor(
         }
         const auto input_it = entry.find("input");
         if (input_it == entry.end()) {
-            continue; // "input missing" -> skip
+            continue;
         }
 
         HotkeyBinding binding;
@@ -116,19 +110,21 @@ std::vector<HotkeyBinding> HotkeysConfig::ParseBindingsFor(
                 }
             }
             if (binding.input.empty()) {
-                continue; // "input array is empty, or has no usable name" -> skip
+                continue;
             }
             if (binding.input.size() > 3) {
-                LOG_WARNING(Common_Filesystem, "hotkeys.json: hotkey '{}' chord has more than 3 "
-                                               "keys, keeping the first 3",
-                           hotkey_name);
+                LOG_WARNING(Input,
+                            "hotkeys.json: hotkey '{}' chord has more than 3 "
+                            "keys, keeping the first 3",
+                            hotkey_name);
                 binding.input.resize(3);
             }
         } else {
             continue; // "input is neither string nor array" -> skip
         }
 
-        if (const auto gp_it = entry.find("gamepad"); gp_it != entry.end() && gp_it->is_number_integer()) {
+        if (const auto gp_it = entry.find("gamepad");
+            gp_it != entry.end() && gp_it->is_number_integer()) {
             binding.gamepad = gp_it->get<int>();
         }
         result.push_back(std::move(binding));
@@ -141,15 +137,15 @@ const std::vector<HotkeyBinding>& HotkeysConfig::GetBindings(const std::string& 
         return it->second;
     }
     auto [it, _] = m_bindings_cache.emplace(
-        hotkey_name, m_valid ? ParseBindingsFor(m_root["bindings"], hotkey_name)
-                             : std::vector<HotkeyBinding>{});
+        hotkey_name,
+        m_valid ? ParseBindingsFor(m_root["bindings"], hotkey_name) : std::vector<HotkeyBinding>{});
     return it->second;
 }
 
-void HotkeysConfig::SetBindings(const std::string& hotkey_name, std::vector<HotkeyBinding> bindings) {
+void HotkeysConfig::SetBindings(const std::string& hotkey_name,
+                                std::vector<HotkeyBinding> bindings) {
     m_bindings_cache[hotkey_name] = std::move(bindings);
-    if (std::find(m_dirty_names.begin(), m_dirty_names.end(), hotkey_name) ==
-        m_dirty_names.end()) {
+    if (std::find(m_dirty_names.begin(), m_dirty_names.end(), hotkey_name) == m_dirty_names.end()) {
         m_dirty_names.push_back(hotkey_name);
     }
 }
@@ -161,8 +157,7 @@ bool HotkeysConfig::IsDirty(const std::string& hotkey_name) const {
 
 bool HotkeysConfig::Save() const {
     if (!m_valid) {
-        LOG_ERROR(Common_Filesystem, "Refusing to write {}: it was never successfully loaded",
-                  m_path.string());
+        LOG_ERROR(Input, "Refusing to write {}: it was never successfully loaded", m_path.string());
         return false;
     }
     if (m_dirty_names.empty()) {
@@ -171,8 +166,8 @@ bool HotkeysConfig::Save() const {
 
     const TextJson::RootScan root = TextJson::ScanRoot(m_raw_text);
     if (!root.ok) {
-        LOG_ERROR(Common_Filesystem, "{}: couldn't re-locate its own structure to edit it safely",
-                 m_path.string());
+        LOG_ERROR(Input, "{}: couldn't re-locate its own structure to edit it safely",
+                  m_path.string());
         return false;
     }
 
@@ -180,7 +175,8 @@ bool HotkeysConfig::Save() const {
     bool had_array = false;
     for (const auto& e : root.entries) {
         if (e.key == "bindings") {
-            const std::string value_text = m_raw_text.substr(e.value_start, e.value_end - e.value_start);
+            const std::string value_text =
+                m_raw_text.substr(e.value_start, e.value_end - e.value_start);
             if (value_text.size() >= 2 && value_text.front() == '[' && value_text.back() == ']') {
                 inner = value_text.substr(1, value_text.size() - 2);
                 had_array = true;
@@ -188,11 +184,13 @@ bool HotkeysConfig::Save() const {
             break;
         }
     }
-    TextJson::ArrayContent existing = had_array ? TextJson::SplitArray(inner) : TextJson::ArrayContent{};
+    TextJson::ArrayContent existing =
+        had_array ? TextJson::SplitArray(inner) : TextJson::ArrayContent{};
     if (had_array && !existing.ok) {
-        LOG_ERROR(Common_Filesystem, "{}: couldn't parse its own \"bindings\" array structure to "
-                                     "edit it safely",
-                 m_path.string());
+        LOG_ERROR(Input,
+                  "{}: couldn't parse its own \"bindings\" array structure to "
+                  "edit it safely",
+                  m_path.string());
         return false;
     }
 
@@ -209,16 +207,10 @@ bool HotkeysConfig::Save() const {
                 output = parsed_elem["output"].get<std::string>();
             }
         } catch (const nlohmann::json::exception&) {
-            // Unparseable -- can't identify it, so never something we'd
-            // replace; keep it verbatim below.
         }
         if (!output.empty() && dirty_set.count(output)) {
             continue; // dropped -- replaced by fresh entries below
         }
-        // The separator is ours to write: SplitArray hands back only the
-        // trivia before each element, never the comma. It goes before the
-        // leading trivia so a comment sitting above an element stays above
-        // it.
         if (!first) {
             rebuilt += ",";
         }
@@ -245,12 +237,9 @@ bool HotkeysConfig::Save() const {
             rebuilt += FormatHotkeyEntry(name, binding);
         }
     }
-    // A note written after the last entry is trivia belonging to nobody, so
-    // nothing above would have carried it -- put it back rather than
-    // deleting it.
-    if (HasComment(existing.trailing)) {
+    if (HotKeyHasComment(existing.trailing)) {
         rebuilt += existing.trailing;
-        if (EndsInsideLineComment(existing.trailing)) {
+        if (HotKeyEndsInsideLineComment(existing.trailing)) {
             rebuilt += "\n    ";
         }
     } else if (!rebuilt.empty()) {
@@ -258,14 +247,15 @@ bool HotkeysConfig::Save() const {
     }
 
     const std::string new_array_text = "[" + rebuilt + "]";
-    const std::string new_text = TextJson::ReplaceOrInsertTopLevelValue(m_raw_text, "bindings", new_array_text);
+    const std::string new_text =
+        TextJson::ReplaceOrInsertTopLevelValue(m_raw_text, "bindings", new_array_text);
 
     std::error_code ec;
     std::filesystem::create_directories(m_path.parent_path(), ec);
 
     std::ofstream file(m_path, std::ios::binary | std::ios::trunc);
     if (!file) {
-        LOG_ERROR(Common_Filesystem, "Failed to write {}", m_path.string());
+        LOG_ERROR(Input, "Failed to write {}", m_path.string());
         return false;
     }
     file << new_text;
@@ -279,7 +269,7 @@ bool HotkeysConfig::ResetToDefaults() {
     }
     std::filesystem::remove(m_path, ec);
     if (ec) {
-        LOG_ERROR(Common_Filesystem, "Failed to remove {}: {}", m_path.string(), ec.message());
+        LOG_ERROR(Input, "Failed to remove {}: {}", m_path.string(), ec.message());
         return false;
     }
     return Load();
@@ -315,8 +305,8 @@ std::vector<std::string> HotkeysConfig::Validate() const {
         }
         if (!is_known) {
             warnings.push_back(tag + ": \"" + hotkey_name +
-                              "\" isn't one of the ten hotkeys this build knows -- kept as-is, "
-                              "but not shown in the editor.");
+                               "\" isn't one of the ten hotkeys this build knows -- kept as-is, "
+                               "but not shown in the editor.");
         }
 
         const auto input_it = entry.find("input");
@@ -335,36 +325,37 @@ std::vector<std::string> HotkeysConfig::Validate() const {
             }
             if (names.empty()) {
                 warnings.push_back(tag + " (\"" + hotkey_name +
-                                  "\") has an empty or unusable \"input\" array, ignored.");
+                                   "\") has an empty or unusable \"input\" array, ignored.");
                 continue;
             }
             if (names.size() > 3) {
-                warnings.push_back(tag + " (\"" + hotkey_name + "\") has more than 3 keys; "
-                                                                 "only the first 3 are kept.");
+                warnings.push_back(tag + " (\"" + hotkey_name +
+                                   "\") has more than 3 keys; "
+                                   "only the first 3 are kept.");
             }
         } else {
             warnings.push_back(tag + " (\"" + hotkey_name +
-                              "\") has an \"input\" that's neither a string nor an array, "
-                              "ignored.");
+                               "\") has an \"input\" that's neither a string nor an array, "
+                               "ignored.");
             continue;
         }
         for (const auto& name : names) {
             if (name != "unmapped" && !IsKnownInput(name)) {
                 warnings.push_back(tag + " (\"" + hotkey_name + "\"): input \"" + name +
-                                  "\" isn't a name this build recognizes.");
+                                   "\" isn't a name this build recognizes.");
             }
         }
 
         if (const auto gp_it = entry.find("gamepad"); gp_it != entry.end()) {
             if (!gp_it->is_number_integer()) {
                 warnings.push_back(tag + " (\"" + hotkey_name +
-                                  "\"): \"gamepad\" isn't an integer, ignored.");
+                                   "\"): \"gamepad\" isn't an integer, ignored.");
             } else {
                 const int gp = gp_it->get<int>();
                 if (gp < 1 || gp > 4) {
                     warnings.push_back(tag + " (\"" + hotkey_name + "\"): \"gamepad\" " +
-                                      std::to_string(gp) + " is outside 1-4, clamped to " +
-                                      std::to_string(std::clamp(gp, 1, 4)) + ".");
+                                       std::to_string(gp) + " is outside 1-4, clamped to " +
+                                       std::to_string(std::clamp(gp, 1, 4)) + ".");
                 }
             }
         }

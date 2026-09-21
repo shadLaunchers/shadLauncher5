@@ -62,8 +62,6 @@ private:
             return "Unknown";
         }
     }
-    // How a user's pinned device reads in the table. Empty means nothing is
-    // pinned and the port is filled in plug order.
     static QString DescribePinnedDevice(const User& user);
     void UpdateTable(bool mark_only = false);
     u32 GetUserKey() const;

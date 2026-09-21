@@ -7,8 +7,6 @@
 
 namespace Core::Input::TextJson {
 
-namespace {
-
 size_t SkipWs(const std::string& s, size_t pos) {
     while (pos < s.size()) {
         const char c = s[pos];
@@ -96,7 +94,8 @@ size_t SkipValue(const std::string& s, size_t pos) {
     // number, true/false/null, or an unquoted token -- read to a delimiter.
     while (pos < s.size()) {
         const char cur = s[pos];
-        if (cur == ',' || cur == '}' || cur == ']' || std::isspace(static_cast<unsigned char>(cur))) {
+        if (cur == ',' || cur == '}' || cur == ']' ||
+            std::isspace(static_cast<unsigned char>(cur))) {
             break;
         }
         if (cur == '/' && pos + 1 < s.size() && (s[pos + 1] == '/' || s[pos + 1] == '*')) {
@@ -106,8 +105,6 @@ size_t SkipValue(const std::string& s, size_t pos) {
     }
     return pos;
 }
-
-} // namespace
 
 RootScan ScanRoot(const std::string& text) {
     RootScan result;
@@ -121,7 +118,7 @@ RootScan ScanRoot(const std::string& text) {
     while (true) {
         pos = SkipWs(text, pos);
         if (pos >= text.size()) {
-            return RootScan{}; // malformed -- unterminated object
+            return RootScan{}; // malformed unterminated object
         }
         if (text[pos] == '}') {
             result.close_brace = pos;
@@ -133,7 +130,7 @@ RootScan ScanRoot(const std::string& text) {
         }
         const size_t key_start = pos;
         pos = SkipString(text, pos);
-        // Keys in these files are plain identifiers -- no escapes to unescape.
+        // Keys in these files are plain identifiers,no escapes to unescape.
         const std::string key = text.substr(key_start + 1, pos - key_start - 2);
 
         pos = SkipWs(text, pos);
@@ -170,8 +167,6 @@ ArrayContent SplitArray(const std::string& inner) {
             break;
         }
         if (inner[pos] == ',') {
-            // A stray leading comma (e.g. after a removed element in some
-            // other tool's edit) -- treat as trivia, keep scanning.
             pos++;
             continue;
         }
@@ -181,8 +176,8 @@ ArrayContent SplitArray(const std::string& inner) {
             result.ok = false;
             return result;
         }
-        result.elements.push_back(
-            {inner.substr(trivia_start, value_start - trivia_start), inner.substr(value_start, pos - value_start)});
+        result.elements.push_back({inner.substr(trivia_start, value_start - trivia_start),
+                                   inner.substr(value_start, pos - value_start)});
 
         const size_t after_value = pos;
         pos = SkipWs(inner, pos);
@@ -210,23 +205,14 @@ std::string ReplaceOrInsertTopLevelValue(const std::string& text, const std::str
         }
     }
 
-    // Key not present -- insert it just before the root's closing brace.
-    // If there are existing entries, add a leading comma; either way, match
-    // the file's own indentation style loosely with four spaces.
+    // Key not present
     const bool needs_comma = !scan.entries.empty();
-    const std::string insertion =
-        (needs_comma ? std::string(",\n") : std::string()) + "    \"" + key + "\": " +
-        new_value_text + "\n";
+    const std::string insertion = (needs_comma ? std::string(",\n") : std::string()) + "    \"" +
+                                  key + "\": " + new_value_text + "\n";
     return text.substr(0, scan.close_brace) + insertion + text.substr(scan.close_brace);
 }
 
 std::string StripTrailingCommas(const std::string& text) {
-    // A comma is trailing when the next thing that is not whitespace or a
-    // comment is the ']' or '}' that closes the container. Everything else --
-    // commas inside strings, commas inside comments, commas between real
-    // members -- has to be left exactly where it is, which is why this walks
-    // the text with the same string- and comment-awareness as the rest of
-    // this file rather than reaching for a regular expression.
     std::string out;
     out.reserve(text.size());
 
@@ -249,9 +235,6 @@ std::string StripTrailingCommas(const std::string& text) {
         if (c == ',') {
             const size_t next = SkipWs(text, pos + 1);
             if (next < text.size() && (text[next] == ']' || text[next] == '}')) {
-                // Drop the comma, keep everything between it and the bracket
-                // -- that run is whitespace and comments, and in default.json
-                // it is most of the documentation.
                 out.append(text, pos + 1, next - (pos + 1));
                 pos = next;
                 continue;

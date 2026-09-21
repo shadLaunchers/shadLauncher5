@@ -17,19 +17,12 @@
 #include <QVBoxLayout>
 #include <QWheelEvent>
 
+#include "common/input.h"
 #include "core/input/input_ids.h"
 #include "gamepad_selector.h"
-#include "common/input.h"
-#include "sdl_event_wrapper.h"
 #include "hotkeys_editor_dialog.h"
+#include "sdl_event_wrapper.h"
 
-namespace {
-
-// Recolors the gamepad icon (drawn white, like every images/menu/*.svg
-// resource) so it reads against both PS5_Dark and PS5_White. Self-contained
-// rather than relying on qt_utils.h having a matching helper, since that
-// can't be assumed present in every checkout (see input_bindings_dialog.cpp,
-// which has the same helper for the same reason).
 QIcon TintedGamepadIcon() {
     const QIcon source(":/images/menu/gamepad.svg");
     const bool dark = QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;
@@ -57,7 +50,6 @@ QIcon TintedGamepadIcon() {
 }
 
 QString FriendlyHotkeyName(const std::string& id) {
-    // "hotkey_toggle_mouse_to_joystick" -> "Toggle Mouse To Joystick"
     QString s = QString::fromStdString(id);
     s.remove(0, s.startsWith("hotkey_") ? 7 : 0);
     s.replace('_', ' ');
@@ -69,12 +61,6 @@ QString FriendlyHotkeyName(const std::string& id) {
     }
     return words.join(' ');
 }
-
-} // namespace
-
-// ---------------------------------------------------------------------
-// KeyCaptureDialog
-// ---------------------------------------------------------------------
 
 KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QString& reason)
     : QDialog(parent), m_accepts(accepts), m_reason(reason) {
@@ -106,8 +92,6 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QStri
     instructions->setWordWrap(true);
     layout->addWidget(instructions);
 
-    // Why it is restricted, in the person's own terms. Silence here would make
-    // a rejected press look like a dead dialog.
     m_rule_label = new QLabel(this);
     m_rule_label->setWordWrap(true);
     m_rule_label->setAlignment(Qt::AlignCenter);
@@ -131,9 +115,9 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QStri
     pad_row->addStretch();
     pad_row->addWidget(pad_icon);
     m_gamepad_label = new QLabel(this);
-    m_gamepad_label->setText(m_gamepad ? tr("Pad detected: %1").arg(
-                                             QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
-                                       : tr("No pad detected"));
+    m_gamepad_label->setText(
+        m_gamepad ? tr("Pad detected: %1").arg(QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
+                  : tr("No pad detected"));
     pad_row->addWidget(m_gamepad_label);
     pad_row->addStretch();
     layout->addLayout(pad_row);
@@ -167,7 +151,6 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QStri
     layout->addLayout(buttons);
 
     resize(420, 200);
-
 }
 
 KeyCaptureDialog::~KeyCaptureDialog() {
@@ -186,11 +169,8 @@ void KeyCaptureDialog::OpenSelectedGamepad() {
     int count = 0;
     SDL_JoystickID* ids = SDL_GetGamepads(&count);
     if (ids && count > 0) {
-        // The pad the person chose in the bindings editor, if it is still
-        // plugged in; otherwise the first one, which is what this dialog
-        // always used to do.
-        int index = GamepadSelect::GetIndexfromGUID(ids, count,
-                                                    GamepadSelect::GetSelectedGamepad());
+        int index =
+            GamepadSelect::GetIndexfromGUID(ids, count, GamepadSelect::GetSelectedGamepad());
         if (index == -1) {
             index = 0;
         }
@@ -200,10 +180,9 @@ void KeyCaptureDialog::OpenSelectedGamepad() {
         SDL_free(ids);
     }
     if (m_gamepad_label) {
-        m_gamepad_label->setText(m_gamepad
-                                     ? tr("Pad detected: %1")
-                                           .arg(QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
-                                     : tr("No pad detected"));
+        m_gamepad_label->setText(
+            m_gamepad ? tr("Pad detected: %1").arg(QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
+                      : tr("No pad detected"));
     }
 }
 
@@ -218,8 +197,6 @@ void KeyCaptureDialog::OnSdlEvent(int type, int input, int value) {
         break;
     case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
         const auto axis = static_cast<SDL_GamepadAxis>(input);
-        // Triggers are axes but bind as buttons -- same half-press threshold
-        // shadLauncher4 uses (control_settings.cpp).
         if (axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER || axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) {
             bool& held = axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER ? m_l2_pressed : m_r2_pressed;
             const bool pressed = value > 16000;
@@ -229,9 +206,6 @@ void KeyCaptureDialog::OnSdlEvent(int type, int input, int value) {
             held = pressed;
             break;
         }
-        // A stick captures as an axis, which is the only thing an analog
-        // output (axis_left_x and friends) can be driven by. Held until it
-        // comes back to centre, so one push does not fill all three slots.
         if (value > 16000 || value < -16000) {
             if (!m_axis_captured) {
                 m_axis_captured = true;
@@ -264,16 +238,14 @@ void KeyCaptureDialog::TryCapture(const std::string& name) {
         return;
     }
     if (!Allows(name)) {
-        // Said out loud rather than ignored. A press that does nothing and
-        // explains nothing is the thing people file bugs about.
         if (m_rule_label != nullptr) {
             const QString what = m_accepts == Accepts::KeyboardAndMouse
                                      ? tr("a key or mouse button")
                                      : tr("a pad control");
-            m_rule_label->setText(tr("\"%1\" cannot reach this port. %2Press %3.")
-                                      .arg(QString::fromStdString(name),
-                                           m_reason.isEmpty() ? QString() : m_reason + QStringLiteral(" "),
-                                           what));
+            m_rule_label->setText(
+                tr("\"%1\" cannot reach this port. %2Press %3.")
+                    .arg(QString::fromStdString(name),
+                         m_reason.isEmpty() ? QString() : m_reason + QStringLiteral(" "), what));
             m_rule_label->setVisible(true);
         }
         return;
@@ -291,9 +263,6 @@ std::string KeyCaptureDialog::NameForKeyEvent(QKeyEvent* event) {
         return std::string(1, 'a' + (key - Qt::Key_A));
     }
     if (key >= Qt::Key_0 && key <= Qt::Key_9) {
-        // Numpad digits are distinguished by the keypad modifier, not a
-        // different Qt::Key -- handled below before this generic digit case
-        // would otherwise be reached, so this only fires for the top-row keys.
         return std::string(1, '0' + (key - Qt::Key_0));
     }
     if (key >= Qt::Key_F1 && key <= Qt::Key_F12) {
@@ -302,8 +271,16 @@ std::string KeyCaptureDialog::NameForKeyEvent(QKeyEvent* event) {
 
     if (event->modifiers() & Qt::KeypadModifier) {
         switch (key) {
-        case Qt::Key_0: case Qt::Key_1: case Qt::Key_2: case Qt::Key_3: case Qt::Key_4:
-        case Qt::Key_5: case Qt::Key_6: case Qt::Key_7: case Qt::Key_8: case Qt::Key_9:
+        case Qt::Key_0:
+        case Qt::Key_1:
+        case Qt::Key_2:
+        case Qt::Key_3:
+        case Qt::Key_4:
+        case Qt::Key_5:
+        case Qt::Key_6:
+        case Qt::Key_7:
+        case Qt::Key_8:
+        case Qt::Key_9:
             return "kp" + std::to_string(key - Qt::Key_0);
         case Qt::Key_Period:
             return "kpperiod";
@@ -327,66 +304,112 @@ std::string KeyCaptureDialog::NameForKeyEvent(QKeyEvent* event) {
     }
 
     switch (key) {
-    case Qt::Key_QuoteLeft: return "grave";
+    case Qt::Key_QuoteLeft:
+        return "grave";
     // Distinct ids in the emulator: grave is SDLK_BACKQUOTE, tilde is '~'.
-    case Qt::Key_AsciiTilde: return "tilde";
-    case Qt::Key_Exclam: return "exclamation";
-    case Qt::Key_At: return "at";
-    case Qt::Key_NumberSign: return "hash";
-    case Qt::Key_Dollar: return "dollar";
-    case Qt::Key_Percent: return "percent";
-    case Qt::Key_AsciiCircum: return "caret";
-    case Qt::Key_Ampersand: return "ampersand";
-    case Qt::Key_Asterisk: return "asterisk";
-    case Qt::Key_ParenLeft: return "lparen";
-    case Qt::Key_ParenRight: return "rparen";
-    case Qt::Key_Minus: return "minus";
-    case Qt::Key_Underscore: return "underscore";
-    case Qt::Key_Equal: return "equals";
-    case Qt::Key_Plus: return "plus";
-    case Qt::Key_BracketLeft: return "lbracket";
-    case Qt::Key_BracketRight: return "rbracket";
-    case Qt::Key_BraceLeft: return "lbrace";
-    case Qt::Key_BraceRight: return "rbrace";
-    case Qt::Key_Backslash: return "backslash";
-    case Qt::Key_Bar: return "pipe";
-    case Qt::Key_Semicolon: return "semicolon";
-    case Qt::Key_Colon: return "colon";
-    case Qt::Key_Apostrophe: return "apostrophe";
-    case Qt::Key_QuoteDbl: return "quote";
-    case Qt::Key_Comma: return "comma";
-    case Qt::Key_Less: return "less";
-    case Qt::Key_Period: return "period";
-    case Qt::Key_Greater: return "greater";
-    case Qt::Key_Slash: return "slash";
-    case Qt::Key_Question: return "question";
+    case Qt::Key_AsciiTilde:
+        return "tilde";
+    case Qt::Key_Exclam:
+        return "exclamation";
+    case Qt::Key_At:
+        return "at";
+    case Qt::Key_NumberSign:
+        return "hash";
+    case Qt::Key_Dollar:
+        return "dollar";
+    case Qt::Key_Percent:
+        return "percent";
+    case Qt::Key_AsciiCircum:
+        return "caret";
+    case Qt::Key_Ampersand:
+        return "ampersand";
+    case Qt::Key_Asterisk:
+        return "asterisk";
+    case Qt::Key_ParenLeft:
+        return "lparen";
+    case Qt::Key_ParenRight:
+        return "rparen";
+    case Qt::Key_Minus:
+        return "minus";
+    case Qt::Key_Underscore:
+        return "underscore";
+    case Qt::Key_Equal:
+        return "equals";
+    case Qt::Key_Plus:
+        return "plus";
+    case Qt::Key_BracketLeft:
+        return "lbracket";
+    case Qt::Key_BracketRight:
+        return "rbracket";
+    case Qt::Key_BraceLeft:
+        return "lbrace";
+    case Qt::Key_BraceRight:
+        return "rbrace";
+    case Qt::Key_Backslash:
+        return "backslash";
+    case Qt::Key_Bar:
+        return "pipe";
+    case Qt::Key_Semicolon:
+        return "semicolon";
+    case Qt::Key_Colon:
+        return "colon";
+    case Qt::Key_Apostrophe:
+        return "apostrophe";
+    case Qt::Key_QuoteDbl:
+        return "quote";
+    case Qt::Key_Comma:
+        return "comma";
+    case Qt::Key_Less:
+        return "less";
+    case Qt::Key_Period:
+        return "period";
+    case Qt::Key_Greater:
+        return "greater";
+    case Qt::Key_Slash:
+        return "slash";
+    case Qt::Key_Question:
+        return "question";
 
-    case Qt::Key_Escape: return "escape";
-    case Qt::Key_Print: return "printscreen";
-    case Qt::Key_ScrollLock: return "scrolllock";
-    case Qt::Key_Pause: return "pausebreak";
-    case Qt::Key_Backspace: return "backspace";
-    case Qt::Key_Delete: return "delete";
-    case Qt::Key_Insert: return "insert";
-    case Qt::Key_Home: return "home";
-    case Qt::Key_End: return "end";
-    case Qt::Key_PageUp: return "pgup";
-    case Qt::Key_PageDown: return "pgdown";
-    case Qt::Key_Tab: return "tab";
-    case Qt::Key_CapsLock: return "capslock";
+    case Qt::Key_Escape:
+        return "escape";
+    case Qt::Key_Print:
+        return "printscreen";
+    case Qt::Key_ScrollLock:
+        return "scrolllock";
+    case Qt::Key_Pause:
+        return "pausebreak";
+    case Qt::Key_Backspace:
+        return "backspace";
+    case Qt::Key_Delete:
+        return "delete";
+    case Qt::Key_Insert:
+        return "insert";
+    case Qt::Key_Home:
+        return "home";
+    case Qt::Key_End:
+        return "end";
+    case Qt::Key_PageUp:
+        return "pgup";
+    case Qt::Key_PageDown:
+        return "pgdown";
+    case Qt::Key_Tab:
+        return "tab";
+    case Qt::Key_CapsLock:
+        return "capslock";
     case Qt::Key_Return:
-    case Qt::Key_Enter: return "enter";
-    case Qt::Key_Space: return "space";
-    case Qt::Key_Up: return "up";
-    case Qt::Key_Down: return "down";
-    case Qt::Key_Left: return "left";
-    case Qt::Key_Right: return "right";
+    case Qt::Key_Enter:
+        return "enter";
+    case Qt::Key_Space:
+        return "space";
+    case Qt::Key_Up:
+        return "up";
+    case Qt::Key_Down:
+        return "down";
+    case Qt::Key_Left:
+        return "left";
+    case Qt::Key_Right:
+        return "right";
 
-    // Qt reports one key for both shifts, so the side comes from the
-    // platform scancode -- shadLauncher4 does the same thing with the same
-    // constants (kbm_gui.cpp). "Left is assumed" was silently wrong: the
-    // emulator has separate ids for the two, so a binding recorded from the
-    // right-hand key never fired.
     case Qt::Key_Shift:
         return event->nativeScanCode() == LSHIFT_KEY ? "lshift" : "rshift";
     case Qt::Key_Control:
@@ -394,17 +417,6 @@ std::string KeyCaptureDialog::NameForKeyEvent(QKeyEvent* event) {
     case Qt::Key_Alt:
         return event->nativeScanCode() == LALT_KEY ? "lalt" : "ralt";
     case Qt::Key_Meta:
-        // The emulator has lwin/rwin and lmeta/rmeta as four separate names.
-        // shadLauncher4 picks the left one by platform and stops there; the
-        // side comes from nativeVirtualKey() here rather than a scancode,
-        // because for this key the virtual keys are the documented,
-        // unambiguous pair on both platforms: VK_LWIN/VK_RWIN on Windows,
-        // XK_Super_L/XK_Super_R (and the Meta_L/Meta_R Qt also folds into
-        // Key_Meta) under X11.
-        //
-        // Anything else falls through to the left name, which is what every
-        // platform did before, so a platform whose virtual keys are not one
-        // of these is no worse off than it was.
 #ifdef _WIN32
         return event->nativeVirtualKey() == 0x5C /* VK_RWIN */ ? "rwin" : "lwin";
 #elif defined(__linux__) || defined(__FreeBSD__)
@@ -424,11 +436,6 @@ std::string KeyCaptureDialog::NameForKeyEvent(QKeyEvent* event) {
 }
 
 void KeyCaptureDialog::wheelEvent(QWheelEvent* event) {
-    // The four mousewheel names are in the emulator's table but had no route
-    // into the UI at all. Thresholds and the Alt quirk are shadLauncher4's
-    // (kbm_gui.cpp): "QT changes scrolling to horizontal for all widgets
-    // with the alt modifier", so an Alt-held horizontal delta is really the
-    // vertical wheel.
     const QPoint delta = event->angleDelta();
     const bool alt = (event->modifiers() & Qt::AltModifier) != 0;
 
@@ -465,9 +472,6 @@ void KeyCaptureDialog::keyPressEvent(QKeyEvent* event) {
 
 void KeyCaptureDialog::keyReleaseEvent(QKeyEvent* event) {
     Q_UNUSED(event);
-    // Deliberately not clearing on release: the person may be pressing keys
-    // one at a time to build the chord (e.g. hold ctrl, then tap f9). They
-    // confirm with Done or start over with Clear.
 }
 
 void KeyCaptureDialog::mousePressEvent(QMouseEvent* event) {
@@ -476,12 +480,23 @@ void KeyCaptureDialog::mousePressEvent(QMouseEvent* event) {
     }
     std::string name;
     switch (event->button()) {
-    case Qt::LeftButton: name = "leftbutton"; break;
-    case Qt::RightButton: name = "rightbutton"; break;
-    case Qt::MiddleButton: name = "middlebutton"; break;
-    case Qt::BackButton: name = "sidebuttonback"; break;
-    case Qt::ForwardButton: name = "sidebuttonforward"; break;
-    default: return;
+    case Qt::LeftButton:
+        name = "leftbutton";
+        break;
+    case Qt::RightButton:
+        name = "rightbutton";
+        break;
+    case Qt::MiddleButton:
+        name = "middlebutton";
+        break;
+    case Qt::BackButton:
+        name = "sidebuttonback";
+        break;
+    case Qt::ForwardButton:
+        name = "sidebuttonforward";
+        break;
+    default:
+        return;
     }
     if (std::find(m_captured.begin(), m_captured.end(), name) == m_captured.end()) {
         m_captured.push_back(name);
@@ -500,11 +515,6 @@ void KeyCaptureDialog::UpdatePreview() {
     }
     m_preview_label->setText(parts.join(" + "));
 }
-
-// ---------------------------------------------------------------------
-// HotkeysEditorDialog
-// ---------------------------------------------------------------------
-
 HotkeysEditorDialog::HotkeysEditorDialog(QWidget* parent)
     : QDialog(parent), m_config(std::make_unique<Core::Input::HotkeysConfig>()) {
     setWindowTitle(tr("Hotkeys"));
@@ -514,10 +524,6 @@ HotkeysEditorDialog::HotkeysEditorDialog(QWidget* parent)
 
     auto* outer = new QVBoxLayout(this);
 
-    // The same picker the bindings editor has. The selection is process-wide
-    // (GamepadSelect, src/common/input.h), so choosing here or there is the
-    // same choice -- but a hotkey can be bound to a pad button, and without
-    // this the dialog gave no way to say which pad that meant.
     outer->addWidget(new GamepadSelector(this));
 
     auto* main_layout = new QHBoxLayout();
@@ -618,8 +624,9 @@ void HotkeysEditorDialog::RefreshBindingsList() {
         m_bindings_list->addItem(DisplayChord(binding.input));
     }
     m_default_label->setText(
-        tr("Default: %1").arg(QString::fromUtf8(Core::Input::DefaultDisplayFor(name).data(),
-                                                 int(Core::Input::DefaultDisplayFor(name).size()))));
+        tr("Default: %1")
+            .arg(QString::fromUtf8(Core::Input::DefaultDisplayFor(name).data(),
+                                   int(Core::Input::DefaultDisplayFor(name).size()))));
 }
 
 void HotkeysEditorDialog::OnAddWay() {
@@ -645,9 +652,6 @@ void HotkeysEditorDialog::OnSetUnmapped() {
     if (name.empty()) {
         return;
     }
-    // section 6: "unmapped" is how you write "deliberately unbound" without
-    // just deleting every way to press it -- it never matches an event, so
-    // it can't ever conflict with anything either.
     Core::Input::HotkeyBinding binding;
     binding.input = {"unmapped"};
     m_config->SetBindings(name, {binding});
@@ -683,8 +687,8 @@ void HotkeysEditorDialog::OnResetToDefaults() {
     const auto answer = QMessageBox::question(
         this, tr("Reset Hotkeys"),
         tr("This deletes hotkeys.json entirely -- the emulator will regenerate all ten "
-          "defaults the next time it runs. Any custom rebinding you've made will be lost. "
-          "Continue?"));
+           "defaults the next time it runs. Any custom rebinding you've made will be lost. "
+           "Continue?"));
     if (answer != QMessageBox::Yes) {
         return;
     }

@@ -14,26 +14,11 @@
 
 namespace Core::Input {
 
-namespace {
-
-// Splits "cross:2" into ("cross", 2) and "cross" into ("cross", nothing). A
-// ":n" that isn't a number is ignored per input-bindings.md section 9 ("':n'
-// suffix is not a number -> ignores the suffix, warns").
-//
-// The result is optional rather than 0-for-absent because the emulator's own
-// SplitGamepadId is, and section 5 is explicit that the two differ: "`0` is
-// below the range, not 'unspecified': it becomes port 1." Reading "cross:0" as
-// "named no port" would have shown it as every player's, when the emulator
-// gives it to player 1 alone.
 std::pair<std::string, std::optional<int>> SplitPortSuffix(const std::string& value) {
     const auto colon = value.rfind(':');
     if (colon == std::string::npos) {
         return {value, std::nullopt};
     }
-    // The name is stripped at the colon either way, which is what the
-    // emulator's SplitGamepadId does: a suffix it can't read is dropped and
-    // the binding kept, not turned into an output called "l1:two" that no
-    // table knows.
     std::string name = value.substr(0, colon);
     const std::string suffix = value.substr(colon + 1);
     if (suffix.empty() ||
@@ -43,11 +28,10 @@ std::pair<std::string, std::optional<int>> SplitPortSuffix(const std::string& va
     try {
         return {std::move(name), std::stoi(suffix)};
     } catch (const std::exception&) {
-        return {std::move(name), std::nullopt}; // more digits than an int holds
+        return {std::move(name), std::nullopt};
     }
 }
 
-// Section 5/9: a named port is clamped into 1-4, and 0 becomes 1.
 int ClampPort(int port) {
     if (port <= 0) {
         return 1;
@@ -92,19 +76,14 @@ std::optional<BindingsConfig::FlatBinding> ParseBindingEntry(const nlohmann::ord
             return std::nullopt;
         }
         if (binding.input.size() > 3) {
-            LOG_WARNING(Common_Filesystem,
-                        "{}: '{}' chord has more than 3 keys, keeping the first 3", "bindings",
-                        base_output);
+            LOG_WARNING(Input, "{}: '{}' chord has more than 3 keys, keeping the first 3",
+                        "bindings", base_output);
             binding.input.resize(3);
         }
     } else {
         return std::nullopt;
     }
 
-    // All three are read, none overwrites another -- the emulator reads them
-    // the same way, and a rewrite has to be able to put back exactly what it
-    // found. Which one wins where is PortedBinding's OutputPlayer() and
-    // InputDevice().
     if (output_port) {
         binding.output_port = ClampPort(*output_port);
     }
@@ -119,12 +98,7 @@ std::optional<BindingsConfig::FlatBinding> ParseBindingEntry(const nlohmann::ord
     return BindingsConfig::FlatBinding{base_output, std::move(binding)};
 }
 
-// One binding's entry text, plain-formatted (no comments -- this is only
-// used for entries an edit is actively adding/replacing this session).
 std::string FormatBindingEntry(const std::string& output, const PortedBinding& binding) {
-    // Each of the three port fields goes back where it came from. A field the
-    // file did not have stays absent rather than being invented from one of
-    // the others.
     const auto suffixed = [](const std::string& name, int port) {
         return port == 0 ? name : name + ":" + std::to_string(port);
     };
@@ -147,8 +121,6 @@ std::string FormatBindingEntry(const std::string& output, const PortedBinding& b
 constexpr const char* kFreshFileTemplate =
     "{\n    \"version\": 1,\n\n    \"bindings\": [\n    ]\n}\n";
 
-// True if `trivia` ends part-way through a "//" comment, so whatever is
-// appended next would be swallowed by that comment's line.
 bool EndsInsideLineComment(const std::string& trivia) {
     const auto slashes = trivia.rfind("//");
     return slashes != std::string::npos && trivia.find('\n', slashes) == std::string::npos;
@@ -157,8 +129,6 @@ bool EndsInsideLineComment(const std::string& trivia) {
 bool HasComment(const std::string& trivia) {
     return trivia.find("//") != std::string::npos || trivia.find("/*") != std::string::npos;
 }
-
-} // namespace
 
 bool BindingsConfig::Load(const std::filesystem::path& path) {
     m_path = path;
@@ -179,7 +149,7 @@ bool BindingsConfig::Load(const std::filesystem::path& path) {
 
     std::ifstream file(m_path, std::ios::binary);
     if (!file) {
-        LOG_ERROR(Common_Filesystem, "Failed to open {}", m_path.string());
+        LOG_ERROR(Input, "Failed to open {}", m_path.string());
         return false;
     }
     std::ostringstream ss;
@@ -189,11 +159,11 @@ bool BindingsConfig::Load(const std::filesystem::path& path) {
     try {
         m_root = TextJson::ParseTolerant<nlohmann::ordered_json>(m_raw_text);
     } catch (const nlohmann::json::exception& e) {
-        LOG_ERROR(Common_Filesystem, "Failed to parse {}: {}", m_path.string(), e.what());
+        LOG_ERROR(Input, "Failed to parse {}: {}", m_path.string(), e.what());
         return false;
     }
     if (!m_root.is_object()) {
-        LOG_ERROR(Common_Filesystem, "{} root is not an object", m_path.string());
+        LOG_ERROR(Input, "{} root is not an object", m_path.string());
         return false;
     }
     if (!m_root.contains("bindings") || !m_root["bindings"].is_array()) {
@@ -215,17 +185,19 @@ std::vector<PortedBinding> BindingsConfig::ParseBindingsFor(
     return result;
 }
 
-const std::vector<PortedBinding>& BindingsConfig::GetBindings(const std::string& output_name) const {
+const std::vector<PortedBinding>& BindingsConfig::GetBindings(
+    const std::string& output_name) const {
     if (const auto it = m_bindings_cache.find(output_name); it != m_bindings_cache.end()) {
         return it->second;
     }
     auto [it, _] = m_bindings_cache.emplace(
-        output_name, m_valid ? ParseBindingsFor(m_root["bindings"], output_name)
-                              : std::vector<PortedBinding>{});
+        output_name,
+        m_valid ? ParseBindingsFor(m_root["bindings"], output_name) : std::vector<PortedBinding>{});
     return it->second;
 }
 
-void BindingsConfig::SetBindings(const std::string& output_name, std::vector<PortedBinding> bindings) {
+void BindingsConfig::SetBindings(const std::string& output_name,
+                                 std::vector<PortedBinding> bindings) {
     m_bindings_cache[output_name] = std::move(bindings);
     if (std::find(m_dirty_names.begin(), m_dirty_names.end(), output_name) == m_dirty_names.end()) {
         m_dirty_names.push_back(output_name);
@@ -239,26 +211,28 @@ bool BindingsConfig::IsDirty(const std::string& output_name) const {
 
 MouseSettings BindingsConfig::GetMouseSettings(bool* present) const {
     if (m_mouse_dirty) {
-        if (present) *present = true;
+        if (present)
+            *present = true;
         return m_mouse_edit;
     }
     MouseSettings s;
-    if (present) *present = false;
+    if (present)
+        *present = false;
     if (!m_valid || !m_root.contains("mouse") || !m_root["mouse"].is_object()) {
         return s;
     }
-    if (present) *present = true;
+    if (present)
+        *present = true;
     const auto& m = m_root["mouse"];
     if (const auto it = m.find("to_joystick"); it != m.end() && it->is_string()) {
         const std::string v = it->get<std::string>();
-        // section 8: an unrecognized value keeps the default and warns --
-        // it does not fall through to "none".
         if (v == "right" || v == "left" || v == "none") {
             s.to_joystick = v;
         } else {
-            LOG_WARNING(Common_Filesystem, "mouse.to_joystick '{}' is not recognized, keeping "
-                                           "default",
-                       v);
+            LOG_WARNING(Input,
+                        "mouse.to_joystick '{}' is not recognized, keeping "
+                        "default",
+                        v);
         }
     }
     if (const auto it = m.find("deadzone_offset"); it != m.end() && it->is_number()) {
@@ -278,7 +252,6 @@ void BindingsConfig::SetMouseSettings(const MouseSettings& settings) {
     m_mouse_dirty = true;
 }
 
-namespace {
 DeadzoneRange ParseDeadzoneRange(const nlohmann::ordered_json& obj, const DeadzoneRange& fallback) {
     DeadzoneRange r = fallback;
     if (!obj.is_object()) {
@@ -292,19 +265,21 @@ DeadzoneRange ParseDeadzoneRange(const nlohmann::ordered_json& obj, const Deadzo
     }
     return r;
 }
-} // namespace
 
 DeadzoneSettings BindingsConfig::GetDeadzoneSettings(bool* present) const {
     if (m_deadzones_dirty) {
-        if (present) *present = true;
+        if (present)
+            *present = true;
         return m_deadzones_edit;
     }
     DeadzoneSettings s;
-    if (present) *present = false;
+    if (present)
+        *present = false;
     if (!m_valid || !m_root.contains("deadzones") || !m_root["deadzones"].is_object()) {
         return s;
     }
-    if (present) *present = true;
+    if (present)
+        *present = true;
     const auto& d = m_root["deadzones"];
     if (const auto it = d.find("left_stick"); it != d.end()) {
         s.left_stick = ParseDeadzoneRange(*it, s.left_stick);
@@ -359,8 +334,7 @@ std::vector<BindingsConfig::FlatBinding> BindingsConfig::GetAllBindings() const 
 
 bool BindingsConfig::Save() const {
     if (!m_valid) {
-        LOG_ERROR(Common_Filesystem, "Refusing to write {}: it was never successfully loaded",
-                  m_path.string());
+        LOG_ERROR(Input, "Refusing to write {}: it was never successfully loaded", m_path.string());
         return false;
     }
     if (m_dirty_names.empty() && !m_mouse_dirty && !m_deadzones_dirty) {
@@ -372,39 +346,39 @@ bool BindingsConfig::Save() const {
     if (!m_dirty_names.empty()) {
         const TextJson::RootScan root = TextJson::ScanRoot(text);
         if (!root.ok) {
-            LOG_ERROR(Common_Filesystem, "{}: couldn't re-locate its own structure to edit it "
-                                         "safely",
-                     m_path.string());
+            LOG_ERROR(Input,
+                      "{}: couldn't re-locate its own structure to edit it "
+                      "safely",
+                      m_path.string());
             return false;
         }
 
-        // Locate the existing "bindings" array's inner content (between the
-        // brackets), if there is one.
         std::string inner;
         bool had_array = false;
         for (const auto& e : root.entries) {
             if (e.key == "bindings") {
-                const std::string value_text = text.substr(e.value_start, e.value_end - e.value_start);
-                if (value_text.size() >= 2 && value_text.front() == '[' && value_text.back() == ']') {
+                const std::string value_text =
+                    text.substr(e.value_start, e.value_end - e.value_start);
+                if (value_text.size() >= 2 && value_text.front() == '[' &&
+                    value_text.back() == ']') {
                     inner = value_text.substr(1, value_text.size() - 2);
                     had_array = true;
                 }
                 break;
             }
         }
-        TextJson::ArrayContent existing = had_array ? TextJson::SplitArray(inner) : TextJson::ArrayContent{};
+        TextJson::ArrayContent existing =
+            had_array ? TextJson::SplitArray(inner) : TextJson::ArrayContent{};
         if (had_array && !existing.ok) {
-            LOG_ERROR(Common_Filesystem, "{}: couldn't parse its own \"bindings\" array structure "
-                                         "to edit it safely",
-                     m_path.string());
+            LOG_ERROR(Input,
+                      "{}: couldn't parse its own \"bindings\" array structure "
+                      "to edit it safely",
+                      m_path.string());
             return false;
         }
 
         const std::set<std::string> dirty_set(m_dirty_names.begin(), m_dirty_names.end());
 
-        // Keep every existing element whose output isn't one we're touching
-        // this session, verbatim (leading trivia -- including any comment --
-        // and all).
         std::string rebuilt;
         bool first = true;
         for (const auto& elem : existing.elements) {
@@ -417,16 +391,10 @@ bool BindingsConfig::Save() const {
                     base_output = SplitPortSuffix(parsed_elem["output"].get<std::string>()).first;
                 }
             } catch (const nlohmann::json::exception&) {
-                // Unparseable element -- can't identify it, so it's never
-                // something we'd be replacing; keep it verbatim.
             }
             if (!base_output.empty() && dirty_set.count(base_output)) {
-                continue; // dropped -- replaced by fresh entries below
+                continue;
             }
-            // The separator is ours to write: SplitArray hands back only the
-            // trivia before each element, never the comma. It goes before
-            // the leading trivia so a comment sitting above an element stays
-            // above it.
             if (!first) {
                 rebuilt += ",";
             }
@@ -435,7 +403,6 @@ bool BindingsConfig::Save() const {
             first = false;
         }
 
-        // Append fresh entries for every output actually edited this session.
         for (const auto& name : m_dirty_names) {
             const auto cache_it = m_bindings_cache.find(name);
             if (cache_it == m_bindings_cache.end()) {
@@ -454,9 +421,7 @@ bool BindingsConfig::Save() const {
                 rebuilt += FormatBindingEntry(name, binding);
             }
         }
-        // A note written after the last entry is trivia belonging to nobody,
-        // so nothing above would have carried it -- put it back rather than
-        // deleting it.
+
         if (HasComment(existing.trailing)) {
             rebuilt += existing.trailing;
             if (EndsInsideLineComment(existing.trailing)) {
@@ -499,36 +464,32 @@ bool BindingsConfig::Save() const {
 
     std::ofstream file(m_path, std::ios::binary | std::ios::trunc);
     if (!file) {
-        LOG_ERROR(Common_Filesystem, "Failed to write {}", m_path.string());
+        LOG_ERROR(Input, "Failed to write {}", m_path.string());
         return false;
     }
     file << text;
     return static_cast<bool>(file);
 }
 
-namespace {
-
 bool PortsOverlap(int a, int b) {
     return a == 0 || b == 0 || a == b;
 }
 
-// Two bindings can only fire together if they reach the same player AND some
-// one device can press them both. "cross:2" and a "gamepad": 3 binding of
-// circle share no device, so the same chord on both is not a conflict.
 bool CanFireTogether(const PortedBinding& a, const PortedBinding& b) {
     return PortsOverlap(a.OutputPlayer(), b.OutputPlayer()) &&
            PortsOverlap(a.InputDevice(), b.InputDevice());
 }
 
 int CollisionPort(int a, int b) {
-    if (a != 0) return a;
-    if (b != 0) return b;
+    if (a != 0)
+        return a;
+    if (b != 0)
+        return b;
     return 0;
 }
 
-} // namespace
-
-std::vector<BindingConflict> FindConflicts(const std::vector<BindingsConfig::FlatBinding>& all_bindings) {
+std::vector<BindingConflict> FindConflicts(
+    const std::vector<BindingsConfig::FlatBinding>& all_bindings) {
     std::vector<BindingConflict> conflicts;
 
     for (size_t i = 0; i < all_bindings.size(); i++) {
@@ -569,11 +530,6 @@ std::vector<BindingConflict> FindConflicts(const std::vector<BindingsConfig::Fla
     return conflicts;
 }
 
-namespace {
-
-// Only an axis may drive an analog output (input-bindings.md section 7:
-// "only valid when the *input* is also an axis"). Both halves of that live
-// in input_ids.h.
 bool IsAnalogOutputName(const std::string& name) {
     return std::any_of(kAnalogToAnalogOutputNames.begin(), kAnalogToAnalogOutputNames.end(),
                        [&](std::string_view n) { return n == name; });
@@ -585,18 +541,12 @@ bool IsAxisInputName(const std::string& name) {
            name == "l2" || name == "r2";
 }
 
-} // namespace
-
 std::vector<std::string> BindingsConfig::Validate() const {
     std::vector<std::string> warnings;
     if (!m_valid) {
         return warnings;
     }
 
-    // Walked over the session's state, not the parsed file: GetAllBindings()
-    // is the file's entries for untouched outputs plus the edited ones from
-    // the cache, which is what Save() would write and therefore what the
-    // person should be warned about.
     int index = 0;
     for (const auto& flat : GetAllBindings()) {
         const std::string tag = "\"" + flat.output + "\" #" + std::to_string(index++);
@@ -615,33 +565,26 @@ std::vector<std::string> BindingsConfig::Validate() const {
         for (const auto& name : binding.input) {
             if (name != std::string(kUnmapped) && !IsKnownInput(name)) {
                 warnings.push_back(tag + ": input \"" + name +
-                                  "\" isn't a name this build recognizes.");
+                                   "\" isn't a name this build recognizes.");
             }
         }
 
-        // The mistake the editor makes easy: capturing a button for an
-        // analog output. The emulator logs an error and drops the binding,
-        // which is otherwise invisible from here.
         if (!unmapped && IsAnalogOutputName(flat.output)) {
             for (const auto& name : binding.input) {
                 if (!IsAxisInputName(name)) {
                     warnings.push_back(tag + ": \"" + name +
-                                      "\" is not an axis, and only an axis can drive an analog "
-                                      "stick output -- the emulator will drop this one.");
+                                       "\" is not an axis, and only an axis can drive an analog "
+                                       "stick output -- the emulator will drop this one.");
                 }
             }
         }
 
         if (binding.output_port != 0 && binding.input_port == 0 && binding.gamepad_field == 0) {
-            // Harmless, but worth saying once: this is the spelling whose
-            // meaning is easiest to misread.
             warnings.push_back(tag + ": drives player " + std::to_string(binding.output_port) +
-                              ", and any device may press it.");
+                               ", and any device may press it.");
         }
     }
 
-    // The entries the parser threw away never reach GetAllBindings(), so
-    // those are reported from the file directly.
     if (m_root.contains("bindings") && m_root["bindings"].is_array()) {
         int raw_index = 0;
         for (const auto& entry : m_root["bindings"]) {
@@ -660,7 +603,7 @@ std::vector<std::string> BindingsConfig::Validate() const {
             const auto [base_output, output_port] = SplitPortSuffix(raw_output);
             if (!output_port && raw_output.rfind(':') != std::string::npos) {
                 warnings.push_back(tag + " (\"" + raw_output +
-                                  "\"): the \":n\" port suffix isn't a number, ignored.");
+                                   "\"): the \":n\" port suffix isn't a number, ignored.");
             }
 
             const auto input_it = entry.find("input");
@@ -670,17 +613,16 @@ std::vector<std::string> BindingsConfig::Validate() const {
             }
             if (!input_it->is_string() && !input_it->is_array()) {
                 warnings.push_back(tag + " (\"" + base_output +
-                                  "\") has an \"input\" that's neither a string nor an array, "
-                                  "ignored.");
+                                   "\") has an \"input\" that's neither a string nor an array, "
+                                   "ignored.");
                 continue;
             }
             if (input_it->is_array()) {
-                const bool any_usable =
-                    std::any_of(input_it->begin(), input_it->end(),
-                                [](const auto& v) { return v.is_string(); });
+                const bool any_usable = std::any_of(input_it->begin(), input_it->end(),
+                                                    [](const auto& v) { return v.is_string(); });
                 if (!any_usable) {
                     warnings.push_back(tag + " (\"" + base_output +
-                                      "\") has an empty or unusable \"input\" array, ignored.");
+                                       "\") has an empty or unusable \"input\" array, ignored.");
                     continue;
                 }
             }
@@ -688,11 +630,11 @@ std::vector<std::string> BindingsConfig::Validate() const {
             if (const auto gp_it = entry.find("gamepad"); gp_it != entry.end()) {
                 if (!gp_it->is_number_integer()) {
                     warnings.push_back(tag + " (\"" + base_output +
-                                      "\"): \"gamepad\" isn't an integer, ignored.");
+                                       "\"): \"gamepad\" isn't an integer, ignored.");
                 } else if (const int gp = gp_it->get<int>(); gp < 1 || gp > 4) {
                     warnings.push_back(tag + " (\"" + base_output + "\"): \"gamepad\" " +
-                                      std::to_string(gp) + " is outside 1-4, clamped to " +
-                                      std::to_string(std::clamp(gp, 1, 4)) + ".");
+                                       std::to_string(gp) + " is outside 1-4, clamped to " +
+                                       std::to_string(std::clamp(gp, 1, 4)) + ".");
                 }
             }
         }

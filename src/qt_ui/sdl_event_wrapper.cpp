@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2024 shadPS4 Emulator Project
+// SPDX-FileCopyrightText: Copyright 2024-2026 shadPS4 Emulator Project
 // SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
@@ -10,15 +10,11 @@
 
 namespace SdlEventWrapper {
 
-namespace {
-// 16ms: one poll a frame, the same cadence the capture dialog used when it
-// read SDL itself.
-constexpr int kPollIntervalMs = 16;
-} // namespace
+constexpr int PollIntervalMs = 16;
 
 Wrapper::Wrapper(QObject* parent) : QObject(parent) {
     m_timer = new QTimer(this);
-    m_timer->setInterval(kPollIntervalMs);
+    m_timer->setInterval(PollIntervalMs);
     connect(m_timer, &QTimer::timeout, this, &Wrapper::Poll);
 }
 
@@ -38,7 +34,7 @@ void Wrapper::Acquire() {
 void Wrapper::Release() {
     Wrapper* self = GetInstance();
     if (self->m_refs == 0) {
-        return; // unbalanced; nothing to do
+        return; // unbalanced,nothing to do
     }
     if (--self->m_refs == 0) {
         self->m_timer->stop();
@@ -53,10 +49,6 @@ bool Wrapper::IsActive() {
 void Wrapper::Poll() {
     SDL_Event event;
     while (SDL_PollEvent(&event)) {
-        // Only the pad events are forwarded. shadLauncher4's ProcessEvent
-        // also swallows window and audio events because it sits in front of a
-        // running game's event loop; nothing here is downstream of us, so the
-        // rest is simply dropped.
         switch (event.type) {
         case SDL_EVENT_GAMEPAD_ADDED:
         case SDL_EVENT_GAMEPAD_REMOVED:

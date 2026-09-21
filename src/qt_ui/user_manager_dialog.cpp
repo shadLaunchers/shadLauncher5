@@ -20,7 +20,7 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     : QDialog(parent), m_gui_settings(std::move(gui_settings)),
       m_emu_settings(std::move(emulator_settings)) {
     setWindowTitle(tr("User Manager"));
-    setMinimumSize(QSize(800, 400));
+    setMinimumSize(QSize(900, 400));
     setModal(true);
 
     // Table
@@ -182,9 +182,7 @@ void UserManagerDialog::UpdateTable(bool mark_only) {
         controller_item->setFlags(controller_item->flags() & ~Qt::ItemIsEditable);
         m_table->setItem(row, 3, controller_item);
 
-        // Pinned device. The emulator writes this when a pad claims a port
-        // (src/core/user_manager.h's device_* fields); the launcher only
-        // shows it and can forget it.
+        // Pinned device
         const QString pinned = DescribePinnedDevice(u);
         QTableWidgetItem* device_item = new QTableWidgetItem(pinned.isEmpty() ? "-" : pinned);
         device_item->setFlags(device_item->flags() & ~Qt::ItemIsEditable);
@@ -380,15 +378,9 @@ QString UserManagerDialog::DescribePinnedDevice(const User& user) {
     if (user.device_guid.empty()) {
         return {};
     }
-    // "keyboard" is the emulator's own spelling for the one device with no
-    // GUID of its own (user_manager.h).
     if (user.device_guid == "keyboard") {
         return tr("Keyboard");
     }
-    // A GUID names a model, not a unit, so the serial or the socket path is
-    // what actually distinguishes two identical pads -- show whichever one
-    // this pin has. The GUID's leading half is bus and vendor, the same for
-    // every pad of a kind, so only the tail is worth showing.
     const QString guid = QString::fromStdString(user.device_guid).right(16);
     if (!user.device_serial.empty()) {
         return tr("%1 (serial %2)").arg(guid, QString::fromStdString(user.device_serial));
@@ -409,11 +401,6 @@ void UserManagerDialog::OnUserAssignDevice() {
         return;
     }
 
-    // A pin hangs off the user's *port*: the emulator's chain is
-    // user --player_index--> port --device_*--> device, and
-    // input_devices.h's PortFor skips "a user holding a device but no port"
-    // outright. Storing one anyway would look like it worked and never
-    // match, so say it before rather than after.
     if (user->player_index < 1 || user->player_index > 4) {
         QMessageBox::information(
             this, tr("Assign Device"),
@@ -447,10 +434,6 @@ void UserManagerDialog::OnUserAssignDevice() {
     connect(buttons, &QDialogButtonBox::accepted, &picker, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, &picker, &QDialog::reject);
 
-    // input_devices.h: "A device that reports neither is indistinguishable
-    // from another of the same model. ... IsAmbiguous() exists so the
-    // assignment UI can say so rather than storing something that will not
-    // match later." This is that warning.
     const auto refresh_note = [&] {
         const bool pad = pad_radio->isChecked();
         selector->setEnabled(pad);
@@ -481,8 +464,6 @@ void UserManagerDialog::OnUserAssignDevice() {
     std::string serial;
     std::string path;
     if (keyboard_radio->isChecked()) {
-        // The sentinel the emulator uses for the one device with no GUID of
-        // its own (input_devices.h's KEYBOARD_GUID).
         guid = "keyboard";
     } else {
         guid = selector->SelectedGuid().toStdString();
@@ -549,10 +530,6 @@ void UserManagerDialog::OnSort(int logicalIndex) {
 }
 
 void UserManagerDialog::closeEvent(QCloseEvent* event) {
-    // Persist user data (users.json). Individual edits already save on each
-    // change; this is a final safety flush. Note: m_emu_settings is a
-    // different store and does not hold user data, so saving it here would
-    // not persist user changes.
     UserSettings.Save();
     m_gui_settings->SetValue(GUI::user_manager_geometry, saveGeometry());
     QDialog::closeEvent(event);

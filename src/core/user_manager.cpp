@@ -28,7 +28,6 @@ bool UserManager::AddUser(const User& user) {
         std::filesystem::create_directories(user_dir, ec);
         std::filesystem::create_directories(user_dir / "savedata", ec);
         std::filesystem::create_directories(user_dir / "trophy", ec);
-        std::filesystem::create_directories(user_dir / "inputs", ec);
     }
 
     Save();
@@ -124,7 +123,6 @@ Users UserManager::CreateDefaultUsers() {
             std::filesystem::create_directory(user_dir);
             std::filesystem::create_directory(user_dir / "savedata");
             std::filesystem::create_directory(user_dir / "trophy");
-            std::filesystem::create_directory(user_dir / "inputs");
         }
     }
 
@@ -156,8 +154,8 @@ void UserManager::ClearPinnedDevice(u32 user_id) {
     Save();
 }
 
-void UserManager::SetPinnedDevice(u32 user_id, const std::string& guid,
-                                  const std::string& serial, const std::string& path) {
+void UserManager::SetPinnedDevice(u32 user_id, const std::string& guid, const std::string& serial,
+                                  const std::string& path) {
     if (guid.empty()) {
         return;
     }
@@ -167,9 +165,6 @@ void UserManager::SetPinnedDevice(u32 user_id, const std::string& guid,
             u.device_serial = serial;
             u.device_path = path;
         } else if (u.device_guid == guid) {
-            // One device, one port. Leaving it on two users would make
-            // PortFor's "most specific surviving assignment wins" pick one of
-            // them arbitrarily, which is worse than saying so here.
             u.device_guid.clear();
             u.device_serial.clear();
             u.device_path.clear();

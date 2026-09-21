@@ -11,6 +11,7 @@ namespace Common::Log::Class {
 /// Listing all log classes, if you add here, dont forget ALL_LOGGERS
 constexpr auto Common = "Common";                                   ///< Library routines
 constexpr auto Common_Filesystem = "Common.Filesystem";             ///< Filesystem interface library
+constexpr auto Input = "Input";                                     ///< Input system
 constexpr auto Config = "Config";                                   ///< Emulator configuration (including commandline)
 constexpr auto Core = "Core";                                       ///< LLE emulation core
 constexpr auto Debug = "Debug";                                     ///< Debugging tools

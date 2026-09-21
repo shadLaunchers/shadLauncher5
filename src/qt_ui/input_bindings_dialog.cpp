@@ -1,17 +1,19 @@
 // SPDX-FileCopyrightText: Copyright 2026 shadLauncher5 Emulator Project
 // SPDX-License-Identifier: GPL-2.0-or-later
 
+#include <memory>
+#include <vector>
+#include <QCloseEvent>
 #include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QFileDialog>
 #include <QFont>
-#include <QCloseEvent>
 #include <QFormLayout>
 #include <QGroupBox>
-#include <QLineEdit>
 #include <QGuiApplication>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
@@ -22,20 +24,16 @@
 #include <QStyleHints>
 #include <QTabWidget>
 #include <QVBoxLayout>
-#include <memory>
-#include <vector>
 
 #include "common/path_util.h"
-#include "core/input/input_defaults.h" // creates default.json/global.json when missing
+#include "core/input/input_defaults.h"
 #include "core/input/input_ids.h"
-#include "core/user_settings.h" // UserManagement: which device is pinned to which port
+#include "core/user_settings.h"
 #include "game_info.h"
 #include "gamepad_diagram_widget.h"
 #include "gamepad_selector.h"
-#include "hotkeys_editor_dialog.h" // reuses KeyCaptureDialog
+#include "hotkeys_editor_dialog.h"
 #include "input_bindings_dialog.h"
-
-namespace {
 
 QString FriendlyOutputName(const std::string& id) {
     QString s = QString::fromStdString(id);
@@ -49,9 +47,6 @@ QString FriendlyOutputName(const std::string& id) {
     return words.join(' ');
 }
 
-// A non-selectable, bold row used to group the output list -- Buttons,
-// Touchpad, Axes, Analog Sticks (input-bindings.md section 7's own
-// grouping).
 void AddSectionHeader(QListWidget* list, const QString& title) {
     auto* item = new QListWidgetItem(title);
     QFont f = item->font();
@@ -68,14 +63,6 @@ void AddOutputRow(QListWidget* list, std::string_view name) {
     list->addItem(item);
 }
 
-// A filled dot for "this one has bindings", or a blank of the same size so
-// every row's text still lines up. An icon rather than a text prefix: in a
-// proportional font no number of spaces is the width of a bullet.
-// Secondary text. Not `setStyleSheet("color: palette(placeholder-text)")`:
-// that resolves against whatever the style hands the widget, and on a light
-// theme it came out near-white on near-white -- the hint under the bindings
-// list was invisible. Mixing the two palette colours we actually have is
-// deterministic in both themes.
 QColor MutedColor(const QPalette& pal) {
     const QColor text = pal.color(QPalette::WindowText);
     const QColor back = pal.color(QPalette::Window);
@@ -107,10 +94,6 @@ QIcon BoundMarker(const QColor& color, const QColor& ring, bool filled, int side
     return QIcon(pm);
 }
 
-// Recolors the gamepad tab/window icon (drawn white, like every
-// images/menu/*.svg resource) so it reads against both PS5_Dark and
-// PS5_White. Self-contained rather than relying on qt_utils.h having a
-// matching helper, since that can't be assumed present in every checkout.
 QIcon TintedGamepadIcon() {
     const QIcon source(":/images/menu/gamepad.svg");
     const bool dark = QGuiApplication::styleHints()->colorScheme() == Qt::ColorScheme::Dark;
@@ -137,11 +120,6 @@ QIcon TintedGamepadIcon() {
     return out;
 }
 
-// What users.json says drives a given port. The editor used to ask this with
-// a checkbox the person ticked themselves ("this port is assigned"), which
-// was this editor's own idea and agreed with the emulator only by luck. The
-// user manager pins a device to a user, and a user holds a port, so the
-// answer is on disk -- this just reads it.
 struct PortDevice {
     bool pinned = false;
     QString user_name; // the user holding this port, pinned or not
@@ -166,26 +144,14 @@ PortDevice DeviceForPort(int port) {
     return out;
 }
 
-// What a port's pinned device can actually press. users.json stores the
-// literal "keyboard" for the one device with no GUID of its own
-// (src/bridge/core/input_devices.h); anything else is a pad.
-//
-// Nothing pinned means Any on purpose: pads fill the port in plug order, so
-// either kind may end up driving it and the editor has no business narrowing
-// what can be bound.
 KeyCaptureDialog::Accepts AcceptsForPort(const PortDevice& device) {
     if (!device.pinned) {
         return KeyCaptureDialog::Accepts::Any;
     }
-    return device.guid == QStringLiteral("keyboard")
-               ? KeyCaptureDialog::Accepts::KeyboardAndMouse
-               : KeyCaptureDialog::Accepts::Gamepad;
+    return device.guid == QStringLiteral("keyboard") ? KeyCaptureDialog::Accepts::KeyboardAndMouse
+                                                     : KeyCaptureDialog::Accepts::Gamepad;
 }
 
-// One line of prose for the top of a port page. Deliberately says which of
-// the three states it is in -- no user, a user with no pinned device, or a
-// pinned device that may or may not be plugged in right now -- because each
-// one wants a different thing done about it.
 QString DeviceLineFor(int port, const PortDevice& device) {
     if (device.user_name.isEmpty()) {
         return QObject::tr("Port %1 — no user holds this port. "
@@ -204,17 +170,8 @@ QString DeviceLineFor(int port, const PortDevice& device) {
             .arg(device.user_name)
             .arg(device.guid.right(16));
     }
-    return QObject::tr("Port %1 — %2, %3.")
-        .arg(port)
-        .arg(device.user_name)
-        .arg(device.device_name);
+    return QObject::tr("Port %1 — %2, %3.").arg(port).arg(device.user_name).arg(device.device_name);
 }
-
-} // namespace
-
-// ---------------------------------------------------------------------
-// PortBindingsPage
-// ---------------------------------------------------------------------
 
 PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig* config,
                                    QWidget* parent)
@@ -222,12 +179,6 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     auto* outer = new QVBoxLayout(this);
     outer->setContentsMargins(8, 6, 8, 6);
     outer->setSpacing(6);
-
-    // Where the "this port is assigned" checkbox used to be. That checkbox
-    // was the editor's own bookkeeping -- ticking it did not assign anything
-    // and unticking it only hid controls -- so it has been replaced by the
-    // answer itself, read from users.json. Every port is editable now; what
-    // varies is whether anything is actually driving it, which this says.
     m_device_label = new QLabel(this);
     m_device_label->setWordWrap(true);
     m_device_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
@@ -236,26 +187,20 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     m_device_label->setFont(device_font);
     outer->addWidget(m_device_label);
     RefreshDeviceLabel();
-
-    // No group box and no caption line: between them they cost about 60px of
-    // height to say what one tooltip says, and this dialog had none to spare.
-    // Capped and centred, since the diagram keeps its aspect ratio and would
-    // otherwise sit in a band of empty box.
     m_diagram = new GamepadDiagramWidget(this);
     m_diagram->setMaximumWidth(430);
     m_diagram->setMinimumHeight(100);
     m_diagram->setMaximumHeight(168);
     m_diagram->setToolTip(tr("Click a control to select it."));
-    connect(m_diagram, &GamepadDiagramWidget::OutputClicked, this,
-            [this](const QString& output) {
-                for (int i = 0; i < m_output_list->count(); i++) {
-                    auto* item = m_output_list->item(i);
-                    if (item->data(Qt::UserRole).toString() == output) {
-                        m_output_list->setCurrentRow(i);
-                        break;
-                    }
-                }
-            });
+    connect(m_diagram, &GamepadDiagramWidget::OutputClicked, this, [this](const QString& output) {
+        for (int i = 0; i < m_output_list->count(); i++) {
+            auto* item = m_output_list->item(i);
+            if (item->data(Qt::UserRole).toString() == output) {
+                m_output_list->setCurrentRow(i);
+                break;
+            }
+        }
+    });
     outer->addWidget(m_diagram, 0, Qt::AlignHCenter);
 
     auto* main_layout = new QHBoxLayout();
@@ -349,11 +294,6 @@ void PortBindingsPage::RefreshDeviceLabel() {
     }
     const auto device = DeviceForPort(m_port_number);
     m_device_label->setText(DeviceLineFor(m_port_number, device));
-    // Muted when nothing is pinned, so a page you are editing "blind" looks
-    // different from one backed by a real pad without being disabled -- the
-    // bindings still work, they just have nothing pointed at them yet. The
-    // pinned case clears the override rather than setting a colour of its
-    // own, so it follows the theme like every other label.
     if (device.pinned) {
         m_device_label->setPalette(QPalette());
     } else {
@@ -374,10 +314,9 @@ void PortBindingsPage::OnFilterChanged(const QString& text) {
         auto* item = m_output_list->item(i);
         const QString id = item->data(Qt::UserRole).toString();
         if (id.isEmpty()) {
-            continue; // a section header; handled below
+            continue;
         }
-        const bool matches = needle.isEmpty() ||
-                             id.contains(needle, Qt::CaseInsensitive) ||
+        const bool matches = needle.isEmpty() || id.contains(needle, Qt::CaseInsensitive) ||
                              item->text().contains(needle, Qt::CaseInsensitive);
         item->setHidden(!matches);
         if (matches && first_visible == nullptr) {
@@ -402,9 +341,6 @@ void PortBindingsPage::OnFilterChanged(const QString& text) {
     if (header != nullptr) {
         header->setHidden(!header_has_rows);
     }
-
-    // Keep a usable selection: if what was selected is now filtered away,
-    // move to the first row that survived.
     auto* current = m_output_list->currentItem();
     if ((current == nullptr || current->isHidden()) && first_visible != nullptr) {
         m_output_list->setCurrentItem(first_visible);
@@ -440,17 +376,11 @@ QSet<QString> PortBindingsPage::BoundOutputs() const {
 
 void PortBindingsPage::RefreshOutputMarkers() {
     const QSet<QString> bound = BoundOutputs();
-    // What the other layer covers. Without this, opening global.json -- which
-    // is empty by design, being the "extra bindings" file -- showed an
-    // unmarked list and a blank diagram, which reads as "you have no controls"
-    // rather than "your controls are in the other file".
     const QSet<QString> from_overlay = OutputsBoundIn(m_global_overlay);
 
     const int side = std::max(8, m_output_list->fontMetrics().height());
     const QIcon dot = BoundMarker(palette().color(QPalette::Highlight),
                                   palette().color(QPalette::HighlightedText), true, side);
-    // Muted, for an output this file does not bind but the other layer does:
-    // present, and not yours to edit here.
     const QIcon overlay_dot =
         BoundMarker(MutedColor(palette()), palette().color(QPalette::Window), true, side);
     const QIcon blank = BoundMarker(Qt::transparent, Qt::transparent, false, side);
@@ -460,8 +390,6 @@ void PortBindingsPage::RefreshOutputMarkers() {
         if (id.isEmpty()) {
             continue; // a section header
         }
-        // A dot in the margin beats a colour: it survives both themes and
-        // does not collide with the selection highlight.
         if (bound.contains(id)) {
             item->setIcon(dot);
         } else if (from_overlay.contains(id)) {
@@ -520,12 +448,6 @@ void PortBindingsPage::RefreshBindingsList() {
     const auto& bindings = m_config->GetBindings(name);
     for (int i = 0; i < static_cast<int>(bindings.size()); i++) {
         const auto& binding = bindings[i];
-        // What drives *this player's* pad: OutputPlayer(), not the raw port,
-        // because a binding that named a port only on the input side still
-        // fires player 1. A binding that named no port at all drives every
-        // player, this one included, so it is listed here too -- marked, and
-        // removable. Hiding those was how a hand-written global.json, and
-        // everything inherited from default.json, showed up as an empty list.
         const int player = binding.OutputPlayer();
         if (player != 0 && player != m_port_number) {
             continue;
@@ -534,8 +456,6 @@ void PortBindingsPage::RefreshBindingsList() {
         if (player == 0) {
             label = tr("%1  (all ports)").arg(label);
         }
-        // A device restriction is not visible in the chord, and it is the
-        // difference between "anyone can press this" and "only player 3 can".
         if (const int device = binding.InputDevice(); device != 0) {
             label = tr("%1  (only port %2's device)").arg(label).arg(device);
         }
@@ -548,18 +468,6 @@ void PortBindingsPage::RefreshBindingsList() {
         shown++;
     }
 
-    // Section 2: two files are concatenated at runtime, so the other one's
-    // bindings for this output are just as "active" as this file's own. Which
-    // other one depends on what is being edited, and getting that wrong would
-    // be worse than showing nothing:
-    //
-    //   editing global.json -> default.json is the base under it
-    //   editing a game file -> global.json is added on top; default.json is
-    //                          NOT in play at all, because a game file
-    //                          replaces it rather than layering over it
-    //
-    // Shown clearly marked, and not editable here -- switch the file picker
-    // to that file for that.
     int shown_global = 0;
     if (m_global_overlay) {
         for (const auto& binding : m_global_overlay->GetBindings(name)) {
@@ -573,11 +481,6 @@ void PortBindingsPage::RefreshBindingsList() {
             }
         }
     }
-
-    // Only an axis may drive an analog output. The capture dialog can take
-    // one now (push the stick past half travel), so these are bindable --
-    // the hint just says what it will accept, since pressing a button here
-    // produces a pairing the emulator rejects.
     const bool analog = IsAnalogOutput(name);
     m_add_btn->setEnabled(true);
     m_unmapped_btn->setEnabled(true);
@@ -589,13 +492,12 @@ void PortBindingsPage::RefreshBindingsList() {
     } else if (shown > 0 || shown_global > 0) {
         m_hint_label->setText(
             tr("Reaching player %1. Greyed rows drive every player; right-click a row to "
-              "restrict which device may press it.")
+               "restrict which device may press it.")
                 .arg(m_port_number));
     } else {
-        m_hint_label->setText(
-            tr("Nothing drives %1 on player %2 yet.")
-                .arg(FriendlyOutputName(name))
-                .arg(m_port_number));
+        m_hint_label->setText(tr("Nothing drives %1 on player %2 yet.")
+                                  .arg(FriendlyOutputName(name))
+                                  .arg(m_port_number));
     }
 }
 
@@ -604,18 +506,13 @@ void PortBindingsPage::OnAddWay() {
     if (name.empty()) {
         return;
     }
-    // A port pinned to one device can only ever be pressed by that device, so
-    // the capture only takes what that device can send. Binding a pad button
-    // on a keyboard-pinned port would write a line that never fires, with
-    // nothing anywhere saying why.
     const auto device = DeviceForPort(m_port_number);
     QString reason;
     if (device.pinned) {
-        const QString named = device.device_name.isEmpty()
-                                  ? (device.guid == QStringLiteral("keyboard")
-                                         ? tr("the keyboard")
-                                         : tr("a pad"))
-                                  : device.device_name;
+        const QString named =
+            device.device_name.isEmpty()
+                ? (device.guid == QStringLiteral("keyboard") ? tr("the keyboard") : tr("a pad"))
+                : device.device_name;
         reason = tr("Port %1 is pinned to %2.").arg(m_port_number).arg(named);
     }
     KeyCaptureDialog capture(this, AcceptsForPort(device), reason);
@@ -625,13 +522,6 @@ void PortBindingsPage::OnAddWay() {
     auto bindings = m_config->GetBindings(name);
     Core::Input::PortedBinding new_binding;
     new_binding.input = capture.CapturedInput();
-    // This page is "which player's pad does this press", so the port belongs on
-    // the OUTPUT side -- "cross:2" -- and the file's other spelling is not
-    // interchangeable with it. A "gamepad" field names the device allowed to
-    // press the binding and leaves the output on player 1 (input-bindings.md
-    // section 5: `{ "output": "cross", "input": "cross", "gamepad": 2 }` is
-    // "player 2's pad works player 1's cross"). Writing that here meant every
-    // binding added on the Port 2 tab fired player 1's pad.
     new_binding.output_port = m_port_number;
     bindings.push_back(new_binding);
     m_config->SetBindings(name, bindings);
@@ -645,13 +535,6 @@ void PortBindingsPage::OnSetUnmapped() {
     if (name.empty()) {
         return;
     }
-    // section 6: "unmapped" writes "deliberately unbound" without just
-    // deleting every way to press it -- it never matches an event, so it
-    // can't ever conflict with anything either. This replaces every OTHER
-    // port's bindings too (same as OnAddWay effectively does by fully
-    // replacing this output's list scoped to this port): only this port's
-    // entries are touched, other ports' bindings for the same output are
-    // left as they were.
     auto bindings = m_config->GetBindings(name);
     std::vector<Core::Input::PortedBinding> kept;
     for (auto& b : bindings) {
@@ -691,9 +574,6 @@ void PortBindingsPage::OnBindingsContextMenu(const QPoint& pos) {
     auto* heading = menu.addAction(tr("Pressed by"));
     heading->setEnabled(false);
     menu.addSeparator();
-
-    // 0 means any device, which is what a binding with no "gamepad" field
-    // and no input-side suffix means.
     const auto add = [&](int device, const QString& label) {
         QAction* action = menu.addAction(label);
         action->setCheckable(true);
@@ -704,9 +584,6 @@ void PortBindingsPage::OnBindingsContextMenu(const QPoint& pos) {
                 return;
             }
             auto& binding = edited[static_cast<size_t>(index)];
-            // Write it as a "gamepad" field, and clear the input-side
-            // suffix if that is where the restriction came from -- leaving
-            // both would say two different things about the same binding.
             binding.gamepad_field = device;
             binding.input_port = 0;
             m_config->SetBindings(name, edited);
@@ -729,12 +606,8 @@ void PortBindingsPage::OnRemoveSelected() {
     if (name.empty() || row < 0) {
         return;
     }
-    // The list mixes this player's bindings with the ones that belong to
-    // every player, and the overlay rows are appended after both, so the row
-    // number is not an index into anything -- RefreshBindingsList records
-    // where each row came from.
     if (row >= static_cast<int>(m_row_to_binding.size())) {
-        return; // a read-only overlay row
+        return;
     }
     auto bindings = m_config->GetBindings(name);
     const int index = m_row_to_binding[static_cast<size_t>(row)];
@@ -745,7 +618,7 @@ void PortBindingsPage::OnRemoveSelected() {
         QMessageBox::question(
             this, tr("Remove Binding"),
             tr("This binding names no port, so it drives all four players, not just "
-              "player %1. Remove it for everyone?")
+               "player %1. Remove it for everyone?")
                 .arg(m_port_number),
             QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
         return;
@@ -757,19 +630,10 @@ void PortBindingsPage::OnRemoveSelected() {
     emit BindingsChanged();
 }
 
-// ---------------------------------------------------------------------
-// InputBindingsDialog
-// ---------------------------------------------------------------------
-
 InputBindingsDialog::InputBindingsDialog(const std::filesystem::path& targetFile, QWidget* parent)
-    : QDialog(parent), m_global_json_path(Common::FS::GetUserPath(Common::FS::PathType::UserDir) /
-                                          "global.json"),
+    : QDialog(parent),
+      m_global_json_path(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "global.json"),
       m_config(std::make_unique<Core::Input::BindingsConfig>()) {
-    // The emulator writes default.json and global.json on its first run. Open
-    // the launcher first -- which is the normal order -- and neither exists
-    // yet, so there was nothing for a new game file to start from and nothing
-    // for the all-games overlay to show. Writing them here means the editor
-    // and the emulator agree about what a fresh install looks like.
     Core::Input::EnsureBindingsFiles();
 
     m_config->Load(targetFile);
@@ -780,11 +644,11 @@ InputBindingsDialog::InputBindingsDialog(const std::filesystem::path& targetFile
 
 InputBindingsDialog::InputBindingsDialog(QWidget* parent)
     : InputBindingsDialog(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "global.json",
-                         parent) {}
+                          parent) {}
 
 void InputBindingsDialog::BuildUi() {
-    setWindowTitle(tr("Input Bindings -- %1").arg(
-        QString::fromStdString(m_config->FilePath().filename().string())));
+    setWindowTitle(tr("Input Bindings -- %1")
+                       .arg(QString::fromStdString(m_config->FilePath().filename().string())));
     setWindowIcon(TintedGamepadIcon());
     resize(860, 620);
 
@@ -792,9 +656,6 @@ void InputBindingsDialog::BuildUi() {
     outer->setContentsMargins(10, 10, 10, 10);
     outer->setSpacing(8);
 
-    // The window title already says "Input Bindings"; a 32px icon and a
-    // point-size-plus-four heading repeating it cost ~70px of height that
-    // the tabs needed more.
     m_subtitle_label = new QLabel(this);
     m_subtitle_label->setTextInteractionFlags(Qt::TextSelectableByMouse);
     Muted(m_subtitle_label);
@@ -810,19 +671,10 @@ void InputBindingsDialog::BuildUi() {
     picker_row->addWidget(browse_btn);
     outer->addLayout(picker_row);
 
-    // The editor no longer asks which pad it is listening to -- users.json
-    // answers that, and each port page says so in its own line. The selector
-    // stays as a listener: something has to hold the device open for the
-    // live press feedback, and it already knows how. Its combo and GUID
-    // label are hidden rather than the whole class being rewritten around a
-    // question nobody is asked any more.
     m_gamepad = new GamepadSelector(this);
     m_gamepad->HideChooser();
     m_gamepad->hide();
 
-    // Feedback goes to the page you are looking at. It used to light the
-    // same control on all four, which said nothing about which port the
-    // press belongs to.
     connect(m_gamepad, &GamepadSelector::ControlPressed, this, [this](const QString& name) {
         if (auto* page = CurrentPage(); page != nullptr) {
             page->ShowPressed(name, true);
@@ -833,9 +685,7 @@ void InputBindingsDialog::BuildUi() {
             page->ShowPressed(name, false);
         }
     });
-    // A pad plugged in or out changes both which device is open and whether a
-    // pinned GUID has a name to show, so both follow the same signal. A pad
-    // unplugged mid-press would otherwise leave its last control lit.
+
     connect(m_gamepad, &GamepadSelector::SelectionChanged, this, [this] {
         for (auto* page : m_pages) {
             if (page != nullptr) {
@@ -852,16 +702,11 @@ void InputBindingsDialog::BuildUi() {
     m_subtitle_label->setText(
         tr("Editing %1").arg(QString::fromStdString(m_config->FilePath().string())));
 
-    // Built whether or not it is needed right now: switching files has to be
-    // able to raise and lower it, and it used to be a local that only existed
-    // if the *first* file failed to load.
     m_unreadable_label = new QLabel(this);
     m_unreadable_label->setWordWrap(true);
     m_unreadable_label->setStyleSheet("color: #E05555; font-weight: bold;");
     outer->addWidget(m_unreadable_label);
 
-    // Says where a brand-new game file's contents came from. Hidden the rest
-    // of the time, which is most of it.
     m_seeded_label = new QLabel(this);
     m_seeded_label->setWordWrap(true);
     Muted(m_seeded_label);
@@ -876,15 +721,14 @@ void InputBindingsDialog::BuildUi() {
         m_pages[static_cast<size_t>(port - 1)] = page;
         page->SetOverlay(m_global_overlay.get(), m_overlay_label);
         m_tabs->addTab(page, tab_icon, tr("Port %1").arg(port));
-        connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshConflicts);
-        connect(page, &PortBindingsPage::BindingsChanged, this, &InputBindingsDialog::RefreshProblemsList);
+        connect(page, &PortBindingsPage::BindingsChanged, this,
+                &InputBindingsDialog::RefreshConflicts);
+        connect(page, &PortBindingsPage::BindingsChanged, this,
+                &InputBindingsDialog::RefreshProblemsList);
     }
     m_tabs->addTab(BuildSettingsPage(), tr("Settings"));
     outer->addWidget(m_tabs, 1);
 
-    // Opening a port's tab points the listener at that port's pinned pad, so
-    // the feedback on the diagram is the device that page is about rather
-    // than whichever one SDL happened to enumerate first.
     connect(m_tabs, &QTabWidget::currentChanged, this, [this](int) {
         if (auto* page = CurrentPage(); page != nullptr) {
             page->ClearPressed();
@@ -896,8 +740,6 @@ void InputBindingsDialog::BuildUi() {
     });
     RefreshPortTabs();
 
-    // One tabbed box, not two stacked group boxes: both lists are empty in
-    // the normal case and were costing ~240px of height to say so.
     m_issues = new QTabWidget(this);
     m_issues->setMaximumHeight(112);
 
@@ -949,7 +791,7 @@ void InputBindingsDialog::RefreshLoadedState() {
     m_unreadable_label->setText(
         loaded ? QString()
                : tr("Couldn't read %1 -- it may not be valid JSON. Editing is disabled to "
-                   "avoid overwriting whatever's actually in it.")
+                    "avoid overwriting whatever's actually in it.")
                      .arg(path));
     m_save_btn->setEnabled(loaded);
     m_revert_btn->setEnabled(loaded);
@@ -980,12 +822,12 @@ bool InputBindingsDialog::ConfirmDiscardingEdits() {
 
 void InputBindingsDialog::OnRevert() {
     if (m_config->HasUnsavedChanges() &&
-        QMessageBox::question(this, tr("Revert"),
-                              tr("Throw away this session's edits to %1 and read the file "
-                                "again?")
-                                  .arg(QString::fromStdString(
-                                      m_config->FilePath().filename().string())),
-                              QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+        QMessageBox::question(
+            this, tr("Revert"),
+            tr("Throw away this session's edits to %1 and read the file "
+               "again?")
+                .arg(QString::fromStdString(m_config->FilePath().filename().string())),
+            QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
         return;
     }
     // Load() clears the edit cache, so re-loading the same path is the revert.
@@ -1017,10 +859,6 @@ void InputBindingsDialog::reject() {
 bool InputBindingsDialog::SeedFromDefaultsIfNew(const std::filesystem::path& path) {
     m_seeded_from_defaults = false;
 
-    // Only a game's own file, and only one that does not exist yet. global.json
-    // is a layer of its own and is always appended, so it needs no seeding;
-    // default.json is the source and must never be written from here
-    // (input-bindings.md section 3 -- its comments are the documentation).
     const auto defaults_path =
         Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "default.json";
     if (path == m_global_json_path || path == defaults_path) {
@@ -1039,10 +877,6 @@ bool InputBindingsDialog::SeedFromDefaultsIfNew(const std::filesystem::path& pat
         return false;
     }
 
-    // The emulator reads a game's file INSTEAD of default.json, never both
-    // (BindingsFile in its input_config.cpp). An empty new file therefore does
-    // not mean "the defaults plus nothing" -- it means the game loses every
-    // default it had. So the editor starts from them.
     std::map<std::string, std::vector<Core::Input::PortedBinding>> by_output;
     for (const auto& flat : defaults.GetAllBindings()) {
         by_output[flat.output].push_back(flat.binding);
@@ -1051,10 +885,6 @@ bool InputBindingsDialog::SeedFromDefaultsIfNew(const std::filesystem::path& pat
         return false;
     }
     for (auto& [output, list] : by_output) {
-        // Dirty on purpose: these only reach the disk if the person saves,
-        // and if they save they must get the defaults rather than an empty
-        // file. It also means closing without saving asks first, which is
-        // honest -- there is something pending.
         m_config->SetBindings(output, std::move(list));
     }
     m_seeded_from_defaults = true;
@@ -1074,17 +904,6 @@ void InputBindingsDialog::RefreshSeededBanner() {
 }
 
 void InputBindingsDialog::LoadOverlayFor(const std::filesystem::path& path) {
-    // The emulator concatenates exactly two files at runtime, and which two
-    // depends on the game (Load() in its input_config.cpp):
-    //
-    //   a game with its own file -> that file + global.json
-    //   a game without one       -> default.json + global.json
-    //
-    // So the read-only layer shown beside what is being edited is the other
-    // half of whichever pair this file is in. The one thing that would be a
-    // lie is showing default.json beside a game's file: a game file replaces
-    // default.json rather than layering over it, so those rows would not be
-    // in play at all.
     const auto defaults_path =
         Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "default.json";
 
@@ -1131,12 +950,8 @@ void InputBindingsDialog::RefreshPortTabs() {
         if (index < 0) {
             continue;
         }
-        // Dimmed, not disabled: a port with nothing pinned is still a port
-        // whose bindings you may want to write before the pad arrives. The
-        // grey just says which tabs are backed by a real device today.
         const bool pinned = page->HasPinnedDevice();
-        m_tabs->tabBar()->setTabTextColor(
-            index, pinned ? QColor() : MutedColor(m_tabs->palette()));
+        m_tabs->tabBar()->setTabTextColor(index, pinned ? QColor() : MutedColor(m_tabs->palette()));
         const auto device = DeviceForPort(port);
         m_tabs->setTabToolTip(index, DeviceLineFor(port, device));
     }
@@ -1152,9 +967,6 @@ void InputBindingsDialog::RefreshConflicts() {
         return;
     }
 
-    // Section 2: the game's own file and global.json are concatenated at
-    // runtime, so a real conflict can exist only once both are merged --
-    // checking this file alone would miss it.
     auto all = m_config->GetAllBindings();
     if (m_global_overlay && m_global_overlay->IsLoaded()) {
         auto global_bindings = m_global_overlay->GetAllBindings();
@@ -1162,13 +974,12 @@ void InputBindingsDialog::RefreshConflicts() {
     }
     const auto conflicts = Core::Input::FindConflicts(all);
     if (m_issues != nullptr) {
-        m_issues->setTabText(0, conflicts.empty()
-                                    ? tr("Conflicts")
-                                    : tr("Conflicts (%1)").arg(conflicts.size()));
+        m_issues->setTabText(0, conflicts.empty() ? tr("Conflicts")
+                                                  : tr("Conflicts (%1)").arg(conflicts.size()));
     }
     if (conflicts.empty()) {
         m_conflicts_summary->setText(tr("\u2713 No conflicts: no two bindings share the exact "
-                                       "same keys for different controls."));
+                                        "same keys for different controls."));
         m_conflicts_summary->setStyleSheet("color: #4CAF50;");
         return;
     }
@@ -1176,16 +987,15 @@ void InputBindingsDialog::RefreshConflicts() {
     m_conflicts_summary->setStyleSheet("color: #E0A030; font-weight: bold;");
     m_conflicts_summary->setText(
         tr("%n conflict(s): these bindings press the same keys but drive different "
-          "controls -- both fire together, which is probably not what you want.",
-          "", static_cast<int>(conflicts.size())));
+           "controls -- both fire together, which is probably not what you want.",
+           "", static_cast<int>(conflicts.size())));
 
     for (const auto& c : conflicts) {
         QStringList keys;
         for (const auto& k : c.keys) {
             keys << QString::fromStdString(k);
         }
-        const QString port_text =
-            c.port == 0 ? tr("every player") : tr("player %1").arg(c.port);
+        const QString port_text = c.port == 0 ? tr("every player") : tr("player %1").arg(c.port);
         auto* item = new QListWidgetItem(tr("%1 vs %2: both use %3 (%4)")
                                              .arg(QString::fromStdString(c.output_a))
                                              .arg(QString::fromStdString(c.output_b))
@@ -1209,22 +1019,20 @@ void InputBindingsDialog::RefreshProblemsList() {
     }
     if (m_global_overlay && m_global_overlay->IsLoaded()) {
         for (const auto& w : m_global_overlay->Validate()) {
-            m_problems_list->addItem(tr("(%1) %2").arg(m_overlay_label,
-                                                       QString::fromStdString(w)));
+            m_problems_list->addItem(tr("(%1) %2").arg(m_overlay_label, QString::fromStdString(w)));
         }
     }
     if (m_issues != nullptr) {
         const int count = m_problems_list->count();
-        m_issues->setTabText(1, count == 0 ? tr("Problems")
-                                           : tr("Problems (%1)").arg(count));
+        m_issues->setTabText(1, count == 0 ? tr("Problems") : tr("Problems (%1)").arg(count));
     }
 }
 
 void InputBindingsDialog::OnSave() {
     if (!m_config->Save()) {
-        QMessageBox::critical(this, tr("Input Bindings"),
-                              tr("Failed to write %1.").arg(
-                                  QString::fromStdString(m_config->FilePath().string())));
+        QMessageBox::critical(
+            this, tr("Input Bindings"),
+            tr("Failed to write %1.").arg(QString::fromStdString(m_config->FilePath().string())));
         return;
     }
     QMessageBox::information(this, tr("Input Bindings"), tr("Saved."));
@@ -1233,13 +1041,9 @@ void InputBindingsDialog::OnSave() {
 void InputBindingsDialog::PopulateFilePicker() {
     m_file_picker->blockSignals(true);
     m_file_picker->clear();
-    // "Global" alone said nothing about the relationship between the two
-    // files, which is why an empty editor looked broken rather than correct.
     m_file_picker->addItem(tr("All games — extra bindings (global.json)"),
                            QString::fromStdString(m_global_json_path.string()));
 
-    // List games that already have a custom file -- game_list_frame.cpp
-    // checks for exactly this: CustomInputConfigs / "<serial>.json".
     const auto configs_dir = Common::FS::GetUserPath(Common::FS::PathType::CustomInputConfigs);
     std::error_code ec;
     if (std::filesystem::exists(configs_dir, ec) && !ec) {
@@ -1253,15 +1057,11 @@ void InputBindingsDialog::PopulateFilePicker() {
         }
     }
 
-    // Select whichever the dialog is currently editing.
     const QString current_path = QString::fromStdString(m_config->FilePath().string());
     const int idx = m_file_picker->findData(current_path);
     if (idx >= 0) {
         m_file_picker->setCurrentIndex(idx);
     } else {
-        // Editing a game with no file yet (picked via Browse, or a fresh
-        // per-game path passed to the constructor) -- add it so the picker
-        // reflects reality instead of silently defaulting to something else.
         const QString label =
             m_config->FilePath() == m_global_json_path
                 ? tr("All games — extra bindings (global.json)")
@@ -1327,11 +1127,6 @@ void InputBindingsDialog::SwitchTarget(const std::filesystem::path& path) {
 }
 
 void InputBindingsDialog::ReloadSettingsTab() {
-    // Every setValue() below would otherwise fire the commit_* handlers and
-    // mark the file we have only just loaded as edited -- which makes Save()
-    // write a whole "mouse" and "deadzones" block into a game's file that
-    // nobody asked to change, pinning settings over global.json. Showing a
-    // value is not editing it.
     const QSignalBlocker block_joystick(m_mouse_to_joystick);
     const QSignalBlocker block_deadzone_offset(m_mouse_deadzone_offset);
     const QSignalBlocker block_speed(m_mouse_speed);
@@ -1390,8 +1185,7 @@ QWidget* InputBindingsDialog::BuildSettingsPage() {
 
     bool mouse_present = false;
     const auto mouse = m_config->GetMouseSettings(&mouse_present);
-    const int mouse_idx =
-        m_mouse_to_joystick->findData(QString::fromStdString(mouse.to_joystick));
+    const int mouse_idx = m_mouse_to_joystick->findData(QString::fromStdString(mouse.to_joystick));
     m_mouse_to_joystick->setCurrentIndex(mouse_idx >= 0 ? mouse_idx : 0);
     m_mouse_deadzone_offset->setValue(mouse.deadzone_offset);
     m_mouse_speed->setValue(mouse.speed);
@@ -1408,7 +1202,8 @@ QWidget* InputBindingsDialog::BuildSettingsPage() {
         s.speed_offset = m_mouse_speed_offset->value();
         m_config->SetMouseSettings(s);
     };
-    connect(m_mouse_to_joystick, qOverload<int>(&QComboBox::currentIndexChanged), this, commit_mouse);
+    connect(m_mouse_to_joystick, qOverload<int>(&QComboBox::currentIndexChanged), this,
+            commit_mouse);
     connect(m_mouse_deadzone_offset, qOverload<double>(&QDoubleSpinBox::valueChanged), this,
             commit_mouse);
     connect(m_mouse_speed, qOverload<double>(&QDoubleSpinBox::valueChanged), this, commit_mouse);

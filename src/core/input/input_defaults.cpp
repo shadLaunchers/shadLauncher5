@@ -13,10 +13,6 @@ namespace fs = std::filesystem;
 
 namespace Core::Input {
 
-namespace {
-
-// The emulator's UserRoot(): the user directory itself, where the three files
-// that are not about one particular game live.
 fs::path UserRoot() {
     return Common::FS::GetUserPath(Common::FS::PathType::UserDir);
 }
@@ -24,29 +20,18 @@ fs::path UserRoot() {
 bool WriteText(const fs::path& path, const std::string& text) {
     std::ofstream out(path, std::ios::trunc);
     if (!out.is_open()) {
-        LOG_ERROR(Common_Filesystem, "Could not write {}", path.string());
+        LOG_ERROR(Input, "Could not write {}", path.string());
         return false;
     }
     out << text;
     if (!out.good()) {
-        LOG_ERROR(Common_Filesystem, "Failed while writing {}", path.string());
+        LOG_ERROR(Input, "Failed while writing {}", path.string());
         return false;
     }
     return true;
 }
 
-} // namespace
-
-// ── copied verbatim from the emulator's input_config.cpp ─────────────
-//
-// Byte for byte, deliberately. The cross-check test compares the two, so a
-// change on that side that is not mirrored here is a test failure rather than
-// two emulators that disagree about what a fresh install looks like.
-
 std::string DefaultBindingsJson() {
-    // Written once, when the file is missing, and never rewritten -- so these
-    // comments survive whatever else happens. That is the whole reason nothing
-    // in this file serialises a bindings file back out.
     return R"({
     // Input bindings. Lost? Every name on the left is a PS5 pad control; every
     // name on the right is a key on your keyboard or a control on your pad.
@@ -127,48 +112,11 @@ std::string DefaultBindingsJson() {
         { "output": "axis_right_x", "input": "axis_right_x" },
         { "output": "axis_right_y", "input": "axis_right_y" }
     ],
-
-    // ── settings ────────────────────────────────────────────────
-    //
-    // Commented out on purpose, and the values shown are exactly what the
-    // emulator uses when nobody says otherwise -- so uncommenting one as it
-    // stands changes nothing. They are here to be copied and edited.
-    //
-    // Leaving them commented also keeps global.json useful. A setting in this
-    // file beats the same setting in global.json, this file being the more
-    // specific of the two; if these blocks were live, a dead zone you put in
-    // global.json would be quietly overruled by a file you never touched.
-    //
-    // "mouse" is the mouse-as-a-stick, switched on and off with
-    // hotkey_toggle_mouse_to_joystick. to_joystick is "right", "left" or
-    // "none"; deadzone_offset is how far the stick is pushed before the mouse
-    // has moved at all, and speed scales the rest.
-    //
-    // "mouse": {
-    //     "to_joystick": "right",
-    //     "deadzone_offset": 0.5,
-    //     "speed": 1.0,
-    //     "speed_offset": 0.125
-    // },
-
-    // Analog dead zones, 0..127. Anything up to min reads as centred, and the
-    // travel from there to max is stretched back over the whole range.
-    //
-    // "deadzones": {
-    //     "left_stick":    { "min": 1, "max": 127 },
-    //     "right_stick":   { "min": 1, "max": 127 },
-    //     "left_trigger":  { "min": 1, "max": 127 },
-    //     "right_trigger": { "min": 1, "max": 127 }
-    // }
 }
 )";
 }
 
 std::string DefaultGlobalJson() {
-    // Upstream writes the same thing into global.ini when it is missing, and
-    // for the same reason: a file nobody creates is a feature nobody finds.
-    // Empty of bindings on purpose -- it adds to whatever the game already has
-    // rather than replacing it.
     return R"({
     // Anything here is loaded for every game, on top of that game's own
     // bindings or default.json. A good place for something you always want,
@@ -188,17 +136,12 @@ std::string DefaultGlobalJson() {
 )";
 }
 
-// ── the file-creating half of the emulator's EnsureFiles() ───────────
-
 bool EnsureBindingsFiles() {
     std::error_code ec;
-
-    // Created even when empty, so it is an obvious place to put a per-game
-    // file -- and so the editor has somewhere to save one.
     const auto config_dir = UserRoot() / Common::FS::CUSTOM_INPUT_CONFIGS;
     fs::create_directories(config_dir, ec);
     if (ec) {
-        LOG_ERROR(Common_Filesystem, "Could not create {}: {}", config_dir.string(), ec.message());
+        LOG_ERROR(Input, "Could not create {}: {}", config_dir.string(), ec.message());
     }
 
     bool ok = true;
@@ -206,8 +149,7 @@ bool EnsureBindingsFiles() {
     const auto default_file = UserRoot() / "default.json";
     if (!fs::exists(default_file, ec) || ec) {
         if (WriteText(default_file, DefaultBindingsJson())) {
-            LOG_INFO(Common_Filesystem, "Wrote the default input bindings to {}",
-                     default_file.string());
+            LOG_INFO(Input, "Wrote the default input bindings to {}", default_file.string());
         } else {
             ok = false;
         }
@@ -216,8 +158,7 @@ bool EnsureBindingsFiles() {
     const auto global_file = UserRoot() / "global.json";
     if (!fs::exists(global_file, ec) || ec) {
         if (WriteText(global_file, DefaultGlobalJson())) {
-            LOG_INFO(Common_Filesystem, "Wrote an empty all-games bindings file to {}",
-                     global_file.string());
+            LOG_INFO(Input, "Wrote an empty all-games bindings file to {}", global_file.string());
         } else {
             ok = false;
         }

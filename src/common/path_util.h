@@ -37,14 +37,7 @@ constexpr auto HOME_DIR = "home";
 constexpr auto SYSMODULES_DIR = "sys_modules";
 constexpr auto LOG_DIR = "log";
 constexpr auto CUSTOM_CONFIGS = "custom_configs";
-// The emulator's own name for it, and the only one it looks in:
-// Core::Input::ConfigDir() is GetUserPath(UserDir) / "input_config", and
-// BindingsFile(game_id) reads "<that>/<title id>.json" -- see
-// src/core/input/input_config.cpp and docs/input-bindings.md section 1. It used
-// to say "custom_input_configs", which is a directory the emulator has never
-// heard of: per-game bindings written there were never loaded, and the game
-// list's "has a pad config" badge never lit up.
-constexpr auto CUSTOM_INPUT_CONFIGS = "input_config";
+constexpr auto CUSTOM_INPUT_CONFIGS = "custom_input_configs";
 constexpr auto CUSTOM_TROPHY = "custom_trophy";
 constexpr auto PATCHES_DIR = "patches";
 constexpr auto CHEATS_DIR = "cheats";
