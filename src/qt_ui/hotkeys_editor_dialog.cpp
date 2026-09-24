@@ -64,6 +64,36 @@ QString FriendlyHotkeyName(const std::string& id) {
     return words.join(' ');
 }
 
+QString HotKeyDeviceLabel(const std::vector<std::string>& input) {
+    bool keyboard = false;
+    bool mouse = false;
+    bool controller = false;
+    for (const auto& name : input) {
+        if (name == "unmapped") {
+            continue; // the vocabulary counts it as a key, but it is no device
+        }
+        if (std::find(Core::Input::kMouseInputNames.begin(), Core::Input::kMouseInputNames.end(),
+                      name) != Core::Input::kMouseInputNames.end()) {
+            mouse = true;
+        } else if (Core::Input::IsKnownKeyboardOrMouseInput(name)) {
+            keyboard = true;
+        } else if (Core::Input::IsKnownPadInputName(name)) {
+            controller = true;
+        }
+    }
+    QStringList kinds;
+    if (keyboard) {
+        kinds << QObject::tr("Keyboard");
+    }
+    if (mouse) {
+        kinds << QObject::tr("Mouse");
+    }
+    if (controller) {
+        kinds << QObject::tr("Controller");
+    }
+    return kinds.join(QStringLiteral(" + "));
+}
+
 KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QString& reason)
     : QDialog(parent), m_accepts(accepts), m_reason(reason) {
     setWindowTitle(tr("Capture Input"));
@@ -524,7 +554,11 @@ HotkeysEditorDialog::HotkeysEditorDialog(std::shared_ptr<IpcClient> ipc_client,
 
     auto* outer = new QVBoxLayout(this);
 
-    outer->addWidget(new GamepadSelector(this));
+    auto* note = new QLabel(tr("Hotkeys work from the keyboard, the mouse or a controller. Hold up "
+                               "to 3 inputs together for one binding."),
+                            this);
+    note->setWordWrap(true);
+    outer->addWidget(note);
 
     auto* main_layout = new QHBoxLayout();
 
@@ -557,6 +591,11 @@ HotkeysEditorDialog::HotkeysEditorDialog(std::shared_ptr<IpcClient> ipc_client,
 
     main_layout->addLayout(right_layout, 2);
     outer->addLayout(main_layout);
+
+    // Only for capturing controller input: the capture dialog listens to this one.
+    auto* selector = new GamepadSelector(this);
+    selector->SetCaption(tr("Listen to controller:"));
+    outer->addWidget(selector);
 
     auto* problems_box = new QGroupBox(tr("Problems"), this);
     auto* problems_layout = new QVBoxLayout(problems_box);
@@ -621,7 +660,10 @@ void HotkeysEditorDialog::RefreshBindingsList() {
         return;
     }
     for (const auto& binding : m_config->GetBindings(name)) {
-        m_bindings_list->addItem(DisplayChord(binding.input));
+        const QString device = HotKeyDeviceLabel(binding.input);
+        m_bindings_list->addItem(device.isEmpty()
+                                     ? DisplayChord(binding.input)
+                                     : tr("%1  (%2)").arg(DisplayChord(binding.input), device));
     }
     m_default_label->setText(
         tr("Default: %1")

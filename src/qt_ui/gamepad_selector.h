@@ -30,6 +30,7 @@ public:
     [[nodiscard]] QString SelectedName() const;
     bool SelectByGuid(const QString& guid);
     void HideChooser();
+    void SetCaption(const QString& text);
 
 signals:
     void ControlPressed(const QString& name);
@@ -47,6 +48,7 @@ private:
     void OpenSelected(int index);
     void CloseGamepad();
 
+    QLabel* m_caption_label = nullptr;
     QComboBox* m_box = nullptr;
     QLabel* m_id_label = nullptr;
 

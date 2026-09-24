@@ -109,7 +109,8 @@ GamepadSelector::GamepadSelector(QWidget* parent) : QWidget(parent) {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(6);
 
-    layout->addWidget(new QLabel(tr("Controller:"), this));
+    m_caption_label = new QLabel(tr("Controller:"), this);
+    layout->addWidget(m_caption_label);
     m_box = new QComboBox(this);
     m_box->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     layout->addWidget(m_box, 1);
@@ -252,6 +253,10 @@ bool GamepadSelector::SelectByGuid(const QString& guid) {
     m_refreshing = false;
     OpenSelected(index);
     return true;
+}
+
+void GamepadSelector::SetCaption(const QString& text) {
+    m_caption_label->setText(text);
 }
 
 void GamepadSelector::HideChooser() {
