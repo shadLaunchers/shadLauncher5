@@ -200,12 +200,14 @@ void MainWindow::createConnects() {
     });
 
     connect(ui->actionHotkeys, &QAction::triggered, this, [this] {
-        HotkeysEditorDialog dialog(this);
+        HotkeysEditorDialog dialog(m_ipc_client, EmulatorState::GetInstance()->IsGameRunning(),
+                                   RunningGameSerial(), this);
         dialog.exec();
     });
 
     connect(ui->actionInputBindings, &QAction::triggered, this, [this] {
-        InputBindingsDialog dialog(this);
+        InputBindingsDialog dialog(m_ipc_client, EmulatorState::GetInstance()->IsGameRunning(),
+                                   RunningGameSerial(), this);
         dialog.exec();
     });
 
@@ -309,7 +311,9 @@ void MainWindow::createConnects() {
             [this]() { ui->mw_searchbar->setFocus(); });
 
     connect(ui->actionManage_Users, &QAction::triggered, this, [this] {
-        UserManagerDialog user_manager(m_gui_settings, m_emu_settings, this);
+        UserManagerDialog user_manager(m_gui_settings, m_emu_settings, m_ipc_client,
+                                       EmulatorState::GetInstance()->IsGameRunning(),
+                                       RunningGameSerial(), this);
         user_manager.exec();
         m_game_list_frame->Refresh(true); // New user may have different games unlocked.
     });
@@ -361,7 +365,8 @@ void MainWindow::createConnects() {
     // editor the Settings menu opens, one click closer -- controls are the
     // thing people come back to change.
     connect(ui->toolbar_controls, &QAction::triggered, this, [this] {
-        InputBindingsDialog dialog(this);
+        InputBindingsDialog dialog(m_ipc_client, EmulatorState::GetInstance()->IsGameRunning(),
+                                   RunningGameSerial(), this);
         dialog.exec();
     });
 
@@ -864,6 +869,13 @@ void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
     QString workDir = QDir::currentPath();
     m_ipc_client->startEmulator(fileInfo, final_args, workDir);
     // TODO//m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
+}
+
+std::string MainWindow::RunningGameSerial() const {
+    if (!EmulatorState::GetInstance()->IsGameRunning() || !last_game_info) {
+        return {};
+    }
+    return last_game_info->info.serial;
 }
 
 void MainWindow::RunGame() {

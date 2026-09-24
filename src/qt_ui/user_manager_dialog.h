@@ -13,14 +13,16 @@
 
 class GUISettings;
 class EmulatorSettingsImpl;
+class IpcClient;
 
 class UserManagerDialog : public QDialog {
     Q_OBJECT
 
 public:
-    explicit UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
-                               std::shared_ptr<EmulatorSettingsImpl> emulator_settings,
-                               QWidget* parent = nullptr);
+    UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
+                      std::shared_ptr<EmulatorSettingsImpl> emulator_settings,
+                      std::shared_ptr<IpcClient> ipc_client, bool is_game_running,
+                      std::string running_serial, QWidget* parent = nullptr);
 
 private Q_SLOTS:
     void OnUserCreate();
@@ -71,6 +73,13 @@ private:
     QTableWidget* m_table = nullptr;
     std::shared_ptr<GUISettings> m_gui_settings;
     std::shared_ptr<EmulatorSettingsImpl> m_emu_settings;
+    std::shared_ptr<IpcClient> m_ipc_client;
+    bool m_game_running = false;
+    std::string m_running_serial;
+
+    void ReloadUsers();
+    void ReloadRunningGame();
+    void NoteAppliesNextLaunch();
     int m_active_user;
 
     QPushButton* push_create_user;

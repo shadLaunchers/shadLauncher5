@@ -4,6 +4,7 @@
 #pragma once
 
 #include <memory>
+#include <string>
 #include <QDialog>
 #include <QListWidget>
 #include <SDL3/SDL.h>
@@ -12,6 +13,7 @@
 #include "core/input/hotkeys_config.h"
 
 class QLabel;
+class IpcClient;
 
 #ifdef _WIN32
 #define LCTRL_KEY 29
@@ -70,7 +72,8 @@ private:
 class HotkeysEditorDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit HotkeysEditorDialog(QWidget* parent = nullptr);
+    HotkeysEditorDialog(std::shared_ptr<IpcClient> ipc_client, bool is_game_running,
+                        std::string running_serial, QWidget* parent = nullptr);
 
 private slots:
     void OnAddWay();
@@ -85,6 +88,8 @@ protected:
 
 private:
     [[nodiscard]] bool ConfirmDiscardingEdits();
+    bool SaveAndReload();
+    void ReloadRunningGame();
     void PopulateHotkeyList();
     void RefreshBindingsList();
     void RefreshProblemsList();
@@ -97,4 +102,7 @@ private:
     QListWidget* m_problems_list = nullptr;
 
     std::unique_ptr<Core::Input::HotkeysConfig> m_config;
+    std::shared_ptr<IpcClient> m_ipc_client;
+    bool m_game_running = false;
+    std::string m_running_serial;
 };

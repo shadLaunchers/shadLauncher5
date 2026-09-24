@@ -1524,14 +1524,9 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
     connect(configure_input, &QAction::triggered, frame, [frame, serial, gameinfo] {
         const auto path = Common::FS::GetUserPath(Common::FS::PathType::CustomInputConfigs) /
                           (serial + ".json").toStdString();
-
-        InputBindingsDialog dlg(path, frame);
+        InputBindingsDialog dlg(path, frame->m_ipc_client,
+                                EmulatorState::GetInstance()->IsGameRunning(), {}, frame);
         dlg.exec();
-
-        // The file only appears once something is saved -- opening the editor
-        // and closing it again should not claim the game has bindings of its
-        // own. So the badge follows the file, not the fact that the dialog
-        // was opened.
         std::error_code ec;
         const bool exists = std::filesystem::is_regular_file(path, ec) && !ec;
         if (exists != gameinfo->has_custom_pad_config) {

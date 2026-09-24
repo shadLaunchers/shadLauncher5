@@ -9,6 +9,7 @@
 #include <core/user_settings.h>
 #include "common/input.h"
 #include "core/emulator_settings.h"
+#include "core/ipc/ipc_client.h"
 #include "gamepad_selector.h"
 #include "gui_settings.h"
 #include "table_item_delegate.h"
@@ -16,9 +17,11 @@
 
 UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
                                      std::shared_ptr<EmulatorSettingsImpl> emulator_settings,
-                                     QWidget* parent)
+                                     std::shared_ptr<IpcClient> ipc_client, bool is_game_running,
+                                     std::string running_serial, QWidget* parent)
     : QDialog(parent), m_gui_settings(std::move(gui_settings)),
-      m_emu_settings(std::move(emulator_settings)) {
+      m_emu_settings(std::move(emulator_settings)), m_ipc_client(std::move(ipc_client)),
+      m_game_running(is_game_running), m_running_serial(std::move(running_serial)) {
     setWindowTitle(tr("User Manager"));
     setMinimumSize(QSize(900, 400));
     setModal(true);
@@ -88,6 +91,7 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     vbox_main->addLayout(hbox_buttons);
     setLayout(vbox_main);
 
+    ReloadUsers();
     m_active_user = UserManagement.GetDefaultUser().user_id;
     UpdateTable();
 
@@ -227,7 +231,26 @@ u32 UserManagerDialog::GetUserKey() const {
     return (it != users.end()) ? id : 0;
 }
 
+void UserManagerDialog::ReloadUsers() {
+    UserSettings.Load();
+}
+
+void UserManagerDialog::ReloadRunningGame() {
+    if (m_ipc_client && m_game_running) {
+        m_ipc_client->reloadInputs(m_running_serial);
+    }
+}
+
+void UserManagerDialog::NoteAppliesNextLaunch() {
+    if (m_game_running) {
+        QMessageBox::information(this, tr("Set Controller Port"),
+                                 tr("The running game keeps its current ports. This change "
+                                    "applies the next time a game starts."));
+    }
+}
+
 void UserManagerDialog::OnUserCreate() {
+    ReloadUsers();
     const auto& users = UserManagement.GetAllUsers();
 
     if (users.size() >= 16) {
@@ -275,6 +298,7 @@ void UserManagerDialog::OnUserCreate() {
 }
 
 void UserManagerDialog::OnUserRemove() {
+    ReloadUsers();
     u32 id = GetUserKey();
     if (id == 0)
         return;
@@ -287,6 +311,7 @@ void UserManagerDialog::OnUserRemove() {
 }
 
 void UserManagerDialog::OnUserRename() {
+    ReloadUsers();
     u32 id = GetUserKey();
     if (id == 0)
         return;
@@ -321,15 +346,18 @@ void UserManagerDialog::OnUserRename() {
 }
 
 void UserManagerDialog::OnUserSetDefault() {
+    ReloadUsers();
     u32 id = GetUserKey();
     if (id == 0)
         return;
     UserManagement.SetDefaultUser(id);
     m_active_user = id;
     UpdateTable();
+    NoteAppliesNextLaunch(); // the default user is the one on port 1
 }
 
 void UserManagerDialog::OnUserSetColor() {
+    ReloadUsers();
     u32 id = GetUserKey();
     if (id == 0)
         return;
@@ -352,6 +380,7 @@ void UserManagerDialog::OnUserSetColor() {
 }
 
 void UserManagerDialog::OnUserSetControllerPort() {
+    ReloadUsers();
     const u32 user_id = GetUserKey();
     if (user_id == 0)
         return;
@@ -370,6 +399,7 @@ void UserManagerDialog::OnUserSetControllerPort() {
     if (ok) {
         UserManagement.SetControllerPort(user_id, new_port);
         UpdateTable();
+        NoteAppliesNextLaunch();
     }
 }
 
@@ -391,6 +421,7 @@ QString UserManagerDialog::DescribePinnedDevice(const User& user) {
 }
 
 void UserManagerDialog::OnUserAssignDevice() {
+    ReloadUsers();
     const u32 user_id = GetUserKey();
     if (user_id == 0) {
         return;
@@ -488,9 +519,11 @@ void UserManagerDialog::OnUserAssignDevice() {
 
     UserManagement.SetPinnedDevice(user_id, guid, serial, path);
     UpdateTable();
+    ReloadRunningGame();
 }
 
 void UserManagerDialog::OnUserClearPinnedDevice() {
+    ReloadUsers();
     const u32 user_id = GetUserKey();
     if (user_id == 0) {
         return;
@@ -511,6 +544,7 @@ void UserManagerDialog::OnUserClearPinnedDevice() {
 
     UserManagement.ClearPinnedDevice(user_id);
     UpdateTable();
+    ReloadRunningGame();
 }
 
 void UserManagerDialog::OnSort(int logicalIndex) {
@@ -527,7 +561,11 @@ void UserManagerDialog::OnSort(int logicalIndex) {
 }
 
 void UserManagerDialog::closeEvent(QCloseEvent* event) {
-    UserSettings.Save();
+    // Every change above is already saved. While a game runs, saving again
+    // could write back over an assignment made in the game since.
+    if (!m_game_running) {
+        UserSettings.Save();
+    }
     m_gui_settings->SetValue(GUI::user_manager_geometry, saveGeometry());
     QDialog::closeEvent(event);
 }

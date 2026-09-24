@@ -6,6 +6,7 @@
 #include <array>
 #include <filesystem>
 #include <memory>
+#include <string>
 #include <QDialog>
 #include <QListWidget>
 #include <QSet>
@@ -18,6 +19,7 @@ class QPushButton;
 class QTabWidget;
 class GamepadDiagramWidget;
 class GamepadSelector;
+class IpcClient;
 
 class PortBindingsPage : public QWidget {
     Q_OBJECT
@@ -75,9 +77,11 @@ private:
 class InputBindingsDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit InputBindingsDialog(const std::filesystem::path& targetFile,
-                                 QWidget* parent = nullptr);
-    explicit InputBindingsDialog(QWidget* parent = nullptr);
+    InputBindingsDialog(const std::filesystem::path& targetFile,
+                        std::shared_ptr<IpcClient> ipc_client, bool is_game_running,
+                        std::string running_serial, QWidget* parent = nullptr);
+    InputBindingsDialog(std::shared_ptr<IpcClient> ipc_client, bool is_game_running,
+                        std::string running_serial, QWidget* parent = nullptr);
 
 private slots:
     void OnSave();
@@ -105,8 +109,13 @@ private:
     void RefreshSettingsTitles(bool mouse_present, bool deadzones_present);
     void RefreshLoadedState();
     [[nodiscard]] bool ConfirmDiscardingEdits();
+    bool SaveAndReload();
+    [[nodiscard]] bool SavedFileAffectsRunningGame() const;
 
     std::filesystem::path m_global_json_path;
+    std::shared_ptr<IpcClient> m_ipc_client;
+    bool m_game_running = false;
+    std::string m_running_serial;
     std::unique_ptr<Core::Input::BindingsConfig> m_config;
     std::unique_ptr<Core::Input::BindingsConfig> m_global_overlay;
     QString m_overlay_label;

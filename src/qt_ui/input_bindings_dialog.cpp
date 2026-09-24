@@ -28,6 +28,7 @@
 #include "common/path_util.h"
 #include "core/input/input_defaults.h"
 #include "core/input/input_ids.h"
+#include "core/ipc/ipc_client.h"
 #include "core/user_settings.h"
 #include "game_info.h"
 #include "gamepad_diagram_widget.h"
@@ -648,9 +649,14 @@ void PortBindingsPage::OnRemoveSelected() {
     emit BindingsChanged();
 }
 
-InputBindingsDialog::InputBindingsDialog(const std::filesystem::path& targetFile, QWidget* parent)
+InputBindingsDialog::InputBindingsDialog(const std::filesystem::path& targetFile,
+                                         std::shared_ptr<IpcClient> ipc_client,
+                                         bool is_game_running, std::string running_serial,
+                                         QWidget* parent)
     : QDialog(parent),
       m_global_json_path(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "global.json"),
+      m_ipc_client(std::move(ipc_client)), m_game_running(is_game_running),
+      m_running_serial(std::move(running_serial)),
       m_config(std::make_unique<Core::Input::BindingsConfig>()) {
     Core::Input::EnsureBindingsFiles();
 
@@ -660,8 +666,11 @@ InputBindingsDialog::InputBindingsDialog(const std::filesystem::path& targetFile
     BuildUi();
 }
 
-InputBindingsDialog::InputBindingsDialog(QWidget* parent)
+InputBindingsDialog::InputBindingsDialog(std::shared_ptr<IpcClient> ipc_client,
+                                         bool is_game_running, std::string running_serial,
+                                         QWidget* parent)
     : InputBindingsDialog(Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "global.json",
+                          std::move(ipc_client), is_game_running, std::move(running_serial),
                           parent) {}
 
 void InputBindingsDialog::BuildUi() {
@@ -835,9 +844,29 @@ bool InputBindingsDialog::ConfirmDiscardingEdits() {
         return false;
     }
     if (answer == QMessageBox::Save) {
-        return m_config->Save();
+        return SaveAndReload();
     }
     return true;
+}
+
+bool InputBindingsDialog::SaveAndReload() {
+    if (!m_config->Save()) {
+        return false;
+    }
+    if (m_ipc_client && m_game_running && SavedFileAffectsRunningGame()) {
+        m_ipc_client->reloadInputs(m_running_serial);
+    }
+    return true;
+}
+
+bool InputBindingsDialog::SavedFileAffectsRunningGame() const {
+    if (m_running_serial.empty()) {
+        return true;
+    }
+    const auto& path = m_config->FilePath();
+    return path == m_global_json_path ||
+           path == Common::FS::GetUserPath(Common::FS::PathType::CustomInputConfigs) /
+                       (m_running_serial + ".json");
 }
 
 void InputBindingsDialog::OnRevert() {
@@ -1051,7 +1080,7 @@ void InputBindingsDialog::RefreshProblemsList() {
 }
 
 void InputBindingsDialog::OnSave() {
-    if (!m_config->Save()) {
+    if (!SaveAndReload()) {
         QMessageBox::critical(
             this, tr("Input Bindings"),
             tr("Failed to write %1.").arg(QString::fromStdString(m_config->FilePath().string())));

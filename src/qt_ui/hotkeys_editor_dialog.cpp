@@ -20,6 +20,7 @@
 
 #include "common/input.h"
 #include "core/input/input_ids.h"
+#include "core/ipc/ipc_client.h"
 #include "gamepad_selector.h"
 #include "hotkeys_editor_dialog.h"
 #include "sdl_event_wrapper.h"
@@ -510,8 +511,12 @@ void KeyCaptureDialog::UpdatePreview() {
     }
     m_preview_label->setText(parts.join(" + "));
 }
-HotkeysEditorDialog::HotkeysEditorDialog(QWidget* parent)
-    : QDialog(parent), m_config(std::make_unique<Core::Input::HotkeysConfig>()) {
+HotkeysEditorDialog::HotkeysEditorDialog(std::shared_ptr<IpcClient> ipc_client,
+                                         bool is_game_running, std::string running_serial,
+                                         QWidget* parent)
+    : QDialog(parent), m_config(std::make_unique<Core::Input::HotkeysConfig>()),
+      m_ipc_client(std::move(ipc_client)), m_game_running(is_game_running),
+      m_running_serial(std::move(running_serial)) {
     setWindowTitle(tr("Hotkeys"));
     resize(560, 420);
 
@@ -691,12 +696,27 @@ void HotkeysEditorDialog::OnResetToDefaults() {
         QMessageBox::critical(this, tr("Reset Hotkeys"), tr("Failed to remove hotkeys.json."));
         return;
     }
+    ReloadRunningGame(); // the emulator writes the defaults again as it reloads
     RefreshBindingsList();
     RefreshProblemsList();
 }
 
-void HotkeysEditorDialog::OnSave() {
+void HotkeysEditorDialog::ReloadRunningGame() {
+    if (m_ipc_client && m_game_running) {
+        m_ipc_client->reloadInputs(m_running_serial);
+    }
+}
+
+bool HotkeysEditorDialog::SaveAndReload() {
     if (!m_config->Save()) {
+        return false;
+    }
+    ReloadRunningGame();
+    return true;
+}
+
+void HotkeysEditorDialog::OnSave() {
+    if (!SaveAndReload()) {
         QMessageBox::critical(this, tr("Hotkeys"), tr("Failed to write hotkeys.json."));
         return;
     }
@@ -713,7 +733,7 @@ bool HotkeysEditorDialog::ConfirmDiscardingEdits() {
     if (answer == QMessageBox::Cancel) {
         return false;
     }
-    if (answer == QMessageBox::Save && !m_config->Save()) {
+    if (answer == QMessageBox::Save && !SaveAndReload()) {
         QMessageBox::critical(this, tr("Hotkeys"), tr("Failed to write hotkeys.json."));
         return false;
     }
