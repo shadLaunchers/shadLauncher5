@@ -74,6 +74,7 @@ private:
     void LoadVersionComboBox();
     void updateLanguageActions(const QStringList& language_codes, const QString& language_code);
     void RunGame();
+    [[nodiscard]] std::string RunningGameSerial() const;
     void onGameClosed();
     void RestartEmulator();
 

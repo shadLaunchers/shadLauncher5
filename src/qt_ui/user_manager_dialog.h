@@ -9,17 +9,20 @@
 #include <string>
 #include <QDialog>
 #include <QTableWidget>
+#include <core/user_manager.h>
 
 class GUISettings;
 class EmulatorSettingsImpl;
+class IpcClient;
 
 class UserManagerDialog : public QDialog {
     Q_OBJECT
 
 public:
-    explicit UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
-                               std::shared_ptr<EmulatorSettingsImpl> emulator_settings,
-                               QWidget* parent = nullptr);
+    UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
+                      std::shared_ptr<EmulatorSettingsImpl> emulator_settings,
+                      std::shared_ptr<IpcClient> ipc_client, bool is_game_running,
+                      std::string running_serial, QWidget* parent = nullptr);
 
 private Q_SLOTS:
     void OnUserCreate();
@@ -28,6 +31,8 @@ private Q_SLOTS:
     void OnUserSetDefault();
     void OnUserSetColor();
     void OnUserSetControllerPort();
+    void OnUserAssignDevice();
+    void OnUserClearPinnedDevice();
     void OnSort(int logicalIndex);
 
 private:
@@ -59,6 +64,7 @@ private:
             return "Unknown";
         }
     }
+    static QString DescribePinnedDevice(const User& user);
     void UpdateTable(bool mark_only = false);
     u32 GetUserKey() const;
     void ShowContextMenu(const QPoint& pos);
@@ -67,6 +73,13 @@ private:
     QTableWidget* m_table = nullptr;
     std::shared_ptr<GUISettings> m_gui_settings;
     std::shared_ptr<EmulatorSettingsImpl> m_emu_settings;
+    std::shared_ptr<IpcClient> m_ipc_client;
+    bool m_game_running = false;
+    std::string m_running_serial;
+
+    void ReloadUsers();
+    void ReloadRunningGame();
+    void NoteAppliesNextLaunch();
     int m_active_user;
 
     QPushButton* push_create_user;
@@ -75,6 +88,8 @@ private:
     QPushButton* push_set_default;
     QPushButton* push_set_color;
     QPushButton* push_set_controller;
+    QPushButton* push_assign_device;
+    QPushButton* push_clear_device;
     QPushButton* push_close;
 
     int m_sort_column = 1;

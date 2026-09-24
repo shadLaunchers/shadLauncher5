@@ -7,18 +7,23 @@
 #include <QtWidgets>
 #include <common/path_util.h>
 #include <core/user_settings.h>
+#include "common/input.h"
 #include "core/emulator_settings.h"
+#include "core/ipc/ipc_client.h"
+#include "gamepad_selector.h"
 #include "gui_settings.h"
 #include "table_item_delegate.h"
 #include "user_manager_dialog.h"
 
 UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
                                      std::shared_ptr<EmulatorSettingsImpl> emulator_settings,
-                                     QWidget* parent)
+                                     std::shared_ptr<IpcClient> ipc_client, bool is_game_running,
+                                     std::string running_serial, QWidget* parent)
     : QDialog(parent), m_gui_settings(std::move(gui_settings)),
-      m_emu_settings(std::move(emulator_settings)) {
+      m_emu_settings(std::move(emulator_settings)), m_ipc_client(std::move(ipc_client)),
+      m_game_running(is_game_running), m_running_serial(std::move(running_serial)) {
     setWindowTitle(tr("User Manager"));
-    setMinimumSize(QSize(800, 400));
+    setMinimumSize(QSize(900, 400));
     setModal(true);
 
     // Table
@@ -27,10 +32,11 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     m_table->setSelectionMode(QAbstractItemView::SingleSelection);
     m_table->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_table->setContextMenuPolicy(Qt::CustomContextMenu);
-    m_table->setColumnCount(4); // User ID, Name, Color, Port
+    m_table->setColumnCount(5); // User ID, Name, Color, Port, Pinned device
     m_table->setCornerButtonEnabled(false);
     m_table->setAlternatingRowColors(true);
-    m_table->setHorizontalHeaderLabels({"User ID", "User Name", "Color", "Controller Port"});
+    m_table->setHorizontalHeaderLabels(
+        {"User ID", "User Name", "Color", "Controller Port", "Assigned Device"});
     m_table->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setDefaultSectionSize(150);
@@ -54,6 +60,14 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
 
     push_set_controller = new QPushButton(tr("&Set Controller Port"), this);
     push_set_controller->setAutoDefault(false);
+    push_assign_device = new QPushButton(tr("&Assign Device"), this);
+    push_assign_device->setAutoDefault(false);
+    push_assign_device->setToolTip(tr("Assign a controller or the keyboard to this user's port."));
+    push_clear_device = new QPushButton(tr("&Unassign Device"), this);
+    push_clear_device->setAutoDefault(false);
+    push_clear_device->setToolTip(
+        tr("Remove the device assigned to this user's port. Controllers then fill it in the "
+           "order they connect."));
 
     push_close = new QPushButton(tr("&Close"), this);
     push_close->setAutoDefault(false);
@@ -66,6 +80,8 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     hbox_buttons->addWidget(push_set_default);
     hbox_buttons->addWidget(push_set_color);
     hbox_buttons->addWidget(push_set_controller);
+    hbox_buttons->addWidget(push_assign_device);
+    hbox_buttons->addWidget(push_clear_device);
     hbox_buttons->addStretch();
     hbox_buttons->addWidget(push_close);
 
@@ -75,6 +91,7 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     vbox_main->addLayout(hbox_buttons);
     setLayout(vbox_main);
 
+    ReloadUsers();
     m_active_user = UserManagement.GetDefaultUser().user_id;
     UpdateTable();
 
@@ -89,6 +106,11 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
         push_set_default->setEnabled(valid && key != m_active_user);
         push_set_color->setEnabled(valid);
         push_set_controller->setEnabled(valid);
+        push_assign_device->setEnabled(valid);
+        // Only meaningful when there is actually a pin to clear.
+        const User* selected = valid ? UserManagement.GetUserByID(GetUserKey()) : nullptr;
+        push_clear_device->setEnabled(selected != nullptr &&
+                                      !DescribePinnedDevice(*selected).isEmpty());
     };
 
     enable_buttons();
@@ -101,6 +123,10 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     connect(push_set_color, &QAbstractButton::clicked, this, &UserManagerDialog::OnUserSetColor);
     connect(push_set_controller, &QAbstractButton::clicked, this,
             &UserManagerDialog::OnUserSetControllerPort);
+    connect(push_assign_device, &QAbstractButton::clicked, this,
+            &UserManagerDialog::OnUserAssignDevice);
+    connect(push_clear_device, &QAbstractButton::clicked, this,
+            &UserManagerDialog::OnUserClearPinnedDevice);
     connect(push_close, &QAbstractButton::clicked, this, &QDialog::accept);
     connect(m_table, &QTableWidget::itemSelectionChanged, this, enable_buttons);
     connect(m_table->horizontalHeader(), &QHeaderView::sectionClicked, this,
@@ -159,6 +185,18 @@ void UserManagerDialog::UpdateTable(bool mark_only) {
         controller_item->setFlags(controller_item->flags() & ~Qt::ItemIsEditable);
         m_table->setItem(row, 3, controller_item);
 
+        // Pinned device
+        const QString pinned = DescribePinnedDevice(u);
+        QTableWidgetItem* device_item = new QTableWidgetItem(pinned.isEmpty() ? "-" : pinned);
+        device_item->setFlags(device_item->flags() & ~Qt::ItemIsEditable);
+        if (!pinned.isEmpty()) {
+            device_item->setToolTip(tr("GUID: %1\nSerial: %2\nPath: %3")
+                                        .arg(QString::fromStdString(u.device_guid),
+                                             QString::fromStdString(u.device_serial),
+                                             QString::fromStdString(u.device_path)));
+        }
+        m_table->setItem(row, 4, device_item);
+
         // Bold if active
         bool is_active = (m_active_user == u.user_id);
         if (is_active) {
@@ -166,6 +204,7 @@ void UserManagerDialog::UpdateTable(bool mark_only) {
             username_item->setFont(bold_font);
             color_item->setFont(bold_font);
             controller_item->setFont(bold_font);
+            device_item->setFont(bold_font);
         }
     }
 
@@ -192,7 +231,26 @@ u32 UserManagerDialog::GetUserKey() const {
     return (it != users.end()) ? id : 0;
 }
 
+void UserManagerDialog::ReloadUsers() {
+    UserSettings.Load();
+}
+
+void UserManagerDialog::ReloadRunningGame() {
+    if (m_ipc_client && m_game_running) {
+        m_ipc_client->reloadInputs(m_running_serial);
+    }
+}
+
+void UserManagerDialog::NoteAppliesNextLaunch() {
+    if (m_game_running) {
+        QMessageBox::information(this, tr("Set Controller Port"),
+                                 tr("The running game keeps its current ports. This change "
+                                    "applies the next time a game starts."));
+    }
+}
+
 void UserManagerDialog::OnUserCreate() {
+    ReloadUsers();
     const auto& users = UserManagement.GetAllUsers();
 
     if (users.size() >= 16) {
@@ -240,6 +298,7 @@ void UserManagerDialog::OnUserCreate() {
 }
 
 void UserManagerDialog::OnUserRemove() {
+    ReloadUsers();
     u32 id = GetUserKey();
     if (id == 0)
         return;
@@ -252,6 +311,7 @@ void UserManagerDialog::OnUserRemove() {
 }
 
 void UserManagerDialog::OnUserRename() {
+    ReloadUsers();
     u32 id = GetUserKey();
     if (id == 0)
         return;
@@ -286,15 +346,18 @@ void UserManagerDialog::OnUserRename() {
 }
 
 void UserManagerDialog::OnUserSetDefault() {
+    ReloadUsers();
     u32 id = GetUserKey();
     if (id == 0)
         return;
     UserManagement.SetDefaultUser(id);
     m_active_user = id;
     UpdateTable();
+    NoteAppliesNextLaunch(); // the default user is the one on port 1
 }
 
 void UserManagerDialog::OnUserSetColor() {
+    ReloadUsers();
     u32 id = GetUserKey();
     if (id == 0)
         return;
@@ -317,6 +380,7 @@ void UserManagerDialog::OnUserSetColor() {
 }
 
 void UserManagerDialog::OnUserSetControllerPort() {
+    ReloadUsers();
     const u32 user_id = GetUserKey();
     if (user_id == 0)
         return;
@@ -335,7 +399,152 @@ void UserManagerDialog::OnUserSetControllerPort() {
     if (ok) {
         UserManagement.SetControllerPort(user_id, new_port);
         UpdateTable();
+        NoteAppliesNextLaunch();
     }
+}
+
+QString UserManagerDialog::DescribePinnedDevice(const User& user) {
+    if (user.device_guid.empty()) {
+        return {};
+    }
+    if (user.device_guid == "keyboard") {
+        return tr("Keyboard");
+    }
+    const QString guid = QString::fromStdString(user.device_guid).right(16);
+    if (!user.device_serial.empty()) {
+        return tr("%1 (serial %2)").arg(guid, QString::fromStdString(user.device_serial));
+    }
+    if (!user.device_path.empty()) {
+        return tr("%1 (path %2)").arg(guid, QString::fromStdString(user.device_path));
+    }
+    return guid;
+}
+
+void UserManagerDialog::OnUserAssignDevice() {
+    ReloadUsers();
+    const u32 user_id = GetUserKey();
+    if (user_id == 0) {
+        return;
+    }
+    User* user = UserManagement.GetUserByID(user_id);
+    if (user == nullptr) {
+        return;
+    }
+
+    if (user->player_index < 1 || user->player_index > 4) {
+        QMessageBox::information(this, tr("Assign Device"),
+                                 tr("%1 has no controller port. Set a controller port first.")
+                                     .arg(QString::fromStdString(user->user_name)));
+        return;
+    }
+
+    QDialog picker(this);
+    picker.setWindowTitle(tr("Assign Device to %1").arg(QString::fromStdString(user->user_name)));
+    auto* layout = new QVBoxLayout(&picker);
+
+    auto* keyboard_radio = new QRadioButton(tr("Keyboard"), &picker);
+    auto* pad_radio = new QRadioButton(tr("Controller:"), &picker);
+    pad_radio->setChecked(true);
+    auto* selector = new GamepadSelector(&picker);
+
+    layout->addWidget(
+        new QLabel(tr("Which device should drive port %1?").arg(user->player_index), &picker));
+    layout->addWidget(pad_radio);
+    layout->addWidget(selector);
+    layout->addWidget(keyboard_radio);
+
+    auto* note = new QLabel(&picker);
+    note->setWordWrap(true);
+    layout->addWidget(note);
+
+    auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel, &picker);
+    layout->addWidget(buttons);
+    connect(buttons, &QDialogButtonBox::accepted, &picker, &QDialog::accept);
+    connect(buttons, &QDialogButtonBox::rejected, &picker, &QDialog::reject);
+
+    const auto refresh_note = [&] {
+        const bool pad = pad_radio->isChecked();
+        selector->setEnabled(pad);
+        if (!pad) {
+            note->clear();
+            buttons->button(QDialogButtonBox::Ok)->setEnabled(true);
+            return;
+        }
+        buttons->button(QDialogButtonBox::Ok)->setEnabled(selector->HasGamepad());
+        if (!selector->HasGamepad()) {
+            note->setText(tr("No controller is connected."));
+        } else if (selector->SelectionIsAmbiguous()) {
+            note->setText(tr("This controller reports no serial number or path, so another "
+                             "controller of the same model will also match."));
+        } else {
+            note->clear();
+        }
+    };
+    connect(pad_radio, &QRadioButton::toggled, &picker, refresh_note);
+    connect(selector, &GamepadSelector::SelectionChanged, &picker, refresh_note);
+    refresh_note();
+
+    if (picker.exec() != QDialog::Accepted) {
+        return;
+    }
+
+    std::string guid;
+    std::string serial;
+    std::string path;
+    if (keyboard_radio->isChecked()) {
+        guid = "keyboard";
+    } else {
+        guid = selector->SelectedGuid().toStdString();
+        serial = selector->SelectedSerial().toStdString();
+        path = selector->SelectedPath().toStdString();
+    }
+    if (guid.empty()) {
+        return;
+    }
+
+    // One device, one port: warn before quietly taking it off someone else.
+    for (const auto& other : UserManagement.GetAllUsers()) {
+        if (other.user_id != static_cast<s32>(user_id) &&
+            UserManager::IsSameDevice(other, guid, serial, path)) {
+            if (QMessageBox::question(this, tr("Assign Device"),
+                                      tr("That device is assigned to %1. Move it to %2?")
+                                          .arg(QString::fromStdString(other.user_name),
+                                               QString::fromStdString(user->user_name)),
+                                      QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+                return;
+            }
+            break;
+        }
+    }
+
+    UserManagement.SetPinnedDevice(user_id, guid, serial, path);
+    UpdateTable();
+    ReloadRunningGame();
+}
+
+void UserManagerDialog::OnUserClearPinnedDevice() {
+    ReloadUsers();
+    const u32 user_id = GetUserKey();
+    if (user_id == 0) {
+        return;
+    }
+    const User* user = UserManagement.GetUserByID(user_id);
+    if (user == nullptr || DescribePinnedDevice(*user).isEmpty()) {
+        return;
+    }
+
+    if (QMessageBox::question(
+            this, tr("Unassign Device"),
+            tr("Unassign %1 from %2's port?\n\nControllers will fill the port in the order "
+               "they connect.")
+                .arg(DescribePinnedDevice(*user), QString::fromStdString(user->user_name)),
+            QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+        return;
+    }
+
+    UserManagement.ClearPinnedDevice(user_id);
+    UpdateTable();
+    ReloadRunningGame();
 }
 
 void UserManagerDialog::OnSort(int logicalIndex) {
@@ -352,11 +561,11 @@ void UserManagerDialog::OnSort(int logicalIndex) {
 }
 
 void UserManagerDialog::closeEvent(QCloseEvent* event) {
-    // Persist user data (users.json). Individual edits already save on each
-    // change; this is a final safety flush. Note: m_emu_settings is a
-    // different store and does not hold user data, so saving it here would
-    // not persist user changes.
-    UserSettings.Save();
+    // Every change above is already saved. While a game runs, saving again
+    // could write back over an assignment made in the game since.
+    if (!m_game_running) {
+        UserSettings.Save();
+    }
     m_gui_settings->SetValue(GUI::user_manager_geometry, saveGeometry());
     QDialog::closeEvent(event);
 }
@@ -374,6 +583,8 @@ void UserManagerDialog::ShowContextMenu(const QPoint& pos) {
     QAction* default_user_act = context_menu->addAction(tr("&Set Default User"));
     QAction* color_act = context_menu->addAction(tr("&Set Color"));
     QAction* port_act = context_menu->addAction(tr("&Set Controller Port"));
+    QAction* assign_device_act = context_menu->addAction(tr("&Assign Device"));
+    QAction* clear_device_act = context_menu->addAction(tr("&Unassign Device"));
     QAction* show_dir_act = context_menu->addAction(tr("&Open User Directory"));
 
     bool enabled = key != m_active_user; // don't allow removing or setting default on active user
@@ -381,12 +592,18 @@ void UserManagerDialog::ShowContextMenu(const QPoint& pos) {
     remove_act->setEnabled(enabled);
     rename_act->setEnabled(enabled);
 
+    const User* selected = UserManagement.GetUserByID(key);
+    clear_device_act->setEnabled(selected != nullptr && !DescribePinnedDevice(*selected).isEmpty());
+
     // Connects and Events
     connect(remove_act, &QAction::triggered, this, &UserManagerDialog::OnUserRemove);
     connect(rename_act, &QAction::triggered, this, &UserManagerDialog::OnUserRename);
     connect(default_user_act, &QAction::triggered, this, &UserManagerDialog::OnUserSetDefault);
     connect(color_act, &QAction::triggered, this, &UserManagerDialog::OnUserSetColor);
     connect(port_act, &QAction::triggered, this, &UserManagerDialog::OnUserSetControllerPort);
+    connect(assign_device_act, &QAction::triggered, this, &UserManagerDialog::OnUserAssignDevice);
+    connect(clear_device_act, &QAction::triggered, this,
+            &UserManagerDialog::OnUserClearPinnedDevice);
 
     connect(show_dir_act, &QAction::triggered, this, [this, key]() {
         QString userDirPath;

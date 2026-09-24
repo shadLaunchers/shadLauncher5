@@ -1741,6 +1741,23 @@ bool GameListFrame::RemoveCustomConfiguration(const QString& serial, const game_
     return result;
 }
 
+bool GameListFrame::RemoveCustomInputConfiguration(const QString& serial, const game_info& game) {
+
+    const auto path = Common::FS::GetUserPath(Common::FS::PathType::CustomInputConfigs) /
+                      (serial + ".json").toStdString();
+
+    std::error_code ec;
+    bool result = std::filesystem::remove(path, ec);
+
+    if (result && game) {
+        game->has_custom_pad_config = false;
+    } else if (ec && ec.value() != ENOENT) {
+        result = false;
+    }
+
+    return result;
+}
+
 void GameListFrame::ShowContextMenu(const QPoint& pos) {
     QPoint global_pos;
     game_info gameinfo;

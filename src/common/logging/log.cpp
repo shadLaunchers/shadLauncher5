@@ -29,6 +29,7 @@ std::unordered_map<std::string_view, std::shared_ptr<spdlog::logger>> ALL_LOGGER
     {Class::Core, nullptr},
     {Class::Debug, nullptr},
     {Class::Frontend, nullptr},
+    {Class::Input, nullptr},
     {Class::IPC, nullptr},
     {Class::Lib, nullptr},
     {Class::Loader, nullptr},

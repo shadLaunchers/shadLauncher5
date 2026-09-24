@@ -42,6 +42,7 @@
 #include "game_list_frame.h"
 #include "gui_application.h"
 #include "gui_settings.h"
+#include "input_bindings_dialog.h"
 #include "localized.h"
 #include "npbind_dialog.h"
 #include "param_viewer_dialog.h"
@@ -927,6 +928,14 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
                                        ? tr("&Change Custom Configuration")
                                        : tr("&Create Custom Configuration From Global Settings"));
 
+    // The game's own bindings, custom_input_configs/<title id>.json -- a different
+    // file from the settings above, and independent of it: a game can have
+    // one, the other, both or neither, which is why the list draws a badge
+    // for each.
+    QAction* configure_input =
+        addAction(gameinfo->has_custom_pad_config ? tr("Change Custom &Input Settings")
+                                                  : tr("Create Custom &Input Settings"));
+
     // this will work only for separate updates install (-UPDATE or -patch folders)
     const std::string update_path = current_game.update_path;
 
@@ -1341,6 +1350,14 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
             }
         });
     }
+    if (gameinfo->has_custom_pad_config) {
+        QAction* remove_custom_input = delete_menu->addAction(tr("Remove Custom &Input Settings"));
+        connect(remove_custom_input, &QAction::triggered, frame, [frame, serial, gameinfo]() {
+            if (frame->RemoveCustomInputConfiguration(serial, gameinfo)) {
+                frame->ShowCustomConfigIcon(gameinfo);
+            }
+        });
+    }
     connect(delete_save_data, &QAction::triggered, frame,
             [=] { deleteHandler(GameListFrame::DeleteType::SaveData); });
     connect(delete_DLC, &QAction::triggered, frame,
@@ -1503,6 +1520,20 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
     };
     connect(configure, &QAction::triggered, frame,
             [configure_dialog = std::move(configure_dialog)]() { configure_dialog(true); });
+
+    connect(configure_input, &QAction::triggered, frame, [frame, serial, gameinfo] {
+        const auto path = Common::FS::GetUserPath(Common::FS::PathType::CustomInputConfigs) /
+                          (serial + ".json").toStdString();
+        InputBindingsDialog dlg(path, frame->m_ipc_client,
+                                EmulatorState::GetInstance()->IsGameRunning(), {}, frame);
+        dlg.exec();
+        std::error_code ec;
+        const bool exists = std::filesystem::is_regular_file(path, ec) && !ec;
+        if (exists != gameinfo->has_custom_pad_config) {
+            gameinfo->has_custom_pad_config = exists;
+            frame->ShowCustomConfigIcon(gameinfo);
+        }
+    });
 
     exec(global_pos);
 }

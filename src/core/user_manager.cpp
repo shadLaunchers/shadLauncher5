@@ -28,7 +28,6 @@ bool UserManager::AddUser(const User& user) {
         std::filesystem::create_directories(user_dir, ec);
         std::filesystem::create_directories(user_dir / "savedata", ec);
         std::filesystem::create_directories(user_dir / "trophy", ec);
-        std::filesystem::create_directories(user_dir / "inputs", ec);
     }
 
     Save();
@@ -124,7 +123,6 @@ Users UserManager::CreateDefaultUsers() {
             std::filesystem::create_directory(user_dir);
             std::filesystem::create_directory(user_dir / "savedata");
             std::filesystem::create_directory(user_dir / "trophy");
-            std::filesystem::create_directory(user_dir / "inputs");
         }
     }
 
@@ -143,6 +141,50 @@ bool UserManager::SetDefaultUser(u32 user_id) {
 
 User UserManager::GetDefaultUser() {
     return *GetUserByPlayerIndex(1);
+}
+
+void UserManager::ClearPinnedDevice(u32 user_id) {
+    for (auto& u : m_users.user) {
+        if (u.user_id == user_id) {
+            u.device_guid.clear();
+            u.device_serial.clear();
+            u.device_path.clear();
+        }
+    }
+    Save();
+}
+
+void UserManager::SetPinnedDevice(u32 user_id, const std::string& guid, const std::string& serial,
+                                  const std::string& path) {
+    if (guid.empty()) {
+        return;
+    }
+    for (auto& u : m_users.user) {
+        if (u.user_id == user_id) {
+            u.device_guid = guid;
+            u.device_serial = serial;
+            u.device_path = path;
+        } else if (IsSameDevice(u, guid, serial, path)) {
+            u.device_guid.clear();
+            u.device_serial.clear();
+            u.device_path.clear();
+        }
+    }
+    Save();
+}
+
+bool UserManager::IsSameDevice(const User& u, const std::string& guid, const std::string& serial,
+                               const std::string& path) {
+    if (u.device_guid.empty() || u.device_guid != guid) {
+        return false;
+    }
+    if (!u.device_serial.empty() || !serial.empty()) {
+        return u.device_serial == serial;
+    }
+    if (!u.device_path.empty() || !path.empty()) {
+        return u.device_path == path;
+    }
+    return true;
 }
 
 void UserManager::SetControllerPort(u32 user_id, int port) {

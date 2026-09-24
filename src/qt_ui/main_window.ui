@@ -202,6 +202,8 @@
     </property>
     <addaction name="actionExport_GameList"/>
     <addaction name="actionReset_Custom_Titles"/>
+    <addaction name="actionHotkeys"/>
+    <addaction name="actionInputBindings"/>
     <addaction name="actionSetup_Wizard"/>
    </widget>
    <widget class="QMenu" name="menuView">
@@ -304,6 +306,7 @@
    <addaction name="toolbar_stop"/>
    <addaction name="separator"/>
    <addaction name="toolbar_config"/>
+   <addaction name="toolbar_controls"/>
    <addaction name="toolbar_fullscreen"/>
    <addaction name="separator"/>
    <addaction name="toolbar_refresh"/>
@@ -719,6 +722,22 @@
    </property>
    <property name="toolTip">
     <string>Re-run the first-time setup wizard to reconfigure your language, theme, folders, and emulator version</string>
+   </property>
+  </action>
+  <action name="actionHotkeys">
+   <property name="text">
+    <string>Hotkeys...</string>
+   </property>
+   <property name="toolTip">
+    <string>Edit the emulator's keyboard, mouse and controller hotkeys</string>
+   </property>
+  </action>
+  <action name="actionInputBindings">
+   <property name="text">
+    <string>Input Bindings...</string>
+   </property>
+   <property name="toolTip">
+    <string>Edit controller bindings per port, for all games or one game</string>
    </property>
   </action>
   <action name="actionConfigPaths">
