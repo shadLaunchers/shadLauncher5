@@ -868,7 +868,6 @@ void MainWindow::StartEmulator(std::filesystem::path path, QStringList args) {
 
     QString workDir = QDir::currentPath();
     m_ipc_client->startEmulator(fileInfo, final_args, workDir);
-    // TODO//m_ipc_client->setActiveController(GamepadSelect::GetSelectedGamepad());
 }
 
 std::string MainWindow::RunningGameSerial() const {

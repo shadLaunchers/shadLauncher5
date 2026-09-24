@@ -30,7 +30,6 @@ public:
     void toggleFullscreen();
     void adjustVol(int volume, bool game_specific);
     void reloadInputs(std::string config);
-    void setActiveController(std::string GUID);
     void sendMemoryPatches(std::string modNameStr, std::string offsetStr, std::string valueStr,
                            std::string targetStr, std::string sizeStr, bool isOffset,
                            bool littleEndian,
