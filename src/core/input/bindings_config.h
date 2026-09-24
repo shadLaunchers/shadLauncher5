@@ -78,8 +78,7 @@ public:
 
     [[nodiscard]] DeadzoneSettings GetDeadzoneSettings(bool* present = nullptr) const;
     void SetDeadzoneSettings(const DeadzoneSettings& settings);
-
-    bool Save() const;
+    bool Save();
 
     [[nodiscard]] const std::filesystem::path& FilePath() const {
         return m_path;

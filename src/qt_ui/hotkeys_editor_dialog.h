@@ -79,7 +79,12 @@ private slots:
     void OnResetToDefaults();
     void OnSave();
 
+protected:
+    void closeEvent(class QCloseEvent* event) override;
+    void reject() override;
+
 private:
+    [[nodiscard]] bool ConfirmDiscardingEdits();
     void PopulateHotkeyList();
     void RefreshBindingsList();
     void RefreshProblemsList();

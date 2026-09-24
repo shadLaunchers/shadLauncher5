@@ -154,23 +154,21 @@ KeyCaptureDialog::Accepts AcceptsForPort(const PortDevice& device) {
 
 QString DeviceLineFor(int port, const PortDevice& device) {
     if (device.user_name.isEmpty()) {
-        return QObject::tr("Port %1 — no user holds this port. "
-                           "Assign one in User Manager.")
-            .arg(port);
+        return QObject::tr("Port %1: no user assigned. Assign one in User Manager.").arg(port);
     }
     if (!device.pinned) {
-        return QObject::tr("Port %1 — %2, no device pinned. "
-                           "Pads fill this port in the order they are plugged in.")
+        return QObject::tr("Port %1: %2, no device assigned. "
+                           "Controllers fill ports in the order they connect.")
             .arg(port)
             .arg(device.user_name);
     }
     if (device.device_name.isEmpty()) {
-        return QObject::tr("Port %1 — %2, pinned device not connected (%3).")
+        return QObject::tr("Port %1: %2, assigned controller not connected (%3).")
             .arg(port)
             .arg(device.user_name)
             .arg(device.guid.right(16));
     }
-    return QObject::tr("Port %1 — %2, %3.").arg(port).arg(device.user_name).arg(device.device_name);
+    return QObject::tr("Port %1: %2, %3.").arg(port).arg(device.user_name).arg(device.device_name);
 }
 
 PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig* config,
@@ -206,7 +204,7 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     auto* main_layout = new QHBoxLayout();
     main_layout->setSpacing(12);
 
-    auto* output_box = new QGroupBox(tr("Pad Control"), this);
+    auto* output_box = new QGroupBox(tr("Controls"), this);
     auto* left_layout = new QVBoxLayout(output_box);
     m_filter = new QLineEdit(output_box);
     m_filter->setPlaceholderText(tr("Filter (e.g. \"axis\", \"pad\")"));
@@ -218,7 +216,7 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     left_layout->addWidget(m_output_list);
     main_layout->addWidget(output_box, 1);
 
-    auto* ways_box = new QGroupBox(tr("Ways to Press It"), this);
+    auto* ways_box = new QGroupBox(tr("Bindings"), this);
     auto* right_layout = new QVBoxLayout(ways_box);
     m_bindings_list = new QListWidget(ways_box);
     m_bindings_list->setMinimumHeight(84);
@@ -233,9 +231,9 @@ PortBindingsPage::PortBindingsPage(int port_number, Core::Input::BindingsConfig*
     right_layout->addWidget(m_hint_label);
 
     auto* row_buttons = new QHBoxLayout();
-    m_add_btn = new QPushButton(tr("Add a way..."), ways_box);
-    m_unmapped_btn = new QPushButton(tr("Set to Unmapped"), ways_box);
-    m_remove_btn = new QPushButton(tr("Remove selected"), ways_box);
+    m_add_btn = new QPushButton(tr("Add Binding..."), ways_box);
+    m_unmapped_btn = new QPushButton(tr("Mark as Unbound"), ways_box);
+    m_remove_btn = new QPushButton(tr("Remove Binding"), ways_box);
     connect(m_add_btn, &QPushButton::clicked, this, &PortBindingsPage::OnAddWay);
     connect(m_unmapped_btn, &QPushButton::clicked, this, &PortBindingsPage::OnSetUnmapped);
     connect(m_remove_btn, &QPushButton::clicked, this, &PortBindingsPage::OnRemoveSelected);
@@ -360,6 +358,9 @@ QSet<QString> PortBindingsPage::OutputsBoundIn(Core::Input::BindingsConfig* conf
         const auto name = id.toStdString();
         const auto& bindings = config->GetBindings(name);
         const bool any = std::any_of(bindings.begin(), bindings.end(), [&](const auto& b) {
+            if (b.input.size() == 1 && b.input.front() == "unmapped") {
+                return false;
+            }
             const int player = b.OutputPlayer();
             return player == 0 || player == m_port_number;
         });
@@ -457,7 +458,7 @@ void PortBindingsPage::RefreshBindingsList() {
             label = tr("%1  (all ports)").arg(label);
         }
         if (const int device = binding.InputDevice(); device != 0) {
-            label = tr("%1  (only port %2's device)").arg(label).arg(device);
+            label = tr("%1  (port %2 controller only)").arg(label).arg(device);
         }
         auto* item = new QListWidgetItem(label);
         if (player == 0) {
@@ -487,17 +488,16 @@ void PortBindingsPage::RefreshBindingsList() {
 
     if (analog) {
         m_hint_label->setText(
-            tr("%1 takes a stick or trigger axis -- push one past halfway to capture it.")
+            tr("%1 needs a stick or trigger axis. Push one past halfway to capture it.")
                 .arg(FriendlyOutputName(name)));
     } else if (shown > 0 || shown_global > 0) {
         m_hint_label->setText(
-            tr("Reaching player %1. Greyed rows drive every player; right-click a row to "
-               "restrict which device may press it.")
+            tr("Bindings for port %1. Greyed rows apply to all ports. Right-click a row to "
+               "set its allowed device.")
                 .arg(m_port_number));
     } else {
-        m_hint_label->setText(tr("Nothing drives %1 on player %2 yet.")
-                                  .arg(FriendlyOutputName(name))
-                                  .arg(m_port_number));
+        m_hint_label->setText(
+            tr("%1 has no binding on port %2.").arg(FriendlyOutputName(name)).arg(m_port_number));
     }
 }
 
@@ -509,11 +509,11 @@ void PortBindingsPage::OnAddWay() {
     const auto device = DeviceForPort(m_port_number);
     QString reason;
     if (device.pinned) {
-        const QString named =
-            device.device_name.isEmpty()
-                ? (device.guid == QStringLiteral("keyboard") ? tr("the keyboard") : tr("a pad"))
-                : device.device_name;
-        reason = tr("Port %1 is pinned to %2.").arg(m_port_number).arg(named);
+        const QString named = device.device_name.isEmpty()
+                                  ? (device.guid == QStringLiteral("keyboard") ? tr("the keyboard")
+                                                                               : tr("a controller"))
+                                  : device.device_name;
+        reason = tr("Port %1 is assigned to %2.").arg(m_port_number).arg(named);
     }
     KeyCaptureDialog capture(this, AcceptsForPort(device), reason);
     if (capture.exec() != QDialog::Accepted) {
@@ -523,6 +523,7 @@ void PortBindingsPage::OnAddWay() {
     Core::Input::PortedBinding new_binding;
     new_binding.input = capture.CapturedInput();
     new_binding.output_port = m_port_number;
+    new_binding.gamepad_field = m_port_number; // only this port's controller presses it
     bindings.push_back(new_binding);
     m_config->SetBindings(name, bindings);
     RefreshBindingsList();
@@ -571,7 +572,7 @@ void PortBindingsPage::OnBindingsContextMenu(const QPoint& pos) {
     const int current = bindings[static_cast<size_t>(index)].InputDevice();
 
     QMenu menu(this);
-    auto* heading = menu.addAction(tr("Pressed by"));
+    auto* heading = menu.addAction(tr("Allowed Device"));
     heading->setEnabled(false);
     menu.addSeparator();
     const auto add = [&](int device, const QString& label) {
@@ -584,6 +585,23 @@ void PortBindingsPage::OnBindingsContextMenu(const QPoint& pos) {
                 return;
             }
             auto& binding = edited[static_cast<size_t>(index)];
+            // A row with no output port takes its player from the device, so
+            // changing the device would move it to another player. Fix it to
+            // this port first; one that drove every port asks before narrowing.
+            if (binding.output_port == 0) {
+                if (binding.OutputPlayer() == 0 && device != 0 &&
+                    QMessageBox::question(
+                        this, tr("Allowed Device"),
+                        tr("This binding applies to all ports. Limiting it to one controller "
+                           "makes it apply to port %1 only. Continue?")
+                            .arg(m_port_number),
+                        QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
+                    return;
+                }
+                if (binding.OutputPlayer() != 0 || device != 0) {
+                    binding.output_port = m_port_number;
+                }
+            }
             binding.gamepad_field = device;
             binding.input_port = 0;
             m_config->SetBindings(name, edited);
@@ -592,9 +610,9 @@ void PortBindingsPage::OnBindingsContextMenu(const QPoint& pos) {
             emit BindingsChanged();
         });
     };
-    add(0, tr("Any device"));
+    add(0, tr("Any Device"));
     for (int device = 1; device <= 4; device++) {
-        add(device, tr("Only port %1's device").arg(device));
+        add(device, tr("Port %1 Controller Only").arg(device));
     }
 
     menu.exec(m_bindings_list->viewport()->mapToGlobal(pos));
@@ -617,8 +635,8 @@ void PortBindingsPage::OnRemoveSelected() {
     if (bindings[static_cast<size_t>(index)].OutputPlayer() == 0 &&
         QMessageBox::question(
             this, tr("Remove Binding"),
-            tr("This binding names no port, so it drives all four players, not just "
-               "player %1. Remove it for everyone?")
+            tr("This binding applies to all ports, not just port %1. Remove it from all "
+               "ports?")
                 .arg(m_port_number),
             QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
         return;
@@ -647,7 +665,7 @@ InputBindingsDialog::InputBindingsDialog(QWidget* parent)
                           parent) {}
 
 void InputBindingsDialog::BuildUi() {
-    setWindowTitle(tr("Input Bindings -- %1")
+    setWindowTitle(tr("Input Bindings - %1")
                        .arg(QString::fromStdString(m_config->FilePath().filename().string())));
     setWindowIcon(TintedGamepadIcon());
     resize(860, 620);
@@ -666,7 +684,7 @@ void InputBindingsDialog::BuildUi() {
     picker_row->addWidget(new QLabel(tr("Editing:"), this));
     m_file_picker = new QComboBox(this);
     picker_row->addWidget(m_file_picker, 1);
-    auto* browse_btn = new QPushButton(tr("Browse for a Game..."), this);
+    auto* browse_btn = new QPushButton(tr("Choose Game..."), this);
     connect(browse_btn, &QPushButton::clicked, this, &InputBindingsDialog::OnBrowseForGame);
     picker_row->addWidget(browse_btn);
     outer->addLayout(picker_row);
@@ -729,7 +747,7 @@ void InputBindingsDialog::BuildUi() {
     m_tabs->addTab(BuildSettingsPage(), tr("Settings"));
     outer->addWidget(m_tabs, 1);
 
-    connect(m_tabs, &QTabWidget::currentChanged, this, [this](int) {
+    const auto follow_port_device = [this] {
         if (auto* page = CurrentPage(); page != nullptr) {
             page->ClearPressed();
             const auto device = DeviceForPort(page->PortNumber());
@@ -737,7 +755,9 @@ void InputBindingsDialog::BuildUi() {
                 m_gamepad->SelectByGuid(device.guid);
             }
         }
-    });
+    };
+    connect(m_tabs, &QTabWidget::currentChanged, this, follow_port_device);
+    follow_port_device(); // the tab open at start never emits currentChanged
     RefreshPortTabs();
 
     m_issues = new QTabWidget(this);
@@ -765,7 +785,7 @@ void InputBindingsDialog::BuildUi() {
     auto* buttons = new QHBoxLayout();
     m_revert_btn = new QPushButton(tr("Revert"), this);
     m_revert_btn->setMinimumWidth(100);
-    m_revert_btn->setToolTip(tr("Throw away this session's edits and read the file again."));
+    m_revert_btn->setToolTip(tr("Discard unsaved changes and reload the file."));
     m_save_btn = new QPushButton(tr("Save"), this);
     m_save_btn->setDefault(true);
     m_save_btn->setMinimumWidth(100);
@@ -790,8 +810,8 @@ void InputBindingsDialog::RefreshLoadedState() {
     m_unreadable_label->setVisible(!loaded);
     m_unreadable_label->setText(
         loaded ? QString()
-               : tr("Couldn't read %1 -- it may not be valid JSON. Editing is disabled to "
-                    "avoid overwriting whatever's actually in it.")
+               : tr("Could not read %1. It may not be valid JSON. Editing is disabled so "
+                    "the file is not overwritten.")
                      .arg(path));
     m_save_btn->setEnabled(loaded);
     m_revert_btn->setEnabled(loaded);
@@ -824,20 +844,22 @@ void InputBindingsDialog::OnRevert() {
     if (m_config->HasUnsavedChanges() &&
         QMessageBox::question(
             this, tr("Revert"),
-            tr("Throw away this session's edits to %1 and read the file "
-               "again?")
+            tr("Discard unsaved changes to %1 and reload it?")
                 .arg(QString::fromStdString(m_config->FilePath().filename().string())),
             QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
         return;
     }
     // Load() clears the edit cache, so re-loading the same path is the revert.
+    // A file not yet on disk goes back to where it started: seeded from default.json.
     const auto path = m_config->FilePath();
     m_config->Load(path);
+    SeedFromDefaultsIfNew(path);
     for (auto* page : m_pages) {
         page->Reload();
     }
     ReloadSettingsTab();
     RefreshLoadedState();
+    RefreshSeededBanner();
     RefreshConflicts();
     RefreshProblemsList();
 }
@@ -898,8 +920,8 @@ void InputBindingsDialog::RefreshSeededBanner() {
     m_seeded_label->setVisible(m_seeded_from_defaults);
     if (m_seeded_from_defaults) {
         m_seeded_label->setText(
-            tr("New file, started from default.json. A game's own file replaces the defaults "
-               "rather than adding to them, so save to keep these."));
+            tr("New file, based on default.json. A game's file replaces the defaults instead "
+               "of adding to them. Save to keep these bindings."));
     }
 }
 
@@ -986,8 +1008,8 @@ void InputBindingsDialog::RefreshConflicts() {
 
     m_conflicts_summary->setStyleSheet("color: #E0A030; font-weight: bold;");
     m_conflicts_summary->setText(
-        tr("%n conflict(s): these bindings press the same keys but drive different "
-           "controls -- both fire together, which is probably not what you want.",
+        tr("%n conflict(s): these bindings use the same keys for different controls, so "
+           "both fire together.",
            "", static_cast<int>(conflicts.size())));
 
     for (const auto& c : conflicts) {
@@ -995,7 +1017,7 @@ void InputBindingsDialog::RefreshConflicts() {
         for (const auto& k : c.keys) {
             keys << QString::fromStdString(k);
         }
-        const QString port_text = c.port == 0 ? tr("every player") : tr("player %1").arg(c.port);
+        const QString port_text = c.port == 0 ? tr("all ports") : tr("port %1").arg(c.port);
         auto* item = new QListWidgetItem(tr("%1 vs %2: both use %3 (%4)")
                                              .arg(QString::fromStdString(c.output_a))
                                              .arg(QString::fromStdString(c.output_b))
@@ -1035,6 +1057,8 @@ void InputBindingsDialog::OnSave() {
             tr("Failed to write %1.").arg(QString::fromStdString(m_config->FilePath().string())));
         return;
     }
+    m_seeded_from_defaults = false;
+    RefreshSeededBanner();
     QMessageBox::information(this, tr("Input Bindings"), tr("Saved."));
 }
 
@@ -1092,7 +1116,7 @@ void InputBindingsDialog::OnBrowseForGame() {
     const GameInfo info = GameInfoTools::readGameInfo(Common::FS::PathFromQString(dir));
     if (info.serial.empty()) {
         QMessageBox::warning(this, tr("Input Bindings"),
-                             tr("Couldn't read a title ID from that folder."));
+                             tr("Could not read a title ID from that folder."));
         return;
     }
     const auto target =
@@ -1110,8 +1134,7 @@ void InputBindingsDialog::SwitchTarget(const std::filesystem::path& path) {
     SeedFromDefaultsIfNew(path);
     LoadOverlayFor(path);
 
-    setWindowTitle(
-        tr("Input Bindings -- %1").arg(QString::fromStdString(path.filename().string())));
+    setWindowTitle(tr("Input Bindings - %1").arg(QString::fromStdString(path.filename().string())));
     m_subtitle_label->setText(tr("Editing %1").arg(QString::fromStdString(path.string())));
 
     for (auto* page : m_pages) {
@@ -1155,6 +1178,14 @@ void InputBindingsDialog::ReloadSettingsTab() {
     m_deadzone_spins[5]->setValue(dz.left_trigger.max);
     m_deadzone_spins[6]->setValue(dz.right_trigger.min);
     m_deadzone_spins[7]->setValue(dz.right_trigger.max);
+    RefreshSettingsTitles(mouse_present, dz_present);
+}
+
+void InputBindingsDialog::RefreshSettingsTitles(bool mouse_present, bool deadzones_present) {
+    m_mouse_box->setTitle(mouse_present ? tr("Mouse to Joystick")
+                                        : tr("Mouse to Joystick (defaults, not set in this file)"));
+    m_deadzone_box->setTitle(deadzones_present ? tr("Deadzones")
+                                               : tr("Deadzones (defaults, not set in this file)"));
 }
 
 QWidget* InputBindingsDialog::BuildSettingsPage() {
@@ -1162,19 +1193,23 @@ QWidget* InputBindingsDialog::BuildSettingsPage() {
     auto* layout = new QVBoxLayout(page);
 
     // --- Mouse to Joystick (section 8) ---
-    auto* mouse_box = new QGroupBox(tr("Mouse to Joystick"), page);
+    auto* mouse_box = new QGroupBox(page);
+    m_mouse_box = mouse_box;
     auto* mouse_form = new QFormLayout(mouse_box);
     m_mouse_to_joystick = new QComboBox(mouse_box);
     m_mouse_to_joystick->addItem(tr("Right stick"), QStringLiteral("right"));
     m_mouse_to_joystick->addItem(tr("Left stick"), QStringLiteral("left"));
     m_mouse_to_joystick->addItem(tr("Off"), QStringLiteral("none"));
     m_mouse_deadzone_offset = new QDoubleSpinBox(mouse_box);
+    m_mouse_deadzone_offset->setDecimals(3);
     m_mouse_deadzone_offset->setRange(0.0, 1.0);
     m_mouse_deadzone_offset->setSingleStep(0.05);
     m_mouse_speed = new QDoubleSpinBox(mouse_box);
+    m_mouse_speed->setDecimals(3);
     m_mouse_speed->setRange(0.01, 10.0);
     m_mouse_speed->setSingleStep(0.1);
     m_mouse_speed_offset = new QDoubleSpinBox(mouse_box);
+    m_mouse_speed_offset->setDecimals(3);
     m_mouse_speed_offset->setRange(0.0, 5.0);
     m_mouse_speed_offset->setSingleStep(0.05);
     mouse_form->addRow(tr("Drives:"), m_mouse_to_joystick);
@@ -1190,9 +1225,6 @@ QWidget* InputBindingsDialog::BuildSettingsPage() {
     m_mouse_deadzone_offset->setValue(mouse.deadzone_offset);
     m_mouse_speed->setValue(mouse.speed);
     m_mouse_speed_offset->setValue(mouse.speed_offset);
-    if (!mouse_present) {
-        mouse_box->setTitle(tr("Mouse to Joystick (not set in this file -- showing defaults)"));
-    }
 
     auto commit_mouse = [this] {
         Core::Input::MouseSettings s;
@@ -1211,7 +1243,8 @@ QWidget* InputBindingsDialog::BuildSettingsPage() {
             commit_mouse);
 
     // --- Deadzones (section 8) ---
-    auto* dz_box = new QGroupBox(tr("Deadzones"), page);
+    auto* dz_box = new QGroupBox(page);
+    m_deadzone_box = dz_box;
     auto* dz_form = new QFormLayout(dz_box);
     bool dz_present = false;
     const auto dz = m_config->GetDeadzoneSettings(&dz_present);
@@ -1241,9 +1274,7 @@ QWidget* InputBindingsDialog::BuildSettingsPage() {
         m_deadzone_spins[spin_idx++] = min_spin;
         m_deadzone_spins[spin_idx++] = max_spin;
     }
-    if (!dz_present) {
-        dz_box->setTitle(tr("Deadzones (not set in this file -- showing defaults)"));
-    }
+    RefreshSettingsTitles(mouse_present, dz_present);
     layout->addWidget(dz_box);
     layout->addStretch();
 

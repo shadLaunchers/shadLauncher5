@@ -3,6 +3,7 @@
 
 #include <algorithm>
 
+#include <QCloseEvent>
 #include <QFont>
 #include <QGroupBox>
 #include <QGuiApplication>
@@ -64,7 +65,7 @@ QString FriendlyHotkeyName(const std::string& id) {
 
 KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QString& reason)
     : QDialog(parent), m_accepts(accepts), m_reason(reason) {
-    setWindowTitle(tr("Press Keys"));
+    setWindowTitle(tr("Capture Input"));
     setModal(true);
     setFocusPolicy(Qt::StrongFocus);
 
@@ -81,11 +82,11 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QStri
         what = tr("Press up to 3 keys or mouse buttons together, then click Done.");
         break;
     case Accepts::Gamepad:
-        what = tr("Press up to 3 pad buttons, or a stick or trigger, then click Done.");
+        what = tr("Press up to 3 controller buttons, or a stick or trigger, then click Done.");
         break;
     case Accepts::Any:
-        what = tr("Press up to 3 keys, mouse buttons, pad buttons or a stick together, "
-                  "then click Done.");
+        what = tr("Press up to 3 keys, mouse buttons, controller buttons or a stick "
+                  "together, then click Done.");
         break;
     }
     auto* instructions = new QLabel(what, this);
@@ -116,13 +117,14 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QStri
     pad_row->addWidget(pad_icon);
     m_gamepad_label = new QLabel(this);
     m_gamepad_label->setText(
-        m_gamepad ? tr("Pad detected: %1").arg(QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
-                  : tr("No pad detected"));
+        m_gamepad
+            ? tr("Controller detected: %1").arg(QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
+            : tr("No controller detected"));
     pad_row->addWidget(m_gamepad_label);
     pad_row->addStretch();
     layout->addLayout(pad_row);
 
-    m_preview_label = new QLabel(tr("(nothing captured yet)"), this);
+    m_preview_label = new QLabel(tr("Waiting for input..."), this);
     m_preview_label->setAlignment(Qt::AlignCenter);
     QFont f = m_preview_label->font();
     f.setPointSize(f.pointSize() + 4);
@@ -134,6 +136,13 @@ KeyCaptureDialog::KeyCaptureDialog(QWidget* parent, Accepts accepts, const QStri
     auto* clear_btn = new QPushButton(tr("Clear"), this);
     auto* done_btn = new QPushButton(tr("Done"), this);
     auto* cancel_btn = new QPushButton(tr("Cancel"), this);
+    // Space, Enter and Tab are bindable keys, so no button may hold focus or
+    // act as the default: every key press has to reach keyPressEvent.
+    for (auto* btn : {clear_btn, done_btn, cancel_btn}) {
+        btn->setFocusPolicy(Qt::NoFocus);
+        btn->setAutoDefault(false);
+        btn->setDefault(false);
+    }
     connect(clear_btn, &QPushButton::clicked, this, [this] {
         m_captured.clear();
         UpdatePreview();
@@ -180,9 +189,10 @@ void KeyCaptureDialog::OpenSelectedGamepad() {
         SDL_free(ids);
     }
     if (m_gamepad_label) {
-        m_gamepad_label->setText(
-            m_gamepad ? tr("Pad detected: %1").arg(QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
-                      : tr("No pad detected"));
+        m_gamepad_label->setText(m_gamepad
+                                     ? tr("Controller detected: %1")
+                                           .arg(QString::fromUtf8(SDL_GetGamepadName(m_gamepad)))
+                                     : tr("No controller detected"));
     }
 }
 
@@ -241,9 +251,9 @@ void KeyCaptureDialog::TryCapture(const std::string& name) {
         if (m_rule_label != nullptr) {
             const QString what = m_accepts == Accepts::KeyboardAndMouse
                                      ? tr("a key or mouse button")
-                                     : tr("a pad control");
+                                     : tr("a controller button or stick");
             m_rule_label->setText(
-                tr("\"%1\" cannot reach this port. %2Press %3.")
+                tr("\"%1\" is not allowed on this port. %2Press %3.")
                     .arg(QString::fromStdString(name),
                          m_reason.isEmpty() ? QString() : m_reason + QStringLiteral(" "), what));
             m_rule_label->setVisible(true);
@@ -262,13 +272,11 @@ std::string KeyCaptureDialog::NameForKeyEvent(QKeyEvent* event) {
     if (key >= Qt::Key_A && key <= Qt::Key_Z) {
         return std::string(1, 'a' + (key - Qt::Key_A));
     }
-    if (key >= Qt::Key_0 && key <= Qt::Key_9) {
-        return std::string(1, '0' + (key - Qt::Key_0));
-    }
     if (key >= Qt::Key_F1 && key <= Qt::Key_F12) {
         return "f" + std::to_string(key - Qt::Key_F1 + 1);
     }
 
+    // Before the plain digits: a keypad 2 is Key_2 plus KeypadModifier.
     if (event->modifiers() & Qt::KeypadModifier) {
         switch (key) {
         case Qt::Key_0:
@@ -301,6 +309,9 @@ std::string KeyCaptureDialog::NameForKeyEvent(QKeyEvent* event) {
         default:
             break;
         }
+    }
+    if (key >= Qt::Key_0 && key <= Qt::Key_9) {
+        return std::string(1, '0' + (key - Qt::Key_0));
     }
 
     switch (key) {
@@ -457,17 +468,7 @@ void KeyCaptureDialog::keyPressEvent(QKeyEvent* event) {
     if (event->isAutoRepeat()) {
         return;
     }
-    const std::string name = NameForKeyEvent(event);
-    if (name.empty()) {
-        return;
-    }
-    if (m_captured.size() >= 3) {
-        return; // section 6: a chord is up to 3 keys
-    }
-    if (std::find(m_captured.begin(), m_captured.end(), name) == m_captured.end()) {
-        m_captured.push_back(name);
-        UpdatePreview();
-    }
+    TryCapture(NameForKeyEvent(event));
 }
 
 void KeyCaptureDialog::keyReleaseEvent(QKeyEvent* event) {
@@ -475,9 +476,6 @@ void KeyCaptureDialog::keyReleaseEvent(QKeyEvent* event) {
 }
 
 void KeyCaptureDialog::mousePressEvent(QMouseEvent* event) {
-    if (m_captured.size() >= 3) {
-        return;
-    }
     std::string name;
     switch (event->button()) {
     case Qt::LeftButton:
@@ -498,15 +496,12 @@ void KeyCaptureDialog::mousePressEvent(QMouseEvent* event) {
     default:
         return;
     }
-    if (std::find(m_captured.begin(), m_captured.end(), name) == m_captured.end()) {
-        m_captured.push_back(name);
-        UpdatePreview();
-    }
+    TryCapture(name);
 }
 
 void KeyCaptureDialog::UpdatePreview() {
     if (m_captured.empty()) {
-        m_preview_label->setText(tr("(nothing captured yet)"));
+        m_preview_label->setText(tr("Waiting for input..."));
         return;
     }
     QStringList parts;
@@ -535,7 +530,7 @@ HotkeysEditorDialog::HotkeysEditorDialog(QWidget* parent)
     main_layout->addLayout(left_layout, 1);
 
     auto* right_layout = new QVBoxLayout();
-    right_layout->addWidget(new QLabel(tr("Ways to trigger it"), this));
+    right_layout->addWidget(new QLabel(tr("Bindings"), this));
     m_bindings_list = new QListWidget(this);
     right_layout->addWidget(m_bindings_list);
 
@@ -544,9 +539,9 @@ HotkeysEditorDialog::HotkeysEditorDialog(QWidget* parent)
     right_layout->addWidget(m_default_label);
 
     auto* row_buttons = new QHBoxLayout();
-    auto* add_btn = new QPushButton(tr("Add a way..."), this);
-    auto* unmapped_btn = new QPushButton(tr("Set to Unmapped"), this);
-    auto* remove_btn = new QPushButton(tr("Remove selected"), this);
+    auto* add_btn = new QPushButton(tr("Add Binding..."), this);
+    auto* unmapped_btn = new QPushButton(tr("Mark as Unbound"), this);
+    auto* remove_btn = new QPushButton(tr("Remove Binding"), this);
     connect(add_btn, &QPushButton::clicked, this, &HotkeysEditorDialog::OnAddWay);
     connect(unmapped_btn, &QPushButton::clicked, this, &HotkeysEditorDialog::OnSetUnmapped);
     connect(remove_btn, &QPushButton::clicked, this, &HotkeysEditorDialog::OnRemoveSelected);
@@ -566,12 +561,12 @@ HotkeysEditorDialog::HotkeysEditorDialog(QWidget* parent)
     outer->addWidget(problems_box);
 
     auto* bottom_buttons = new QHBoxLayout();
-    auto* reset_btn = new QPushButton(tr("Reset All to Defaults..."), this);
+    auto* reset_btn = new QPushButton(tr("Reset to Defaults..."), this);
     auto* save_btn = new QPushButton(tr("Save"), this);
     auto* close_btn = new QPushButton(tr("Close"), this);
     connect(reset_btn, &QPushButton::clicked, this, &HotkeysEditorDialog::OnResetToDefaults);
     connect(save_btn, &QPushButton::clicked, this, &HotkeysEditorDialog::OnSave);
-    connect(close_btn, &QPushButton::clicked, this, &QDialog::accept);
+    connect(close_btn, &QPushButton::clicked, this, &QDialog::reject);
     bottom_buttons->addWidget(reset_btn);
     bottom_buttons->addStretch();
     bottom_buttons->addWidget(save_btn);
@@ -686,9 +681,9 @@ void HotkeysEditorDialog::RefreshProblemsList() {
 void HotkeysEditorDialog::OnResetToDefaults() {
     const auto answer = QMessageBox::question(
         this, tr("Reset Hotkeys"),
-        tr("This deletes hotkeys.json entirely -- the emulator will regenerate all ten "
-           "defaults the next time it runs. Any custom rebinding you've made will be lost. "
-           "Continue?"));
+        tr("This deletes hotkeys.json. The emulator recreates all %1 defaults the next "
+           "time it runs, and your custom hotkeys are lost. Continue?")
+            .arg(static_cast<int>(Core::Input::kKnownHotkeys.size())));
     if (answer != QMessageBox::Yes) {
         return;
     }
@@ -706,4 +701,35 @@ void HotkeysEditorDialog::OnSave() {
         return;
     }
     QMessageBox::information(this, tr("Hotkeys"), tr("Saved."));
+}
+
+bool HotkeysEditorDialog::ConfirmDiscardingEdits() {
+    if (!m_config->HasUnsavedChanges()) {
+        return true;
+    }
+    const auto answer = QMessageBox::question(
+        this, tr("Hotkeys"), tr("hotkeys.json has unsaved changes. Save them?"),
+        QMessageBox::Save | QMessageBox::Discard | QMessageBox::Cancel, QMessageBox::Save);
+    if (answer == QMessageBox::Cancel) {
+        return false;
+    }
+    if (answer == QMessageBox::Save && !m_config->Save()) {
+        QMessageBox::critical(this, tr("Hotkeys"), tr("Failed to write hotkeys.json."));
+        return false;
+    }
+    return true;
+}
+
+void HotkeysEditorDialog::closeEvent(QCloseEvent* event) {
+    if (ConfirmDiscardingEdits()) {
+        event->accept();
+    } else {
+        event->ignore();
+    }
+}
+
+void HotkeysEditorDialog::reject() {
+    if (ConfirmDiscardingEdits()) {
+        QDialog::reject();
+    }
 }

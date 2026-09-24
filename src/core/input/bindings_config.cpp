@@ -332,7 +332,7 @@ std::vector<BindingsConfig::FlatBinding> BindingsConfig::GetAllBindings() const 
     return result;
 }
 
-bool BindingsConfig::Save() const {
+bool BindingsConfig::Save() {
     if (!m_valid) {
         LOG_ERROR(Input, "Refusing to write {}: it was never successfully loaded", m_path.string());
         return false;
@@ -468,7 +468,12 @@ bool BindingsConfig::Save() const {
         return false;
     }
     file << text;
-    return static_cast<bool>(file);
+    file.close();
+    if (!file) {
+        LOG_ERROR(Input, "Failed to write {}", m_path.string());
+        return false;
+    }
+    return Load(m_path);
 }
 
 bool PortsOverlap(int a, int b) {

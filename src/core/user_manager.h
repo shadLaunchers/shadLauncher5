@@ -48,6 +48,8 @@ public:
     void ClearPinnedDevice(u32 user_id);
     void SetPinnedDevice(u32 user_id, const std::string& guid, const std::string& serial,
                          const std::string& path);
+    static bool IsSameDevice(const User& u, const std::string& guid, const std::string& serial,
+                             const std::string& path);
     std::vector<User> GetValidUsers() const;
     LoggedInUsers GetLoggedInUsers() const;
 

@@ -206,10 +206,13 @@ std::string ReplaceOrInsertTopLevelValue(const std::string& text, const std::str
     }
 
     // Key not present
-    const bool needs_comma = !scan.entries.empty();
-    const std::string insertion = (needs_comma ? std::string(",\n") : std::string()) + "    \"" +
-                                  key + "\": " + new_value_text + "\n";
-    return text.substr(0, scan.close_brace) + insertion + text.substr(scan.close_brace);
+    if (scan.entries.empty()) {
+        const std::string insertion = "    \"" + key + "\": " + new_value_text + "\n";
+        return text.substr(0, scan.close_brace) + insertion + text.substr(scan.close_brace);
+    }
+    const size_t after_last = scan.entries.back().value_end;
+    const std::string insertion = ",\n    \"" + key + "\": " + new_value_text;
+    return text.substr(0, after_last) + insertion + text.substr(after_last);
 }
 
 std::string StripTrailingCommas(const std::string& text) {

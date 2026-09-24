@@ -15,10 +15,9 @@ struct HotkeyDef {
     std::string_view default_display;
 };
 
-inline constexpr std::array<HotkeyDef, 10> kKnownHotkeys{{
+inline constexpr std::array<HotkeyDef, 9> kKnownHotkeys{{
     {"hotkey_fullscreen", "f11"},
     {"hotkey_show_fps", "f10"},
-    {"hotkey_pause", "f9"},
     {"hotkey_capture_frame", "f1"},
     {"hotkey_toggle_mouse_to_joystick", "f7"},
     {"hotkey_add_virtual_user", "f5"},

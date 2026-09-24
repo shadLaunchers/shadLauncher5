@@ -86,7 +86,7 @@ QString GamepadNameForGuid(const QString& guid) {
         return {};
     }
     if (guid == QStringLiteral("keyboard")) {
-        return QObject::tr("Keyboard and mouse");
+        return QObject::tr("Keyboard and Mouse");
     }
 
     int count = 0;
@@ -109,7 +109,7 @@ GamepadSelector::GamepadSelector(QWidget* parent) : QWidget(parent) {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(6);
 
-    layout->addWidget(new QLabel(tr("Pad:"), this));
+    layout->addWidget(new QLabel(tr("Controller:"), this));
     m_box = new QComboBox(this);
     m_box->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     layout->addWidget(m_box, 1);
@@ -156,7 +156,7 @@ void GamepadSelector::RefreshGamepadList() {
     m_box->clear();
 
     if (m_gamepads == nullptr || m_gamepad_count == 0) {
-        m_box->addItem(tr("No pads detected"));
+        m_box->addItem(tr("No controllers detected"));
         m_box->setCurrentIndex(0);
         m_box->setEnabled(false);
         m_id_label->clear();

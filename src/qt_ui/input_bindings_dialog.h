@@ -102,6 +102,7 @@ private:
     void PopulateFilePicker();
     void SwitchTarget(const std::filesystem::path& path);
     void ReloadSettingsTab();
+    void RefreshSettingsTitles(bool mouse_present, bool deadzones_present);
     void RefreshLoadedState();
     [[nodiscard]] bool ConfirmDiscardingEdits();
 
@@ -124,6 +125,8 @@ private:
     QListWidget* m_conflicts_list = nullptr;
     QLabel* m_conflicts_summary = nullptr;
     QListWidget* m_problems_list = nullptr;
+    class QGroupBox* m_mouse_box = nullptr;
+    class QGroupBox* m_deadzone_box = nullptr;
     QComboBox* m_mouse_to_joystick = nullptr;
     class QDoubleSpinBox* m_mouse_deadzone_offset = nullptr;
     class QDoubleSpinBox* m_mouse_speed = nullptr;

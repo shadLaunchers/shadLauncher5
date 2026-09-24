@@ -71,7 +71,7 @@ public:
     void CheckCompatibilityAtStartup();
     void PlayBackgroundMusic(game_info game);
     bool RemoveCustomConfiguration(const QString& serial, const game_info& game);
-    // The per-game bindings file, input_config/<title id>.json. Separate from
+    // The per-game bindings file, custom_input_configs/<title id>.json. Separate from
     // RemoveCustomConfiguration: that one removes the game's *settings*, and
     // the two are independent -- the game list draws a badge for each.
     bool RemoveCustomInputConfiguration(const QString& serial, const game_info& game);

@@ -928,7 +928,7 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
                                        ? tr("&Change Custom Configuration")
                                        : tr("&Create Custom Configuration From Global Settings"));
 
-    // The game's own bindings, input_config/<title id>.json -- a different
+    // The game's own bindings, custom_input_configs/<title id>.json -- a different
     // file from the settings above, and independent of it: a game can have
     // one, the other, both or neither, which is why the list draws a badge
     // for each.

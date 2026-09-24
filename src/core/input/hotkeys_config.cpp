@@ -155,7 +155,7 @@ bool HotkeysConfig::IsDirty(const std::string& hotkey_name) const {
            m_dirty_names.end();
 }
 
-bool HotkeysConfig::Save() const {
+bool HotkeysConfig::Save() {
     if (!m_valid) {
         LOG_ERROR(Input, "Refusing to write {}: it was never successfully loaded", m_path.string());
         return false;
@@ -259,7 +259,12 @@ bool HotkeysConfig::Save() const {
         return false;
     }
     file << new_text;
-    return static_cast<bool>(file);
+    file.close();
+    if (!file) {
+        LOG_ERROR(Input, "Failed to write {}", m_path.string());
+        return false;
+    }
+    return Load();
 }
 
 bool HotkeysConfig::ResetToDefaults() {
@@ -304,8 +309,9 @@ std::vector<std::string> HotkeysConfig::Validate() const {
             }
         }
         if (!is_known) {
-            warnings.push_back(tag + ": \"" + hotkey_name +
-                               "\" isn't one of the ten hotkeys this build knows -- kept as-is, "
+            warnings.push_back(tag + ": \"" + hotkey_name + "\" isn't one of the " +
+                               std::to_string(kKnownHotkeys.size()) +
+                               " hotkeys this build knows -- kept as-is, "
                                "but not shown in the editor.");
         }
 

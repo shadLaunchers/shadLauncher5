@@ -164,13 +164,27 @@ void UserManager::SetPinnedDevice(u32 user_id, const std::string& guid, const st
             u.device_guid = guid;
             u.device_serial = serial;
             u.device_path = path;
-        } else if (u.device_guid == guid) {
+        } else if (IsSameDevice(u, guid, serial, path)) {
             u.device_guid.clear();
             u.device_serial.clear();
             u.device_path.clear();
         }
     }
     Save();
+}
+
+bool UserManager::IsSameDevice(const User& u, const std::string& guid, const std::string& serial,
+                               const std::string& path) {
+    if (u.device_guid.empty() || u.device_guid != guid) {
+        return false;
+    }
+    if (!u.device_serial.empty() || !serial.empty()) {
+        return u.device_serial == serial;
+    }
+    if (!u.device_path.empty() || !path.empty()) {
+        return u.device_path == path;
+    }
+    return true;
 }
 
 void UserManager::SetControllerPort(u32 user_id, int port) {

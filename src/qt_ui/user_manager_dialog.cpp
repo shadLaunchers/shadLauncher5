@@ -33,7 +33,7 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     m_table->setCornerButtonEnabled(false);
     m_table->setAlternatingRowColors(true);
     m_table->setHorizontalHeaderLabels(
-        {"User ID", "User Name", "Color", "Controller Port", "Pinned Device"});
+        {"User ID", "User Name", "Color", "Controller Port", "Assigned Device"});
     m_table->horizontalHeader()->setDefaultAlignment(Qt::AlignLeft);
     m_table->horizontalHeader()->setStretchLastSection(true);
     m_table->horizontalHeader()->setDefaultSectionSize(150);
@@ -59,13 +59,12 @@ UserManagerDialog::UserManagerDialog(std::shared_ptr<GUISettings> gui_settings,
     push_set_controller->setAutoDefault(false);
     push_assign_device = new QPushButton(tr("&Assign Device"), this);
     push_assign_device->setAutoDefault(false);
-    push_assign_device->setToolTip(
-        tr("Pin a physical controller, or the keyboard, to this user's port."));
-    push_clear_device = new QPushButton(tr("&Clear Pinned Device"), this);
+    push_assign_device->setToolTip(tr("Assign a controller or the keyboard to this user's port."));
+    push_clear_device = new QPushButton(tr("&Unassign Device"), this);
     push_clear_device->setAutoDefault(false);
     push_clear_device->setToolTip(
-        tr("Forget which physical controller drives this user's port, so the port is filled "
-           "in plug order again."));
+        tr("Remove the device assigned to this user's port. Controllers then fill it in the "
+           "order they connect."));
 
     push_close = new QPushButton(tr("&Close"), this);
     push_close->setAutoDefault(false);
@@ -386,7 +385,7 @@ QString UserManagerDialog::DescribePinnedDevice(const User& user) {
         return tr("%1 (serial %2)").arg(guid, QString::fromStdString(user.device_serial));
     }
     if (!user.device_path.empty()) {
-        return tr("%1 (port %2)").arg(guid, QString::fromStdString(user.device_path));
+        return tr("%1 (path %2)").arg(guid, QString::fromStdString(user.device_path));
     }
     return guid;
 }
@@ -402,11 +401,9 @@ void UserManagerDialog::OnUserAssignDevice() {
     }
 
     if (user->player_index < 1 || user->player_index > 4) {
-        QMessageBox::information(
-            this, tr("Assign Device"),
-            tr("%1 holds no controller port, so a device pinned to them would never match "
-               "anything.\n\nSet a controller port first.")
-                .arg(QString::fromStdString(user->user_name)));
+        QMessageBox::information(this, tr("Assign Device"),
+                                 tr("%1 has no controller port. Set a controller port first.")
+                                     .arg(QString::fromStdString(user->user_name)));
         return;
     }
 
@@ -446,8 +443,8 @@ void UserManagerDialog::OnUserAssignDevice() {
         if (!selector->HasGamepad()) {
             note->setText(tr("No controller is connected."));
         } else if (selector->SelectionIsAmbiguous()) {
-            note->setText(tr("This pad reports no serial number and no port path, so another "
-                             "one of the same model would match this pin too."));
+            note->setText(tr("This controller reports no serial number or path, so another "
+                             "controller of the same model will also match."));
         } else {
             note->clear();
         }
@@ -476,9 +473,10 @@ void UserManagerDialog::OnUserAssignDevice() {
 
     // One device, one port: warn before quietly taking it off someone else.
     for (const auto& other : UserManagement.GetAllUsers()) {
-        if (other.user_id != static_cast<s32>(user_id) && other.device_guid == guid) {
+        if (other.user_id != static_cast<s32>(user_id) &&
+            UserManager::IsSameDevice(other, guid, serial, path)) {
             if (QMessageBox::question(this, tr("Assign Device"),
-                                      tr("That device is currently pinned to %1. Move it to %2?")
+                                      tr("That device is assigned to %1. Move it to %2?")
                                           .arg(QString::fromStdString(other.user_name),
                                                QString::fromStdString(user->user_name)),
                                       QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
@@ -503,9 +501,9 @@ void UserManagerDialog::OnUserClearPinnedDevice() {
     }
 
     if (QMessageBox::question(
-            this, tr("Clear Pinned Device"),
-            tr("Forget that %1 drives %2's port?\n\nThe port will be filled in plug order "
-               "again until something claims it.")
+            this, tr("Unassign Device"),
+            tr("Unassign %1 from %2's port?\n\nControllers will fill the port in the order "
+               "they connect.")
                 .arg(DescribePinnedDevice(*user), QString::fromStdString(user->user_name)),
             QMessageBox::Yes | QMessageBox::No) != QMessageBox::Yes) {
         return;
@@ -548,7 +546,7 @@ void UserManagerDialog::ShowContextMenu(const QPoint& pos) {
     QAction* color_act = context_menu->addAction(tr("&Set Color"));
     QAction* port_act = context_menu->addAction(tr("&Set Controller Port"));
     QAction* assign_device_act = context_menu->addAction(tr("&Assign Device"));
-    QAction* clear_device_act = context_menu->addAction(tr("&Clear Pinned Device"));
+    QAction* clear_device_act = context_menu->addAction(tr("&Unassign Device"));
     QAction* show_dir_act = context_menu->addAction(tr("&Open User Directory"));
 
     bool enabled = key != m_active_user; // don't allow removing or setting default on active user

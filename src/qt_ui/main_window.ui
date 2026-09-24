@@ -729,7 +729,7 @@
     <string>Hotkeys...</string>
    </property>
    <property name="toolTip">
-    <string>Rebind the emulator's keyboard, mouse, and pad hotkeys</string>
+    <string>Edit the emulator's keyboard, mouse and controller hotkeys</string>
    </property>
   </action>
   <action name="actionInputBindings">
@@ -737,7 +737,7 @@
     <string>Input Bindings...</string>
    </property>
    <property name="toolTip">
-    <string>Rebind pad controls per port, for global.json or a specific game</string>
+    <string>Edit controller bindings per port, for all games or one game</string>
    </property>
   </action>
   <action name="actionConfigPaths">

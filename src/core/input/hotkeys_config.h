@@ -32,7 +32,10 @@ public:
     // True if hotkey_name was edited via SetBindings() this session.
     [[nodiscard]] bool IsDirty(const std::string& hotkey_name) const;
 
-    bool Save() const;
+    [[nodiscard]] bool HasUnsavedChanges() const {
+        return !m_dirty_names.empty();
+    }
+    bool Save();
     bool ResetToDefaults();
 
     [[nodiscard]] std::vector<std::string> Validate() const;
