@@ -1047,6 +1047,18 @@ Leave empty to use the original name.</source>
         <source>&amp;Cheats &amp; Patches</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Change Custom &amp;Input Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Create Custom &amp;Input Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove Custom &amp;Input Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>GameListFrame</name>
@@ -1285,9 +1297,359 @@ Using local database.
     </message>
 </context>
 <context>
+    <name>GamepadSelector</name>
+    <message>
+        <source>Controller:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No controllers detected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ID: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>HotkeysEditorDialog</name>
+    <message>
+        <source>Hotkeys</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hotkeys work from the keyboard, the mouse or a controller. Hold up to 3 inputs together for one binding.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hotkey</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bindings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Binding...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mark as Unbound</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove Binding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Listen to controller:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Problems</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reset to Defaults...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1  (%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reset Hotkeys</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This deletes hotkeys.json. The emulator recreates all %1 defaults the next time it runs, and your custom hotkeys are lost. Continue?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to remove hotkeys.json.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to write hotkeys.json.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Saved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>hotkeys.json has unsaved changes. Save them?</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>InputBindingsDialog</name>
+    <message>
+        <source>Input Bindings - %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Editing:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Choose Game...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Editing %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Conflicts</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Problems</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Revert</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Discard unsaved changes and reload the file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not read %1. It may not be valid JSON. Editing is disabled so the file is not overwritten.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Input Bindings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 has unsaved changes. Save them?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Discard unsaved changes to %1 and reload it?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>New file, based on default.json. A game&apos;s file replaces the defaults instead of adding to them. Save to keep these bindings.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>default.json</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>global.json</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Conflicts (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>✓ No conflicts: no two bindings share the exact same keys for different controls.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n conflict(s): these bindings use the same keys for different controls, so both fire together.</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>all ports</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>port %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 vs %2: both use %3 (%4)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(%1) %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Problems (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Failed to write %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Saved.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>All games — extra bindings (global.json)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select a Game Folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not read a title ID from that folder.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mouse to Joystick</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mouse to Joystick (defaults, not set in this file)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deadzones</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deadzones (defaults, not set in this file)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Right stick</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Left stick</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Off</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Drives:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Deadzone offset:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Speed:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Speed offset:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Left trigger</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Right trigger</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>min</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>max</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>IpcClient</name>
     <message>
         <source>Could not find the emulator executable</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>KeyCaptureDialog</name>
+    <message>
+        <source>Capture Input</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Press up to 3 keys or mouse buttons together, then click Done.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Press up to 3 controller buttons, or a stick or trigger, then click Done.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Press up to 3 keys, mouse buttons, controller buttons or a stick together, then click Done.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Controller detected: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No controller detected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Waiting for input...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Clear</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Done</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>a key or mouse button</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>a controller button or stick</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&quot;%1&quot; is not allowed on this port. %2Press %3.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1734,6 +2096,22 @@ Select an emulator version from the right panel.</source>
         <source>Re-run the first-time setup wizard to reconfigure your language, theme, folders, and emulator version</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Hotkeys...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit the emulator&apos;s keyboard, mouse and controller hotkeys</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Input Bindings...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Edit controller bindings per port, for all games or one game</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>NpBindDialog</name>
@@ -1919,6 +2297,93 @@ Select an emulator version from the right panel.</source>
     </message>
 </context>
 <context>
+    <name>PortBindingsPage</name>
+    <message>
+        <source>Click a control to select it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Controls</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter (e.g. &quot;axis&quot;, &quot;pad&quot;)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bindings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add Binding...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mark as Unbound</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove Binding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1  (all ports)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1  (port %2 controller only)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(from %1) %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 needs a stick or trigger axis. Push one past halfway to capture it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Bindings for port %1. Greyed rows apply to all ports. Right-click a row to set its allowed device.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 has no binding on port %2.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>the keyboard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>a controller</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port %1 is assigned to %2.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Allowed Device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This binding applies to all ports. Limiting it to one controller makes it apply to port %1 only. Continue?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Any Device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port %1 Controller Only</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This binding applies to all ports, not just port %1. Remove it from all ports?</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>QObject</name>
     <message>
         <source>unknown</source>
@@ -2033,6 +2498,54 @@ Select an emulator version from the right panel.</source>
     </message>
     <message>
         <source>Unable to activate selected version.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keyboard and Mouse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keyboard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mouse</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Controller</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port %1: no user assigned. Assign one in User Manager.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port %1: %2, no device assigned. Controllers fill ports in the order they connect.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port %1: %2, assigned controller not connected (%3).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Port %1: %2, %3.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Buttons</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Touchpad</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Axes (digital edges, plus L2/R2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Analog Sticks (stick input only)</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2831,6 +3344,86 @@ The next steps ask where your games live and which emulator version to use. You 
     </message>
     <message>
         <source>&amp;Open User Directory</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Assign Device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Assign a controller or the keyboard to this user&apos;s port.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Unassign Device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Remove the device assigned to this user&apos;s port. Controllers then fill it in the order they connect.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>GUID: %1
+Serial: %2
+Path: %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The running game keeps its current ports. This change applies the next time a game starts.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keyboard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (serial %2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (path %2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Assign Device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 has no controller port. Set a controller port first.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Assign Device to %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Controller:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Which device should drive port %1?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No controller is connected.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This controller reports no serial number or path, so another controller of the same model will also match.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>That device is assigned to %1. Move it to %2?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unassign Device</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unassign %1 from %2&apos;s port?
+
+Controllers will fill the port in the order they connect.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
