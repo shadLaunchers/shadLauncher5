@@ -108,8 +108,7 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
     connect(copy_btn, &QPushButton::clicked, this, &ElfInfoDialog::onCopy);
     connect(save_btn, &QPushButton::clicked, this, &ElfInfoDialog::onSave);
     connect(close_btn, &QPushButton::clicked, this, &QDialog::accept);
-    connect(m_tree, &QTreeWidget::currentItemChanged, this,
-            &ElfInfoDialog::onTreeSelectionChanged);
+    connect(m_tree, &QTreeWidget::currentItemChanged, this, &ElfInfoDialog::onTreeSelectionChanged);
 
     buildTree();
 }
@@ -131,7 +130,7 @@ void ElfInfoDialog::buildTree() {
 
         for (size_t i = 0; i < m_info.self_segments.size(); i++) {
             addTreeNode(self_root, tr("Segment [%1]").arg(i), NodeKind::SelfSegment,
-                       static_cast<int>(i));
+                        static_cast<int>(i));
         }
         self_root->setExpanded(true);
     }
@@ -142,15 +141,15 @@ void ElfInfoDialog::buildTree() {
         ehdr_item->setData(0, kNodeIndexRole, -1);
 
         if (!m_info.phdrs.empty()) {
-            auto* phdr_root = new QTreeWidgetItem(m_tree, {tr("Program Headers (%1)")
-                                                               .arg(m_info.phdrs.size())});
+            auto* phdr_root =
+                new QTreeWidgetItem(m_tree, {tr("Program Headers (%1)").arg(m_info.phdrs.size())});
             phdr_root->setData(0, kNodeKindRole, static_cast<int>(NodeKind::ProgramHeadersRoot));
             phdr_root->setData(0, kNodeIndexRole, -1);
 
             for (size_t i = 0; i < m_info.phdrs.size(); i++) {
                 const QString type_name = S(Loader::ElfInfo::PhdrTypeName(m_info.phdrs[i].p_type));
                 addTreeNode(phdr_root, tr("[%1] %2").arg(i).arg(type_name), NodeKind::ProgramHeader,
-                           static_cast<int>(i));
+                            static_cast<int>(i));
             }
             phdr_root->setExpanded(true);
         }
@@ -160,9 +159,9 @@ void ElfInfoDialog::buildTree() {
         m_tree->setCurrentItem(m_tree->topLevelItem(0));
     } else {
         showDetail(tr("Nothing to show"),
-                  tr("eboot.bin isn't SELF-wrapped and doesn't contain a recognizable ELF "
-                     "header either."),
-                  {});
+                   tr("eboot.bin isn't SELF-wrapped and doesn't contain a recognizable ELF "
+                      "header either."),
+                   {});
     }
 }
 
@@ -200,10 +199,10 @@ void ElfInfoDialog::showDetailForItem(QTreeWidgetItem* item) {
     switch (kind) {
     case NodeKind::SelfWrapper:
         showDetail(tr("SELF Wrapper"),
-                  tr("Segment payload bytes aren't decoded here - SELF's segment "
-                     "compression is a proprietary, undocumented Sony format. This "
-                     "shows only what the segment directory itself states."),
-                  SelfWrapperFields());
+                   tr("Segment payload bytes aren't decoded here - SELF's segment "
+                      "compression is a proprietary, undocumented Sony format. This "
+                      "shows only what the segment directory itself states."),
+                   SelfWrapperFields());
         break;
     case NodeKind::SelfSegment:
         showDetail(tr("SELF Segment [%1]").arg(index), QString(), SelfSegmentFields(index));
@@ -271,13 +270,12 @@ ElfInfoDialog::FieldList ElfInfoDialog::ElfHeaderFields() const {
         {tr("Entry point"), S(Loader::ElfInfo::Hex(e.e_entry))},
         {tr("Flags"), S(Loader::ElfInfo::Hex(e.e_flags))},
         {tr("Program header count"), QString::number(static_cast<u16>(e.e_phnum))},
-        {tr("Program header entry size"),
-        tr("%1 bytes").arg(static_cast<u16>(e.e_phentsize))},
+        {tr("Program header entry size"), tr("%1 bytes").arg(static_cast<u16>(e.e_phentsize))},
         {tr("Program header table offset"),
-        S(Loader::ElfInfo::Hex(m_info.ehdr_file_offset + static_cast<u64>(e.e_phoff)))},
-        {tr("Section header count"), QString::number(static_cast<u16>(e.e_shnum)) +
-                                         (m_info.is_self ? tr(" (not read for SELF files)")
-                                                          : QString())},
+         S(Loader::ElfInfo::Hex(m_info.ehdr_file_offset + static_cast<u64>(e.e_phoff)))},
+        {tr("Section header count"),
+         QString::number(static_cast<u16>(e.e_shnum)) +
+             (m_info.is_self ? tr(" (not read for SELF files)") : QString())},
     };
 }
 
@@ -309,9 +307,8 @@ void ElfInfoDialog::onCopy() {
 }
 
 void ElfInfoDialog::onSave() {
-    const QString path =
-        QFileDialog::getSaveFileName(this, tr("Save ELF Info"), m_suggestedFileName,
-                                     tr("Text Files (*.txt)"));
+    const QString path = QFileDialog::getSaveFileName(
+        this, tr("Save ELF Info"), m_suggestedFileName, tr("Text Files (*.txt)"));
     if (path.isEmpty()) {
         return;
     }
