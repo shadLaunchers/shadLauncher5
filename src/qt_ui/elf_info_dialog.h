@@ -31,6 +31,9 @@ private:
         ElfHeader,
         ProgramHeadersRoot,
         ProgramHeader,
+        SectionHeadersRoot,
+        SectionHeader,
+        DynamicSection,
     };
 
     using FieldList = std::vector<std::pair<QString, QString>>;
@@ -45,12 +48,16 @@ private:
     FieldList ElfHeaderFields() const;
     FieldList ProgramHeadersSummaryFields() const;
     FieldList ProgramHeaderFields(int index) const;
+    FieldList SectionHeadersSummaryFields() const;
+    FieldList SectionHeaderFields(int index) const;
+    FieldList DynamicSectionFields() const;
 
     Loader::ElfInfo::ParsedInfo m_info;
     QString m_text; // flat dump, for the Raw Text tab / copy / save
     QString m_suggestedFileName;
 
     QTreeWidget* m_tree = nullptr;
+    QLabel* m_formatLabel = nullptr; // always-visible "what kind of file is this" banner
     QLabel* m_detailTitle = nullptr;
     QLabel* m_detailNote = nullptr;
     QTableWidget* m_detailTable = nullptr;

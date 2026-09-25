@@ -9,7 +9,6 @@
 #include <vector>
 #include "common/endian.h"
 #include "common/types.h"
-
 namespace Loader::ElfInfo {
 
 #pragma pack(push, 1)
@@ -61,7 +60,36 @@ struct Elf64Phdr {
     u64_le p_align;
 };
 static_assert(sizeof(Elf64Phdr) == 56);
+
+struct Elf64Shdr {
+    u32_le sh_name; // byte offset into the section-header string table
+    u32_le sh_type;
+    u64_le sh_flags;
+    u64_le sh_addr;
+    u64_le sh_offset;
+    u64_le sh_size;
+    u32_le sh_link;
+    u32_le sh_info;
+    u64_le sh_addralign;
+    u64_le sh_entsize;
+};
+static_assert(sizeof(Elf64Shdr) == 64);
+
+struct Elf64Dyn {
+    u64_le d_tag;
+    u64_le d_val;
+};
+static_assert(sizeof(Elf64Dyn) == 16);
 #pragma pack(pop)
+
+struct DynamicInfo {
+    bool present = false;           // a PT_DYNAMIC program header exists
+    bool readable = false;          // and its entries could actually be read
+    std::string unavailable_reason; // set when present && !readable
+
+    std::vector<Elf64Dyn> entries;
+    std::vector<std::string> entry_strings;
+};
 
 struct ParsedInfo {
     bool is_self = false;
@@ -72,6 +100,11 @@ struct ParsedInfo {
     u64 ehdr_file_offset = 0;
     Elf64Ehdr ehdr{};
     std::vector<Elf64Phdr> phdrs;
+
+    std::vector<Elf64Shdr> shdrs;
+    std::vector<std::string> section_names;
+
+    DynamicInfo dynamic;
 };
 
 std::optional<ParsedInfo> Parse(const std::vector<u8>& data);
@@ -84,5 +117,7 @@ std::string ElfTypeName(u16 v);
 std::string ElfMachineName(u16 v);
 std::string PhdrTypeName(u32 v);
 std::string PhdrFlagsName(u32 v);
+std::string ShdrTypeName(u32 v);
+std::string DynTagName(u64 v);
 
 } // namespace Loader::ElfInfo

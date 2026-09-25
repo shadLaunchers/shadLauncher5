@@ -38,6 +38,22 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
 
     auto* layout = new QVBoxLayout(this);
 
+    m_formatLabel = new QLabel(this);
+    QFont format_font = m_formatLabel->font();
+    format_font.setBold(true);
+    m_formatLabel->setFont(format_font);
+    if (m_info.is_self) {
+        m_formatLabel->setText(tr("SELF-wrapped PS4/PS5 executable"));
+    } else if (m_info.is_valid_elf) {
+        m_formatLabel->setText(tr("Plain ELF executable (not SELF-wrapped)"));
+    } else {
+        m_formatLabel->setText(
+            tr("Not recognized as SELF or ELF - this may not be a valid eboot.bin"));
+        m_formatLabel->setStyleSheet(QStringLiteral("color: palette(bright-text); "
+                                                    "background-color: palette(mid);"));
+    }
+    layout->addWidget(m_formatLabel);
+
     auto* tabs = new QTabWidget(this);
     layout->addWidget(tabs);
 
@@ -153,6 +169,27 @@ void ElfInfoDialog::buildTree() {
             }
             phdr_root->setExpanded(true);
         }
+
+        if (!m_info.shdrs.empty()) {
+            auto* shdr_root =
+                new QTreeWidgetItem(m_tree, {tr("Section Headers (%1)").arg(m_info.shdrs.size())});
+            shdr_root->setData(0, kNodeKindRole, static_cast<int>(NodeKind::SectionHeadersRoot));
+            shdr_root->setData(0, kNodeIndexRole, -1);
+
+            for (size_t i = 0; i < m_info.shdrs.size(); i++) {
+                const QString name =
+                    m_info.section_names[i].empty() ? tr("<unnamed>") : S(m_info.section_names[i]);
+                addTreeNode(shdr_root, tr("[%1] %2").arg(i).arg(name), NodeKind::SectionHeader,
+                            static_cast<int>(i));
+            }
+            shdr_root->setExpanded(true);
+        }
+
+        if (m_info.dynamic.present) {
+            auto* dyn_item = new QTreeWidgetItem(m_tree, {tr("Dynamic Section")});
+            dyn_item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::DynamicSection));
+            dyn_item->setData(0, kNodeIndexRole, -1);
+        }
     }
 
     if (m_tree->topLevelItemCount() > 0) {
@@ -215,6 +252,20 @@ void ElfInfoDialog::showDetailForItem(QTreeWidgetItem* item) {
         break;
     case NodeKind::ProgramHeader:
         showDetail(tr("Program Header [%1]").arg(index), QString(), ProgramHeaderFields(index));
+        break;
+    case NodeKind::SectionHeadersRoot:
+        showDetail(tr("Section Headers"), QString(), SectionHeadersSummaryFields());
+        break;
+    case NodeKind::SectionHeader:
+        showDetail(tr("Section Header [%1]").arg(index), QString(), SectionHeaderFields(index));
+        break;
+    case NodeKind::DynamicSection:
+        showDetail(
+            tr("Dynamic Section"),
+            m_info.dynamic.readable
+                ? QString()
+                : tr("Present, but not readable: %1").arg(S(m_info.dynamic.unavailable_reason)),
+            DynamicSectionFields());
         break;
     }
 }
@@ -300,6 +351,53 @@ ElfInfoDialog::FieldList ElfInfoDialog::ProgramHeaderFields(int index) const {
         {tr("Memory size"), tr("%1 bytes").arg(static_cast<u64>(p.p_memsz))},
         {tr("Alignment"), S(Loader::ElfInfo::Hex(p.p_align))},
     };
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::SectionHeadersSummaryFields() const {
+    return {
+        {tr("Count"), QString::number(m_info.shdrs.size())},
+    };
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::SectionHeaderFields(int index) const {
+    if (index < 0 || static_cast<size_t>(index) >= m_info.shdrs.size()) {
+        return {};
+    }
+    const auto& sh = m_info.shdrs[static_cast<size_t>(index)];
+    const QString name = m_info.section_names[static_cast<size_t>(index)].empty()
+                             ? tr("<unnamed>")
+                             : S(m_info.section_names[static_cast<size_t>(index)]);
+    return {
+        {tr("Name"), name},
+        {tr("Type"), S(Loader::ElfInfo::ShdrTypeName(sh.sh_type))},
+        {tr("Flags"), S(Loader::ElfInfo::Hex(sh.sh_flags))},
+        {tr("Virtual address"), S(Loader::ElfInfo::Hex(sh.sh_addr, 16))},
+        {tr("File offset"), S(Loader::ElfInfo::Hex(sh.sh_offset, 16))},
+        {tr("Size"), tr("%1 bytes").arg(static_cast<u64>(sh.sh_size))},
+        {tr("Link (sh_link)"), QString::number(static_cast<u32>(sh.sh_link))},
+        {tr("Info (sh_info)"), QString::number(static_cast<u32>(sh.sh_info))},
+        {tr("Address alignment"), S(Loader::ElfInfo::Hex(sh.sh_addralign))},
+        {tr("Entry size"), tr("%1 bytes").arg(static_cast<u64>(sh.sh_entsize))},
+    };
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::DynamicSectionFields() const {
+    if (!m_info.dynamic.readable) {
+        return {};
+    }
+    FieldList fields;
+    fields.reserve(m_info.dynamic.entries.size());
+    for (size_t i = 0; i < m_info.dynamic.entries.size(); i++) {
+        const auto& d = m_info.dynamic.entries[i];
+        QString value = S(Loader::ElfInfo::Hex(d.d_val, 16));
+        if (!m_info.dynamic.entry_strings[i].empty()) {
+            value +=
+                QStringLiteral("  (") + S(m_info.dynamic.entry_strings[i]) + QStringLiteral(")");
+        }
+        fields.push_back(
+            {tr("[%1] %2").arg(i).arg(S(Loader::ElfInfo::DynTagName(d.d_tag))), value});
+    }
+    return fields;
 }
 
 void ElfInfoDialog::onCopy() {

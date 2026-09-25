@@ -3,6 +3,7 @@
 
 #include "elf_info.h"
 
+#include <cstdint>
 #include <cstring>
 #include <sstream>
 
@@ -135,6 +136,255 @@ std::string PhdrFlagsName(u32 v) {
     return s;
 }
 
+std::string ShdrTypeName(u32 v) {
+    switch (v) {
+    case 0:
+        return "SHT_NULL";
+    case 1:
+        return "SHT_PROGBITS";
+    case 2:
+        return "SHT_SYMTAB";
+    case 3:
+        return "SHT_STRTAB";
+    case 4:
+        return "SHT_RELA";
+    case 5:
+        return "SHT_HASH";
+    case 6:
+        return "SHT_DYNAMIC";
+    case 7:
+        return "SHT_NOTE";
+    case 8:
+        return "SHT_NOBITS";
+    case 9:
+        return "SHT_REL";
+    case 11:
+        return "SHT_DYNSYM";
+    default:
+        return "unknown (" + Hex(v) + ")";
+    }
+}
+
+std::string DynTagName(u64 v) {
+    switch (v) {
+    case 0:
+        return "DT_NULL";
+    case 1:
+        return "DT_NEEDED";
+    case 2:
+        return "DT_PLTRELSZ";
+    case 3:
+        return "DT_PLTGOT";
+    case 4:
+        return "DT_HASH";
+    case 5:
+        return "DT_STRTAB";
+    case 6:
+        return "DT_SYMTAB";
+    case 7:
+        return "DT_RELA";
+    case 8:
+        return "DT_RELASZ";
+    case 9:
+        return "DT_RELAENT";
+    case 10:
+        return "DT_STRSZ";
+    case 11:
+        return "DT_SYMENT";
+    case 12:
+        return "DT_INIT";
+    case 13:
+        return "DT_FINI";
+    case 14:
+        return "DT_SONAME";
+    case 15:
+        return "DT_RPATH";
+    case 16:
+        return "DT_SYMBOLIC";
+    case 17:
+        return "DT_REL";
+    case 18:
+        return "DT_RELSZ";
+    case 19:
+        return "DT_RELENT";
+    case 20:
+        return "DT_PLTREL";
+    case 21:
+        return "DT_DEBUG";
+    case 22:
+        return "DT_TEXTREL";
+    case 23:
+        return "DT_JMPREL";
+    case 24:
+        return "DT_BIND_NOW";
+    case 25:
+        return "DT_INIT_ARRAY";
+    case 26:
+        return "DT_FINI_ARRAY";
+    case 27:
+        return "DT_INIT_ARRAYSZ";
+    case 28:
+        return "DT_FINI_ARRAYSZ";
+    case 29:
+        return "DT_RUNPATH";
+    case 30:
+        return "DT_FLAGS";
+    case 32:
+        return "DT_PREINIT_ARRAY";
+    case 33:
+        return "DT_PREINIT_ARRAYSZ";
+    default:
+        return "unknown (" + Hex(v) + ")";
+    }
+}
+
+namespace {
+
+std::optional<std::vector<u8>> ReadFileRange(const std::vector<u8>& data, const ParsedInfo& info,
+                                             u64 file_offset, u64 size,
+                                             bool* was_compressed = nullptr) {
+    if (was_compressed != nullptr) {
+        *was_compressed = false;
+    }
+
+    if (!info.is_self) {
+        if (file_offset + size > data.size()) {
+            return std::nullopt;
+        }
+        return std::vector<u8>(data.begin() + static_cast<ptrdiff_t>(file_offset),
+                               data.begin() + static_cast<ptrdiff_t>(file_offset + size));
+    }
+
+    for (const auto& seg : info.self_segments) {
+        const u64 type = seg.type;
+        if ((type & 0x800) == 0) {
+            continue;
+        }
+        const auto phdr_id = static_cast<size_t>((type >> 20) & 0xFFF);
+        if (phdr_id >= info.phdrs.size()) {
+            continue;
+        }
+        const auto& phdr = info.phdrs[phdr_id];
+        if (file_offset < static_cast<u64>(phdr.p_offset) ||
+            file_offset >= static_cast<u64>(phdr.p_offset) + static_cast<u64>(phdr.p_filesz)) {
+            continue;
+        }
+
+        if (static_cast<u64>(seg.compressed_size) != static_cast<u64>(seg.decompressed_size)) {
+            if (was_compressed != nullptr) {
+                *was_compressed = true;
+            }
+            return std::nullopt;
+        }
+
+        const u64 rel = file_offset - static_cast<u64>(phdr.p_offset);
+        const u64 physical = static_cast<u64>(seg.offset) + rel;
+        if (rel + size > static_cast<u64>(seg.decompressed_size) || physical + size > data.size()) {
+            return std::nullopt;
+        }
+        return std::vector<u8>(data.begin() + static_cast<ptrdiff_t>(physical),
+                               data.begin() + static_cast<ptrdiff_t>(physical + size));
+    }
+
+    return std::nullopt; // no self segment covers this offset
+}
+
+std::optional<u64> VaddrToFileOffset(const ParsedInfo& info, u64 vaddr) {
+    for (const auto& p : info.phdrs) {
+        const u64 v0 = p.p_vaddr;
+        const u64 v1 = v0 + static_cast<u64>(p.p_memsz);
+        if (vaddr >= v0 && vaddr < v1) {
+            return static_cast<u64>(p.p_offset) + (vaddr - v0);
+        }
+    }
+    return std::nullopt;
+}
+
+std::string ExtractCString(const std::vector<u8>& blob, u64 offset) {
+    if (offset >= blob.size()) {
+        return {};
+    }
+    const auto* start = reinterpret_cast<const char*>(blob.data() + offset);
+    const size_t max_len = blob.size() - offset;
+    const size_t len = strnlen(start, max_len);
+    return std::string(start, len);
+}
+
+void ParseDynamic(const std::vector<u8>& data, ParsedInfo& info) {
+    size_t dynamic_phdr_index = SIZE_MAX;
+    for (size_t i = 0; i < info.phdrs.size(); i++) {
+        if (static_cast<u32>(info.phdrs[i].p_type) == 2 /* PT_DYNAMIC */) {
+            dynamic_phdr_index = i;
+            break;
+        }
+    }
+
+    if (dynamic_phdr_index == SIZE_MAX) {
+        info.dynamic.present = false;
+        return;
+    }
+    info.dynamic.present = true;
+
+    const auto& phdr = info.phdrs[dynamic_phdr_index];
+    if (static_cast<u64>(phdr.p_filesz) % sizeof(Elf64Dyn) != 0) {
+        info.dynamic.readable = false;
+        info.dynamic.unavailable_reason = "PT_DYNAMIC size isn't a multiple of 16 bytes";
+        return;
+    }
+
+    bool was_compressed = false;
+    auto bytes = ReadFileRange(data, info, phdr.p_offset, phdr.p_filesz, &was_compressed);
+    if (!bytes) {
+        info.dynamic.readable = false;
+        info.dynamic.unavailable_reason =
+            was_compressed
+                ? "the segment backing PT_DYNAMIC is SELF-compressed and can't be decoded here"
+                : "couldn't locate PT_DYNAMIC's bytes in the file";
+        return;
+    }
+    info.dynamic.readable = true;
+
+    const size_t count = bytes->size() / sizeof(Elf64Dyn);
+    info.dynamic.entries.reserve(count);
+    for (size_t i = 0; i < count; i++) {
+        Elf64Dyn entry{};
+        std::memcpy(&entry, bytes->data() + i * sizeof(Elf64Dyn), sizeof(Elf64Dyn));
+        info.dynamic.entries.push_back(entry);
+        if (static_cast<u64>(entry.d_tag) == 0 /* DT_NULL */) {
+            break;
+        }
+    }
+
+    std::optional<u64> strtab_vaddr;
+    std::optional<u64> strtab_size;
+    for (const auto& e : info.dynamic.entries) {
+        if (static_cast<u64>(e.d_tag) == 5 /* DT_STRTAB */) {
+            strtab_vaddr = e.d_val;
+        } else if (static_cast<u64>(e.d_tag) == 10 /* DT_STRSZ */) {
+            strtab_size = e.d_val;
+        }
+    }
+
+    info.dynamic.entry_strings.assign(info.dynamic.entries.size(), std::string());
+
+    if (strtab_vaddr && strtab_size && *strtab_size > 0) {
+        if (auto strtab_offset = VaddrToFileOffset(info, *strtab_vaddr)) {
+            if (auto strtab_bytes = ReadFileRange(data, info, *strtab_offset, *strtab_size)) {
+                for (size_t i = 0; i < info.dynamic.entries.size(); i++) {
+                    const u64 tag = info.dynamic.entries[i].d_tag;
+                    if (tag == 1 /* DT_NEEDED */ || tag == 14 /* DT_SONAME */ ||
+                        tag == 15 /* DT_RPATH */ || tag == 29 /* DT_RUNPATH */) {
+                        info.dynamic.entry_strings[i] =
+                            ExtractCString(*strtab_bytes, info.dynamic.entries[i].d_val);
+                    }
+                }
+            }
+        }
+    }
+}
+
+} // namespace
+
 std::optional<ParsedInfo> Parse(const std::vector<u8>& data) {
     if (data.size() < 16) {
         return std::nullopt;
@@ -182,6 +432,30 @@ std::optional<ParsedInfo> Parse(const std::vector<u8>& data) {
         }
     }
 
+    if (static_cast<u16>(info.ehdr.e_shentsize) == sizeof(Elf64Shdr)) {
+        const u64 shdr_base = info.ehdr_file_offset + static_cast<u64>(info.ehdr.e_shoff);
+        for (u16 i = 0; i < static_cast<u16>(info.ehdr.e_shnum); i++) {
+            Elf64Shdr shdr{};
+            if (!ReadAt(data, shdr_base + static_cast<u64>(i) * sizeof(Elf64Shdr), shdr)) {
+                break; // shdr table truncated; report what we got
+            }
+            info.shdrs.push_back(shdr);
+        }
+    }
+
+    info.section_names.assign(info.shdrs.size(), std::string());
+    const u16 shstrndx = info.ehdr.e_shstrndx;
+    if (shstrndx < info.shdrs.size()) {
+        const auto& shstrtab = info.shdrs[shstrndx];
+        if (auto blob = ReadFileRange(data, info, shstrtab.sh_offset, shstrtab.sh_size)) {
+            for (size_t i = 0; i < info.shdrs.size(); i++) {
+                info.section_names[i] = ExtractCString(*blob, info.shdrs[i].sh_name);
+            }
+        }
+    }
+
+    ParseDynamic(data, info);
+
     return info;
 }
 
@@ -216,9 +490,11 @@ std::string ToText(const ParsedInfo& info) {
                 << "\n";
         }
         out << "\n";
-        out << "(Segment payload bytes are not decoded here - SELF's segment "
-               "compression is a proprietary, undocumented Sony format. This "
-               "shows only what the segment directory itself states.)\n";
+        out << "(Compressed segment payloads are not decoded here - SELF's segment "
+               "compression is a proprietary, undocumented Sony format. Segments the "
+               "directory marks as stored uncompressed - which in practice usually "
+               "includes the dynamic-linking segment - are read directly instead; see "
+               "the Dynamic section below.)\n";
     } else {
         out << "Present: no (file is a plain, unwrapped ELF)\n";
     }
@@ -244,7 +520,10 @@ std::string ToText(const ParsedInfo& info) {
         << static_cast<u16>(e.e_phentsize) << " bytes each, at file offset "
         << Hex(info.ehdr_file_offset + static_cast<u64>(e.e_phoff)) << "\n";
     out << "Section headers: " << static_cast<u16>(e.e_shnum) << " entries"
-        << (info.is_self ? " (not read for SELF files - see note above)" : "") << "\n";
+        << (e.e_shnum > 0 && info.shdrs.empty()
+                ? " (present but not read - e_shentsize didn't match, or table truncated)"
+                : "")
+        << "\n";
 
     out << "\n=== Program headers ===\n";
     if (info.phdrs.empty()) {
@@ -263,6 +542,55 @@ std::string ToText(const ParsedInfo& info) {
             out << "  " << PhdrFlagsName(p.p_flags) << "  " << Hex(p.p_offset, 16) << "   "
                 << Hex(p.p_vaddr, 16) << "   " << Hex(p.p_filesz, 16) << "   " << Hex(p.p_memsz, 16)
                 << "   " << Hex(p.p_align) << "\n";
+        }
+    }
+
+    out << "\n=== Section headers ===\n";
+    if (info.shdrs.empty()) {
+        out << "(none - see note above)\n";
+    } else {
+        out << "  [ #] name                             type              flags    "
+               "addr               offset             size               link  info\n";
+        for (size_t i = 0; i < info.shdrs.size(); i++) {
+            const auto& sh = info.shdrs[i];
+            const std::string name =
+                info.section_names[i].empty() ? "<unnamed>" : info.section_names[i];
+            out << "  [" << i << "] ";
+            out.width(32);
+            out.setf(std::ios::left);
+            out << name;
+            out.unsetf(std::ios::left);
+            out << " ";
+            out.width(16);
+            out.setf(std::ios::left);
+            out << ShdrTypeName(sh.sh_type);
+            out.unsetf(std::ios::left);
+            out << "  " << Hex(sh.sh_flags, 8) << " " << Hex(sh.sh_addr, 16) << "   "
+                << Hex(sh.sh_offset, 16) << "   " << Hex(sh.sh_size, 16) << "   "
+                << static_cast<u32>(sh.sh_link) << "     " << static_cast<u32>(sh.sh_info) << "\n";
+        }
+    }
+
+    out << "\n=== Dynamic section ===\n";
+    if (!info.dynamic.present) {
+        out << "(no PT_DYNAMIC program header - this binary has no dynamic linking "
+               "info, or isn't dynamically linked)\n";
+    } else if (!info.dynamic.readable) {
+        out << "Present, but not readable: " << info.dynamic.unavailable_reason << "\n";
+    } else {
+        out << "  [ #] tag                     value/vaddr         string\n";
+        for (size_t i = 0; i < info.dynamic.entries.size(); i++) {
+            const auto& d = info.dynamic.entries[i];
+            out << "  [" << i << "] ";
+            out.width(24);
+            out.setf(std::ios::left);
+            out << DynTagName(d.d_tag);
+            out.unsetf(std::ios::left);
+            out << " " << Hex(d.d_val, 16);
+            if (!info.dynamic.entry_strings[i].empty()) {
+                out << "  " << info.dynamic.entry_strings[i];
+            }
+            out << "\n";
         }
     }
 
