@@ -173,6 +173,8 @@ set(FILEFORMAT src/core/file_format/param.cpp
                src/core/file_format/npbind.h
                src/core/file_format/ucp.cpp
                src/core/file_format/ucp.h
+               src/core/file_format/elf_info.cpp
+               src/core/file_format/elf_info.h
                src/core/file_sys/game_backend.cpp
                src/core/file_sys/game_backend.h
                src/core/file_sys/backends/host_directory_backend.cpp
@@ -294,6 +296,8 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/trophy_viewer.h
           src/qt_ui/zarchive_viewer_dialog.cpp
           src/qt_ui/zarchive_viewer_dialog.h
+          src/qt_ui/elf_info_dialog.cpp
+          src/qt_ui/elf_info_dialog.h
           ${UPDATER}
 )
 
@@ -319,7 +323,7 @@ cmrc_add_resource_library(embedded-resources
         src/images/silver.png)
 
 target_link_libraries(shadLauncher5 PRIVATE res::embedded)
-target_link_libraries(shadLauncher5 PRIVATE fmt::fmt spdlog::spdlog SDL3::SDL3)
+target_link_libraries(shadLauncher5 PRIVATE fmt::fmt spdlog::spdlog SDL3::SDL3 elfio::elfio)
 target_link_libraries(shadLauncher5 PRIVATE Qt6::Widgets Qt6::Concurrent Qt6::Network Qt6::Svg Qt6::Multimedia Qt6::Sql nlohmann_json::nlohmann_json libdeflate_static ZArchive::zarchive SDL3::SDL3)
 
 if (ENABLE_UPDATER)

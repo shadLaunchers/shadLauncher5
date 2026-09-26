@@ -75,3 +75,8 @@ if (NOT TARGET SDL3::SDL3)
     set(SDL_PIPEWIRE OFF)
     add_subdirectory(sdl3)
 endif()
+
+# elfio
+if (NOT TARGET elfio)
+    add_subdirectory(elfio)
+endif()
