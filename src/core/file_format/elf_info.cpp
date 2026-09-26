@@ -459,6 +459,53 @@ std::optional<ParsedInfo> Parse(const std::vector<u8>& data) {
     return info;
 }
 
+ModuleClassification ClassifyModule(const ParsedInfo& info) {
+    ModuleClassification result;
+
+    std::string so_name;
+    bool has_soname = false;
+    if (info.dynamic.readable) {
+        for (size_t i = 0; i < info.dynamic.entries.size(); i++) {
+            if (static_cast<u64>(info.dynamic.entries[i].d_tag) == 14 /* DT_SONAME */) {
+                has_soname = true;
+                so_name = info.dynamic.entry_strings[i];
+                break;
+            }
+        }
+    }
+
+    bool has_procparam = false;
+    for (const auto& p : info.phdrs) {
+        if (static_cast<u32>(p.p_type) == 0x61000001 /* PT_SCE_PROCPARAM */) {
+            has_procparam = true;
+            break;
+        }
+    }
+
+    if (has_soname) {
+        result.kind = ModuleKind::SharedModule;
+        result.so_name = so_name;
+    } else if (has_procparam) {
+        result.kind = ModuleKind::Executable;
+    } else {
+        result.kind = ModuleKind::Unknown;
+    }
+
+    return result;
+}
+
+std::string ModuleKindName(ModuleKind kind) {
+    switch (kind) {
+    case ModuleKind::Executable:
+        return "Main executable";
+    case ModuleKind::SharedModule:
+        return "Shared module (PRX/SPRX)";
+    case ModuleKind::Unknown:
+    default:
+        return "Unknown (neither DT_SONAME nor PT_SCE_PROCPARAM found)";
+    }
+}
+
 std::string ToText(const ParsedInfo& info) {
     std::ostringstream out;
 
@@ -513,6 +560,12 @@ std::string ToText(const ParsedInfo& info) {
     out << "OS/ABI:       " << ElfOsAbiName(e.e_ident[7]) << "\n";
     out << "ABI version:  " << static_cast<int>(e.e_ident[8]) << "\n";
     out << "Type:         " << ElfTypeName(e.e_type) << "\n";
+    const auto module_class = ClassifyModule(info);
+    out << "Module kind:  " << ModuleKindName(module_class.kind);
+    if (module_class.kind == ModuleKind::SharedModule && !module_class.so_name.empty()) {
+        out << " - " << module_class.so_name;
+    }
+    out << "\n";
     out << "Machine:      " << ElfMachineName(e.e_machine) << "\n";
     out << "Entry point:  " << Hex(e.e_entry) << "\n";
     out << "Flags:        " << Hex(e.e_flags) << "\n";

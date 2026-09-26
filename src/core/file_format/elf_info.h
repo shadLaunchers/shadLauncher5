@@ -9,6 +9,7 @@
 #include <vector>
 #include "common/endian.h"
 #include "common/types.h"
+
 namespace Loader::ElfInfo {
 
 #pragma pack(push, 1)
@@ -96,8 +97,8 @@ struct ParsedInfo {
     SelfHeader self_header{};
     std::vector<SelfSegmentEntry> self_segments;
 
-    bool is_valid_elf = false;
-    u64 ehdr_file_offset = 0;
+    bool is_valid_elf = false; // false => couldn't even read a plausible Ehdr
+    u64 ehdr_file_offset = 0;  // physical file offset the Ehdr was read from
     Elf64Ehdr ehdr{};
     std::vector<Elf64Phdr> phdrs;
 
@@ -107,6 +108,19 @@ struct ParsedInfo {
     DynamicInfo dynamic;
 };
 
+enum class ModuleKind {
+    Unknown,      // neither signal found; can't tell
+    Executable,   // PT_SCE_PROCPARAM present, no DT_SONAME
+    SharedModule, // DT_SONAME present (PRX/SPRX)
+};
+
+struct ModuleClassification {
+    ModuleKind kind = ModuleKind::Unknown;
+    std::string so_name; // set when kind == SharedModule and DT_SONAME resolved
+};
+
+ModuleClassification ClassifyModule(const ParsedInfo& info);
+std::string ModuleKindName(ModuleKind kind);
 std::optional<ParsedInfo> Parse(const std::vector<u8>& data);
 std::string ToText(const ParsedInfo& info);
 std::string Hex(u64 value, int width = 0);

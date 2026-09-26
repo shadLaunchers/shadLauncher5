@@ -37,15 +37,37 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
     resize(900, 640);
 
     auto* layout = new QVBoxLayout(this);
-
     m_formatLabel = new QLabel(this);
     QFont format_font = m_formatLabel->font();
     format_font.setBold(true);
     m_formatLabel->setFont(format_font);
+
+    QString banner;
     if (m_info.is_self) {
-        m_formatLabel->setText(tr("SELF-wrapped PS4/PS5 executable"));
+        banner = tr("SELF-wrapped PS4/PS5 ");
     } else if (m_info.is_valid_elf) {
-        m_formatLabel->setText(tr("Plain ELF executable (not SELF-wrapped)"));
+        banner = tr("Plain (not SELF-wrapped) PS4/PS5 ");
+    }
+
+    if (m_info.is_valid_elf) {
+        const auto module_class = Loader::ElfInfo::ClassifyModule(m_info);
+        switch (module_class.kind) {
+        case Loader::ElfInfo::ModuleKind::SharedModule:
+            banner += tr("shared module (PRX/SPRX)");
+            if (!module_class.so_name.empty()) {
+                banner += QStringLiteral(" - ") + S(module_class.so_name);
+            }
+            break;
+        case Loader::ElfInfo::ModuleKind::Executable:
+            banner += tr("main executable");
+            break;
+        case Loader::ElfInfo::ModuleKind::Unknown:
+        default:
+            banner += tr("file (couldn't tell executable from PRX/SPRX - see ELF "
+                         "Header for details)");
+            break;
+        }
+        m_formatLabel->setText(banner);
     } else {
         m_formatLabel->setText(
             tr("Not recognized as SELF or ELF - this may not be a valid eboot.bin"));
@@ -310,6 +332,13 @@ ElfInfoDialog::FieldList ElfInfoDialog::SelfSegmentFields(int index) const {
 
 ElfInfoDialog::FieldList ElfInfoDialog::ElfHeaderFields() const {
     const auto& e = m_info.ehdr;
+    const auto module_class = Loader::ElfInfo::ClassifyModule(m_info);
+    QString module_kind_value = S(Loader::ElfInfo::ModuleKindName(module_class.kind));
+    if (module_class.kind == Loader::ElfInfo::ModuleKind::SharedModule &&
+        !module_class.so_name.empty()) {
+        module_kind_value += QStringLiteral(" - ") + S(module_class.so_name);
+    }
+
     return {
         {tr("Found at file offset"), S(Loader::ElfInfo::Hex(m_info.ehdr_file_offset))},
         {tr("Class"), S(Loader::ElfInfo::ElfClassName(e.e_ident[4]))},
@@ -317,6 +346,7 @@ ElfInfoDialog::FieldList ElfInfoDialog::ElfHeaderFields() const {
         {tr("OS/ABI"), S(Loader::ElfInfo::ElfOsAbiName(e.e_ident[7]))},
         {tr("ABI version"), QString::number(static_cast<int>(e.e_ident[8]))},
         {tr("Type"), S(Loader::ElfInfo::ElfTypeName(e.e_type))},
+        {tr("Module kind"), module_kind_value},
         {tr("Machine"), S(Loader::ElfInfo::ElfMachineName(e.e_machine))},
         {tr("Entry point"), S(Loader::ElfInfo::Hex(e.e_entry))},
         {tr("Flags"), S(Loader::ElfInfo::Hex(e.e_flags))},
@@ -326,7 +356,9 @@ ElfInfoDialog::FieldList ElfInfoDialog::ElfHeaderFields() const {
          S(Loader::ElfInfo::Hex(m_info.ehdr_file_offset + static_cast<u64>(e.e_phoff)))},
         {tr("Section header count"),
          QString::number(static_cast<u16>(e.e_shnum)) +
-             (m_info.is_self ? tr(" (not read for SELF files)") : QString())},
+             (e.e_shnum > 0 && m_info.shdrs.empty()
+                  ? tr(" (present but not read - see Raw Text tab for details)")
+                  : QString())},
     };
 }
 
