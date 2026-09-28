@@ -11,8 +11,8 @@ namespace Loader::ElfInfo {
 
 namespace {
 
-// SCE's SELF/SPRX magic, shared across PS3/PS4/PS5 signed binaries.
 constexpr u8 kSelfMagic[4] = {0x4F, 0x15, 0x3D, 0x1D};
+constexpr u8 kSelfMagic2[4] = {0x54, 0x14, 0xF5, 0xEE};
 constexpr u8 kElfMagic[4] = {0x7F, 'E', 'L', 'F'};
 
 bool HasMagic(const std::vector<u8>& data, size_t offset, const u8* magic, size_t magic_len) {
@@ -117,6 +117,8 @@ std::string PhdrTypeName(u32 v) {
         return "PT_PHDR";
     case 7:
         return "PT_TLS";
+    case 0x6474e550:
+        return "PT_GNU_EH_FRAME";
     case 0x61000000:
         return "PT_SCE_DYNLIBDATA (PS4/PS5)";
     case 0x61000001:
@@ -233,9 +235,94 @@ std::string DynTagName(u64 v) {
         return "DT_PREINIT_ARRAY";
     case 33:
         return "DT_PREINIT_ARRAYSZ";
+    case 0x6ffffff9:
+        return "DT_RELACOUNT";
+    case 0x61000007:
+        return "DT_OS_FINGERPRINT";
+    case 0x61000009:
+        return "DT_OS_ORIGINAL_FILENAME";
+    case 0x6100000d:
+        return "DT_OS_MODULE_INFO";
+    case 0x6100000f:
+        return "DT_OS_NEEDED_MODULE";
+    case 0x61000011:
+        return "DT_OS_MODULE_ATTR";
+    case 0x61000013:
+        return "DT_OS_EXPORT_LIB";
+    case 0x61000015:
+        return "DT_OS_IMPORT_LIB";
+    case 0x61000017:
+        return "DT_OS_EXPORT_LIB_ATTR";
+    case 0x61000019:
+        return "DT_OS_IMPORT_LIB_ATTR";
+    case 0x61000025:
+        return "DT_OS_HASH";
+    case 0x61000027:
+        return "DT_OS_PLTGOT";
+    case 0x61000029:
+        return "DT_OS_JMPREL";
+    case 0x6100002b:
+        return "DT_OS_PLTREL";
+    case 0x6100002d:
+        return "DT_OS_PLTRELSZ";
+    case 0x6100002f:
+        return "DT_OS_RELA";
+    case 0x61000031:
+        return "DT_OS_RELASZ";
+    case 0x61000033:
+        return "DT_OS_RELAENT";
+    case 0x61000035:
+        return "DT_OS_STRTAB";
+    case 0x61000037:
+        return "DT_OS_STRSZ";
+    case 0x61000039:
+        return "DT_OS_SYMTAB";
+    case 0x6100003b:
+        return "DT_OS_SYMENT";
+    case 0x6100003d:
+        return "DT_OS_HASHSZ";
+    case 0x6100003f:
+        return "DT_OS_SYMTABSZ";
+    case 0x61000041:
+        return "DT_OS_ORIGINAL_FILENAME_1";
+    case 0x61000043:
+        return "DT_OS_MODULE_INFO_1";
+    case 0x61000045:
+        return "DT_OS_NEEDED_MODULE_1";
+    case 0x61000047:
+        return "DT_OS_EXPORT_LIB_1";
+    case 0x61000049:
+        return "DT_OS_IMPORT_LIB_1";
     default:
         return "unknown (" + Hex(v) + ")";
     }
+}
+
+std::string HexDump(const std::vector<u8>& bytes, u64 base_offset) {
+    std::ostringstream out;
+    for (size_t row = 0; row < bytes.size(); row += 16) {
+        out << Hex(base_offset + row, 8) << "  ";
+
+        const size_t row_len = std::min<size_t>(16, bytes.size() - row);
+        for (size_t col = 0; col < 16; col++) {
+            if (col < row_len) {
+                out.width(2);
+                out.fill('0');
+                out << std::hex << static_cast<unsigned>(bytes[row + col]) << std::dec;
+            } else {
+                out << "  ";
+            }
+            out << (col == 7 ? "  " : " ");
+        }
+
+        out << " ";
+        for (size_t col = 0; col < row_len; col++) {
+            const u8 c = bytes[row + col];
+            out << (c >= 0x20 && c < 0x7f ? static_cast<char>(c) : '.');
+        }
+        out << "\n";
+    }
+    return out.str();
 }
 
 namespace {
@@ -310,6 +397,63 @@ std::string ExtractCString(const std::vector<u8>& blob, u64 offset) {
     return std::string(start, len);
 }
 
+std::string EncodeId64(u16 in_id) {
+    static const char* kAlphabet =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-";
+    std::string out;
+    if (in_id < 0x40u) {
+        out += kAlphabet[in_id];
+    } else if (in_id < 0x1000u) {
+        out += kAlphabet[(in_id >> 6u) & 0x3fu];
+        out += kAlphabet[in_id & 0x3fu];
+    } else {
+        out += kAlphabet[(in_id >> 12u) & 0x3fu];
+        out += kAlphabet[(in_id >> 6u) & 0x3fu];
+        out += kAlphabet[in_id & 0x3fu];
+    }
+    return out;
+}
+
+std::optional<size_t> FindPhdrByType(const ParsedInfo& info, u32 type) {
+    for (size_t i = 0; i < info.phdrs.size(); i++) {
+        if (static_cast<u32>(info.phdrs[i].p_type) == type) {
+            return i;
+        }
+    }
+    return std::nullopt;
+}
+
+void DecodeModuleIds(const ParsedInfo& info, const std::vector<u8>& strtab, u64 tag,
+                     std::vector<ModuleIdInfo>& out) {
+    for (const auto& e : info.dynamic.entries) {
+        if (static_cast<u64>(e.d_tag) != tag) {
+            continue;
+        }
+        const u64 need = e.d_val;
+        ModuleIdInfo m;
+        m.id = EncodeId64(static_cast<u16>((need >> 48u) & 0xffffu));
+        m.version_major = static_cast<int>((need >> 40u) & 0xffu);
+        m.version_minor = static_cast<int>((need >> 32u) & 0xffu);
+        m.name = ExtractCString(strtab, need & 0xffffffffu);
+        out.push_back(std::move(m));
+    }
+}
+
+void DecodeLibraryIds(const ParsedInfo& info, const std::vector<u8>& strtab, u64 tag,
+                      std::vector<LibraryIdInfo>& out) {
+    for (const auto& e : info.dynamic.entries) {
+        if (static_cast<u64>(e.d_tag) != tag) {
+            continue;
+        }
+        const u64 need = e.d_val;
+        LibraryIdInfo l;
+        l.id = EncodeId64(static_cast<u16>((need >> 48u) & 0xffffu));
+        l.version = static_cast<int>((need >> 32u) & 0xffffu);
+        l.name = ExtractCString(strtab, need & 0xffffffffu);
+        out.push_back(std::move(l));
+    }
+}
+
 void ParseDynamic(const std::vector<u8>& data, ParsedInfo& info) {
     size_t dynamic_phdr_index = SIZE_MAX;
     for (size_t i = 0; i < info.phdrs.size(); i++) {
@@ -355,32 +499,151 @@ void ParseDynamic(const std::vector<u8>& data, ParsedInfo& info) {
         }
     }
 
+    info.dynamic.entry_strings.assign(info.dynamic.entries.size(), std::string());
+
+    auto find_tag = [&](u64 os_tag, u64 std_tag) -> std::optional<u64> {
+        for (const auto& e : info.dynamic.entries) {
+            // 0 means "no such variant" here (it would otherwise match the
+            // DT_NULL terminator, whose tag is also 0).
+            const u64 tag = static_cast<u64>(e.d_tag);
+            if ((os_tag != 0 && tag == os_tag) || (std_tag != 0 && tag == std_tag)) {
+                return static_cast<u64>(e.d_val);
+            }
+        }
+        return std::nullopt;
+    };
+    auto add = [&](const std::string& label, const std::string& value) {
+        info.dynamic.summary.emplace_back(label, value);
+    };
+    auto add_addr = [&](const char* label, std::optional<u64> v) {
+        if (v)
+            add(label, Hex(*v));
+    };
+    add_addr("Init function (DT_INIT)", find_tag(0, 12));
+    add_addr("Fini function (DT_FINI)", find_tag(0, 13));
+    if (auto v = find_tag(0, 25)) {
+        auto sz = find_tag(0, 27);
+        add("Init array", Hex(*v) + (sz ? ", " + std::to_string(*sz / 8) + " entries" : ""));
+    }
+    if (auto v = find_tag(0, 26)) {
+        auto sz = find_tag(0, 28);
+        add("Fini array", Hex(*v) + (sz ? ", " + std::to_string(*sz / 8) + " entries" : ""));
+    }
+    if (auto v = find_tag(0, 32)) {
+        auto sz = find_tag(0, 33);
+        add("Preinit array", Hex(*v) + (sz ? ", " + std::to_string(*sz / 8) + " entries" : ""));
+    }
+    add_addr("PLT GOT", find_tag(0x61000027, 3));
+    if (auto sz = find_tag(0x6100002d, 2)) {
+        std::string v =
+            std::to_string(*sz / sizeof(u64) / 3) + " entries (" + std::to_string(*sz) + " bytes)";
+        if (auto t = find_tag(0x6100002b, 20)) {
+            v += *t == 7 ? ", RELA" : ", type " + Hex(*t);
+        }
+        add("PLT relocations (JMPREL)", v);
+    }
+    if (auto sz = find_tag(0x61000031, 8)) {
+        u64 ent = find_tag(0x61000033, 9).value_or(24);
+        add("RELA relocations",
+            std::to_string(ent ? *sz / ent : 0) + " entries (" + std::to_string(*sz) + " bytes)");
+    }
+    if (auto v = find_tag(0, 0x6ffffff9)) {
+        add("Relative relocations (DT_RELACOUNT)", std::to_string(*v));
+    }
+    if (auto sz = find_tag(0x6100003f, 0)) {
+        u64 ent = find_tag(0x6100003b, 11).value_or(24);
+        add("Symbol table",
+            std::to_string(ent ? *sz / ent : 0) + " symbols (" + std::to_string(*sz) + " bytes)");
+    }
+    if (auto v = find_tag(0x6100003d, 0)) {
+        add("Hash table size", std::to_string(*v) + " bytes");
+    }
+    if (auto v = find_tag(0x61000037, 10)) {
+        add("String table size", std::to_string(*v) + " bytes");
+    }
+    add_addr("Flags (DT_FLAGS)", find_tag(0, 30));
+    add_addr("Debug (DT_DEBUG)", find_tag(0, 21));
+    add_addr("Text relocations (DT_TEXTREL)", find_tag(0, 22));
+
+    std::optional<std::vector<u8>> strtab_bytes;
+
+    std::optional<u64> os_strtab_offset;
+    std::optional<u64> os_strtab_size;
     std::optional<u64> strtab_vaddr;
     std::optional<u64> strtab_size;
     for (const auto& e : info.dynamic.entries) {
-        if (static_cast<u64>(e.d_tag) == 5 /* DT_STRTAB */) {
+        const u64 tag = e.d_tag;
+        if (tag == 0x61000035 /* DT_OS_STRTAB */) {
+            os_strtab_offset = e.d_val;
+        } else if (tag == 0x61000037 /* DT_OS_STRSZ */) {
+            os_strtab_size = e.d_val;
+        } else if (tag == 5 /* DT_STRTAB */) {
             strtab_vaddr = e.d_val;
-        } else if (static_cast<u64>(e.d_tag) == 10 /* DT_STRSZ */) {
+        } else if (tag == 10 /* DT_STRSZ */) {
             strtab_size = e.d_val;
         }
     }
 
-    info.dynamic.entry_strings.assign(info.dynamic.entries.size(), std::string());
-
-    if (strtab_vaddr && strtab_size && *strtab_size > 0) {
-        if (auto strtab_offset = VaddrToFileOffset(info, *strtab_vaddr)) {
-            if (auto strtab_bytes = ReadFileRange(data, info, *strtab_offset, *strtab_size)) {
-                for (size_t i = 0; i < info.dynamic.entries.size(); i++) {
-                    const u64 tag = info.dynamic.entries[i].d_tag;
-                    if (tag == 1 /* DT_NEEDED */ || tag == 14 /* DT_SONAME */ ||
-                        tag == 15 /* DT_RPATH */ || tag == 29 /* DT_RUNPATH */) {
-                        info.dynamic.entry_strings[i] =
-                            ExtractCString(*strtab_bytes, info.dynamic.entries[i].d_val);
-                    }
-                }
+    if (os_strtab_offset && os_strtab_size && *os_strtab_size > 0) {
+        if (!FindPhdrByType(info, 0x61000000)) {
+            info.dynamic.strings_unavailable_reason =
+                "DT_OS_STRTAB is set but there is no PT_SCE_DYNLIBDATA segment to read it from";
+        }
+        if (auto dynlibdata_idx = FindPhdrByType(info, 0x61000000 /* PT_SCE_DYNLIBDATA */)) {
+            const auto& dyn_phdr = info.phdrs[*dynlibdata_idx];
+            bool strtab_compressed = false;
+            strtab_bytes =
+                ReadFileRange(data, info, static_cast<u64>(dyn_phdr.p_offset) + *os_strtab_offset,
+                              *os_strtab_size, &strtab_compressed);
+            if (!strtab_bytes) {
+                info.dynamic.strings_unavailable_reason =
+                    strtab_compressed
+                        ? "PT_SCE_DYNLIBDATA is SELF-compressed and can't be decoded here"
+                        : "couldn't locate the string table's bytes inside PT_SCE_DYNLIBDATA";
             }
         }
     }
+    if (!strtab_bytes && strtab_vaddr && strtab_size && *strtab_size > 0) {
+        if (auto strtab_offset = VaddrToFileOffset(info, *strtab_vaddr)) {
+            strtab_bytes = ReadFileRange(data, info, *strtab_offset, *strtab_size);
+        }
+    }
+
+    if (!strtab_bytes) {
+        if (info.dynamic.strings_unavailable_reason.empty()) {
+            info.dynamic.strings_unavailable_reason =
+                "no DT_OS_STRTAB/DT_STRTAB (with a size) found, or it couldn't be located in the "
+                "file";
+        }
+        return; // no string table resolvable - nothing further to decode
+    }
+    info.dynamic.strings_unavailable_reason.clear();
+
+    for (size_t i = 0; i < info.dynamic.entries.size(); i++) {
+        const u64 tag = info.dynamic.entries[i].d_tag;
+        if (tag == 1 /* DT_NEEDED */ || tag == 14 /* DT_SONAME */ || tag == 15 /* DT_RPATH */ ||
+            tag == 29 /* DT_RUNPATH */) {
+            info.dynamic.entry_strings[i] =
+                ExtractCString(*strtab_bytes, info.dynamic.entries[i].d_val);
+        }
+    }
+
+    DecodeModuleIds(info, *strtab_bytes, 0x6100000f /* DT_OS_NEEDED_MODULE */,
+                    info.dynamic.import_modules);
+    DecodeModuleIds(info, *strtab_bytes, 0x61000045 /* DT_OS_NEEDED_MODULE_1 */,
+                    info.dynamic.import_modules);
+    DecodeModuleIds(info, *strtab_bytes, 0x6100000d /* DT_OS_MODULE_INFO */,
+                    info.dynamic.export_modules);
+    DecodeModuleIds(info, *strtab_bytes, 0x61000043 /* DT_OS_MODULE_INFO_1 */,
+                    info.dynamic.export_modules);
+    DecodeLibraryIds(info, *strtab_bytes, 0x61000015 /* DT_OS_IMPORT_LIB */,
+                     info.dynamic.import_libs);
+    DecodeLibraryIds(info, *strtab_bytes, 0x61000049 /* DT_OS_IMPORT_LIB_1 */,
+                     info.dynamic.import_libs);
+    DecodeLibraryIds(info, *strtab_bytes, 0x61000013 /* DT_OS_EXPORT_LIB */,
+                     info.dynamic.export_libs);
+    DecodeLibraryIds(info, *strtab_bytes, 0x61000047 /* DT_OS_EXPORT_LIB_1 */,
+                     info.dynamic.export_libs);
 }
 
 } // namespace
@@ -391,8 +654,13 @@ std::optional<ParsedInfo> Parse(const std::vector<u8>& data) {
     }
 
     ParsedInfo info;
+    info.file_size = data.size();
 
-    if (HasMagic(data, 0, kSelfMagic, sizeof(kSelfMagic))) {
+    constexpr size_t kRawDumpMaxBytes = 256;
+    info.raw_header.assign(data.begin(), data.begin() + std::min(data.size(), kRawDumpMaxBytes));
+
+    if (HasMagic(data, 0, kSelfMagic, sizeof(kSelfMagic)) ||
+        HasMagic(data, 0, kSelfMagic2, sizeof(kSelfMagic2))) {
         info.is_self = true;
 
         if (!ReadAt(data, 0, info.self_header)) {
@@ -417,6 +685,12 @@ std::optional<ParsedInfo> Parse(const std::vector<u8>& data) {
     if (!HasMagic(data, info.ehdr_file_offset, kElfMagic, sizeof(kElfMagic)) ||
         !ReadAt(data, info.ehdr_file_offset, info.ehdr)) {
         info.is_valid_elf = false;
+        if (info.is_self && info.ehdr_file_offset < data.size()) {
+            const size_t dump_len = std::min(kRawDumpMaxBytes, data.size() - info.ehdr_file_offset);
+            info.raw_at_ehdr_offset.assign(
+                data.begin() + static_cast<ptrdiff_t>(info.ehdr_file_offset),
+                data.begin() + static_cast<ptrdiff_t>(info.ehdr_file_offset + dump_len));
+        }
         return info;
     }
     info.is_valid_elf = true;
@@ -474,6 +748,9 @@ ModuleClassification ClassifyModule(const ParsedInfo& info) {
         }
     }
 
+    const bool has_exports =
+        !info.dynamic.export_modules.empty() || !info.dynamic.export_libs.empty();
+
     bool has_procparam = false;
     for (const auto& p : info.phdrs) {
         if (static_cast<u32>(p.p_type) == 0x61000001 /* PT_SCE_PROCPARAM */) {
@@ -482,9 +759,15 @@ ModuleClassification ClassifyModule(const ParsedInfo& info) {
         }
     }
 
-    if (has_soname) {
+    if (has_soname || has_exports) {
         result.kind = ModuleKind::SharedModule;
-        result.so_name = so_name;
+        if (has_soname) {
+            result.so_name = so_name;
+        } else if (!info.dynamic.export_modules.empty()) {
+            result.so_name = info.dynamic.export_modules.front().name;
+        } else {
+            result.so_name = info.dynamic.export_libs.front().name;
+        }
     } else if (has_procparam) {
         result.kind = ModuleKind::Executable;
     } else {
@@ -502,8 +785,50 @@ std::string ModuleKindName(ModuleKind kind) {
         return "Shared module (PRX/SPRX)";
     case ModuleKind::Unknown:
     default:
-        return "Unknown (neither DT_SONAME nor PT_SCE_PROCPARAM found)";
+        return "Unknown (no shared-module or executable signal found)";
     }
+}
+
+std::string PlatformName(const ParsedInfo& info) {
+    if (!info.is_valid_elf) {
+        return "Unknown";
+    }
+    return info.ehdr.e_ident[8] == 2 ? "PS5" : "PS4";
+}
+
+std::vector<std::string> StrictValidationFailures(const ParsedInfo& info) {
+    std::vector<std::string> f;
+    if (!info.is_valid_elf) {
+        f.push_back("no ELF header found");
+        return f;
+    }
+    const auto& e = info.ehdr;
+    if (e.e_ident[4] != 2)
+        f.push_back("EI_CLASS is not ELFCLASS64");
+    if (e.e_ident[5] != 1)
+        f.push_back("EI_DATA is not little-endian");
+    if (e.e_ident[6] != 1)
+        f.push_back("EI_VERSION is not EV_CURRENT");
+    if (e.e_ident[7] != 9)
+        f.push_back("EI_OSABI is not FreeBSD (9)");
+    if (e.e_ident[8] != 0 && e.e_ident[8] != 2)
+        f.push_back("EI_ABIVERSION is not 0 or 2");
+    if (static_cast<u16>(e.e_type) != 0xfe10 && static_cast<u16>(e.e_type) != 0xfe18) {
+        f.push_back("e_type is not ET_SCE_DYNEXEC (0xfe10) or ET_SCE_DYNAMIC (0xfe18): " +
+                    Hex(static_cast<u16>(e.e_type)));
+    }
+    if (static_cast<u16>(e.e_machine) != 62)
+        f.push_back("e_machine is not x86-64");
+    if (static_cast<u32>(e.e_version) != 1)
+        f.push_back("e_version is not EV_CURRENT");
+    if (static_cast<u16>(e.e_phentsize) != sizeof(Elf64Phdr)) {
+        f.push_back("e_phentsize is not 56");
+    }
+    if (static_cast<u16>(e.e_shentsize) > 0 &&
+        static_cast<u16>(e.e_shentsize) != sizeof(Elf64Shdr)) {
+        f.push_back("e_shentsize is not 0 or 64");
+    }
+    return f;
 }
 
 std::string ToText(const ParsedInfo& info) {
@@ -550,6 +875,22 @@ std::string ToText(const ParsedInfo& info) {
     if (!info.is_valid_elf) {
         out << "Not found / not recognized as ELF at offset " << Hex(info.ehdr_file_offset)
             << ".\n";
+
+        if (info.is_self) {
+            out << "\nThe SELF wrapper above WAS recognized, but the bytes at that "
+                   "offset aren't a valid ELF header - could be a different container "
+                   "format nested inside, a build this hasn't been tested against, or "
+                   "a corrupted file. Bytes at offset "
+                << Hex(info.ehdr_file_offset) << ":\n\n";
+            out << HexDump(info.raw_at_ehdr_offset, info.ehdr_file_offset);
+        } else {
+            out << "\nNeither the SELF wrapper magic nor the ELF magic (\\x7fELF) was "
+                   "found anywhere this looked. This may not be a PS4/PS5 executable at "
+                   "all - first bytes of the file (size: "
+                << info.file_size << " bytes):\n\n";
+            out << HexDump(info.raw_header);
+        }
+
         return out.str();
     }
 
@@ -567,6 +908,14 @@ std::string ToText(const ParsedInfo& info) {
     }
     out << "\n";
     out << "Machine:      " << ElfMachineName(e.e_machine) << "\n";
+    out << "Platform:     " << PlatformName(info) << "\n";
+    {
+        const auto failures = StrictValidationFailures(info);
+        out << "PS4/PS5 loader validation: " << (failures.empty() ? "passes" : "rejected") << "\n";
+        for (const auto& line : failures) {
+            out << "  - " << line << "\n";
+        }
+    }
     out << "Entry point:  " << Hex(e.e_entry) << "\n";
     out << "Flags:        " << Hex(e.e_flags) << "\n";
     out << "Program headers: " << static_cast<u16>(e.e_phnum) << " entries, "
@@ -645,6 +994,46 @@ std::string ToText(const ParsedInfo& info) {
             }
             out << "\n";
         }
+    }
+
+    if (info.dynamic.readable && !info.dynamic.summary.empty()) {
+        out << "\n=== Dynamic linking summary ===\n";
+        for (const auto& row : info.dynamic.summary) {
+            out << "  " << row.first << ": " << row.second << "\n";
+        }
+    }
+    if (info.dynamic.readable && !info.dynamic.strings_unavailable_reason.empty()) {
+        out << "\nNote: names/libraries couldn't be resolved - "
+            << info.dynamic.strings_unavailable_reason << ".\n";
+    }
+
+    auto print_modules = [&out](const char* title, const std::vector<ModuleIdInfo>& list) {
+        out << "\n=== " << title << " (" << list.size() << ") ===\n";
+        for (size_t i = 0; i < list.size(); i++) {
+            const auto& m = list[i];
+            out << "  [" << i << "] " << m.name << " (id=" << m.id << ", v" << m.version_major
+                << "." << m.version_minor << ")\n";
+        }
+    };
+    auto print_libs = [&out](const char* title, const std::vector<LibraryIdInfo>& list) {
+        out << "\n=== " << title << " (" << list.size() << ") ===\n";
+        for (size_t i = 0; i < list.size(); i++) {
+            const auto& l = list[i];
+            out << "  [" << i << "] " << l.name << " (id=" << l.id << ", v" << l.version << ")\n";
+        }
+    };
+
+    if (!info.dynamic.import_modules.empty()) {
+        print_modules("Imported Modules", info.dynamic.import_modules);
+    }
+    if (!info.dynamic.export_modules.empty()) {
+        print_modules("Exported Modules", info.dynamic.export_modules);
+    }
+    if (!info.dynamic.import_libs.empty()) {
+        print_libs("Imported Libraries", info.dynamic.import_libs);
+    }
+    if (!info.dynamic.export_libs.empty()) {
+        print_libs("Exported Libraries", info.dynamic.export_libs);
     }
 
     return out.str();

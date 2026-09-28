@@ -83,6 +83,19 @@ struct Elf64Dyn {
 static_assert(sizeof(Elf64Dyn) == 16);
 #pragma pack(pop)
 
+struct ModuleIdInfo {
+    std::string id;
+    std::string name;
+    int version_major = 0;
+    int version_minor = 0;
+};
+
+struct LibraryIdInfo {
+    std::string id;
+    std::string name;
+    int version = 0;
+};
+
 struct DynamicInfo {
     bool present = false;           // a PT_DYNAMIC program header exists
     bool readable = false;          // and its entries could actually be read
@@ -90,6 +103,12 @@ struct DynamicInfo {
 
     std::vector<Elf64Dyn> entries;
     std::vector<std::string> entry_strings;
+    std::vector<ModuleIdInfo> import_modules;
+    std::vector<ModuleIdInfo> export_modules;
+    std::vector<LibraryIdInfo> import_libs;
+    std::vector<LibraryIdInfo> export_libs;
+    std::vector<std::pair<std::string, std::string>> summary;
+    std::string strings_unavailable_reason;
 };
 
 struct ParsedInfo {
@@ -106,12 +125,15 @@ struct ParsedInfo {
     std::vector<std::string> section_names;
 
     DynamicInfo dynamic;
+    u64 file_size = 0;
+    std::vector<u8> raw_header; // first bytes of the file, always populated
+    std::vector<u8> raw_at_ehdr_offset;
 };
 
 enum class ModuleKind {
     Unknown,      // neither signal found; can't tell
-    Executable,   // PT_SCE_PROCPARAM present, no DT_SONAME
-    SharedModule, // DT_SONAME present (PRX/SPRX)
+    Executable,   // PT_SCE_PROCPARAM present, no shared-module signal
+    SharedModule, // DT_SONAME and/or export_modules/export_libs present (PRX/SPRX)
 };
 
 struct ModuleClassification {
@@ -121,6 +143,8 @@ struct ModuleClassification {
 
 ModuleClassification ClassifyModule(const ParsedInfo& info);
 std::string ModuleKindName(ModuleKind kind);
+std::string PlatformName(const ParsedInfo& info);
+std::vector<std::string> StrictValidationFailures(const ParsedInfo& info);
 std::optional<ParsedInfo> Parse(const std::vector<u8>& data);
 std::string ToText(const ParsedInfo& info);
 std::string Hex(u64 value, int width = 0);
@@ -133,5 +157,6 @@ std::string PhdrTypeName(u32 v);
 std::string PhdrFlagsName(u32 v);
 std::string ShdrTypeName(u32 v);
 std::string DynTagName(u64 v);
+std::string HexDump(const std::vector<u8>& bytes, u64 base_offset = 0);
 
 } // namespace Loader::ElfInfo

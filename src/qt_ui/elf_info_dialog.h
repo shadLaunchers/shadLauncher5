@@ -34,6 +34,14 @@ private:
         SectionHeadersRoot,
         SectionHeader,
         DynamicSection,
+        DynamicSummary,
+        ModuleGroup,       // Imported/Exported Modules root (group: 0=import, 1=export)
+        ModuleEntry,       // one module (group + index)
+        LibraryGroup,      // Imported/Exported Libraries root (group: 0=import, 1=export)
+        LibraryEntry,      // one library (group + index)
+        RawFileHeaderDump, // hex dump of the start of the file - shown when nothing recognized
+        RawEhdrOffsetDump, // hex dump at ehdr_file_offset - shown when SELF recognized but inner
+                           // ELF isn't
     };
 
     using FieldList = std::vector<std::pair<QString, QString>>;
@@ -41,6 +49,7 @@ private:
     void buildTree();
     void addTreeNode(QTreeWidgetItem* parent, const QString& label, NodeKind kind, int index);
     void showDetail(const QString& sectionTitle, const QString& note, const FieldList& fields);
+    void showDetailHex(const QString& sectionTitle, const QString& note, const QString& hexText);
     void showDetailForItem(QTreeWidgetItem* item);
 
     FieldList SelfWrapperFields() const;
@@ -51,6 +60,11 @@ private:
     FieldList SectionHeadersSummaryFields() const;
     FieldList SectionHeaderFields(int index) const;
     FieldList DynamicSectionFields() const;
+    FieldList DynamicSummaryFields() const;
+    FieldList ModuleGroupFields(int group) const;
+    FieldList ModuleEntryFields(int group, int index) const;
+    FieldList LibraryGroupFields(int group) const;
+    FieldList LibraryEntryFields(int group, int index) const;
 
     Loader::ElfInfo::ParsedInfo m_info;
     QString m_text; // flat dump, for the Raw Text tab / copy / save
@@ -61,5 +75,6 @@ private:
     QLabel* m_detailTitle = nullptr;
     QLabel* m_detailNote = nullptr;
     QTableWidget* m_detailTable = nullptr;
+    QPlainTextEdit* m_detailHexView = nullptr; // shown instead of m_detailTable for hex-dump nodes
     QPlainTextEdit* m_rawView = nullptr;
 };

@@ -3,6 +3,7 @@
 
 #include "elf_info_dialog.h"
 
+#include <functional>
 #include <QApplication>
 #include <QClipboard>
 #include <QFile>
@@ -14,6 +15,7 @@
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSplitter>
+#include <QStringList>
 #include <QTabWidget>
 #include <QTextStream>
 #include <QVBoxLayout>
@@ -22,6 +24,7 @@ namespace {
 
 constexpr int kNodeKindRole = Qt::UserRole;
 constexpr int kNodeIndexRole = Qt::UserRole + 1;
+constexpr int kNodeGroupRole = Qt::UserRole + 2;
 
 QString S(const std::string& s) {
     return QString::fromStdString(s);
@@ -43,10 +46,12 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
     m_formatLabel->setFont(format_font);
 
     QString banner;
+    const QString platform =
+        m_info.is_valid_elf ? S(Loader::ElfInfo::PlatformName(m_info)) : QStringLiteral("PS4/PS5");
     if (m_info.is_self) {
-        banner = tr("SELF-wrapped PS4/PS5 ");
+        banner = tr("SELF-wrapped %1 ").arg(platform);
     } else if (m_info.is_valid_elf) {
-        banner = tr("Plain (not SELF-wrapped) PS4/PS5 ");
+        banner = tr("Plain (not SELF-wrapped) %1 ").arg(platform);
     }
 
     if (m_info.is_valid_elf) {
@@ -116,6 +121,15 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
     m_detailTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_detailTable->setAlternatingRowColors(true);
     detail_layout->addWidget(m_detailTable);
+
+    // Shown instead of m_detailTable for hex-dump nodes - a field/value
+    // table doesn't suit a multi-line, fixed-width dump.
+    m_detailHexView = new QPlainTextEdit(detail_panel);
+    m_detailHexView->setReadOnly(true);
+    m_detailHexView->setLineWrapMode(QPlainTextEdit::NoWrap);
+    m_detailHexView->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    m_detailHexView->hide();
+    detail_layout->addWidget(m_detailHexView);
 
     splitter->addWidget(detail_panel);
     splitter->setStretchFactor(0, 0);
@@ -211,16 +225,65 @@ void ElfInfoDialog::buildTree() {
             auto* dyn_item = new QTreeWidgetItem(m_tree, {tr("Dynamic Section")});
             dyn_item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::DynamicSection));
             dyn_item->setData(0, kNodeIndexRole, -1);
+
+            if (m_info.dynamic.readable && !m_info.dynamic.summary.empty()) {
+                auto* sum_item = new QTreeWidgetItem(m_tree, {tr("Dynamic Linking Summary")});
+                sum_item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::DynamicSummary));
+                sum_item->setData(0, kNodeIndexRole, -1);
+            }
+        }
+
+        auto add_group = [this](const QString& label, NodeKind root_kind, NodeKind entry_kind,
+                                int group, size_t count,
+                                const std::function<QString(size_t)>& entry_label) {
+            if (count == 0) {
+                return;
+            }
+            auto* root = new QTreeWidgetItem(m_tree, {tr("%1 (%2)").arg(label).arg(count)});
+            root->setData(0, kNodeKindRole, static_cast<int>(root_kind));
+            root->setData(0, kNodeIndexRole, -1);
+            root->setData(0, kNodeGroupRole, group);
+            for (size_t i = 0; i < count; i++) {
+                auto* item = new QTreeWidgetItem(root, {entry_label(i)});
+                item->setData(0, kNodeKindRole, static_cast<int>(entry_kind));
+                item->setData(0, kNodeIndexRole, static_cast<int>(i));
+                item->setData(0, kNodeGroupRole, group);
+            }
+            root->setExpanded(true);
+        };
+        const auto& dyn = m_info.dynamic;
+        auto mod_label = [](const std::vector<Loader::ElfInfo::ModuleIdInfo>& v) {
+            return [&v](size_t i) { return QString::fromStdString(v[i].name); };
+        };
+        auto lib_label = [](const std::vector<Loader::ElfInfo::LibraryIdInfo>& v) {
+            return [&v](size_t i) { return QString::fromStdString(v[i].name); };
+        };
+        add_group(tr("Imported Modules"), NodeKind::ModuleGroup, NodeKind::ModuleEntry, 0,
+                  dyn.import_modules.size(), mod_label(dyn.import_modules));
+        add_group(tr("Exported Modules"), NodeKind::ModuleGroup, NodeKind::ModuleEntry, 1,
+                  dyn.export_modules.size(), mod_label(dyn.export_modules));
+        add_group(tr("Imported Libraries"), NodeKind::LibraryGroup, NodeKind::LibraryEntry, 0,
+                  dyn.import_libs.size(), lib_label(dyn.import_libs));
+        add_group(tr("Exported Libraries"), NodeKind::LibraryGroup, NodeKind::LibraryEntry, 1,
+                  dyn.export_libs.size(), lib_label(dyn.export_libs));
+    }
+
+    if (!m_info.is_valid_elf) {
+        if (m_info.is_self) {
+            auto* item = new QTreeWidgetItem(m_tree, {tr("Raw Bytes at ELF Offset (hex)")});
+            item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::RawEhdrOffsetDump));
+            item->setData(0, kNodeIndexRole, -1);
+        } else {
+            auto* item = new QTreeWidgetItem(m_tree, {tr("Raw File Header (hex)")});
+            item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::RawFileHeaderDump));
+            item->setData(0, kNodeIndexRole, -1);
         }
     }
 
     if (m_tree->topLevelItemCount() > 0) {
         m_tree->setCurrentItem(m_tree->topLevelItem(0));
     } else {
-        showDetail(tr("Nothing to show"),
-                   tr("eboot.bin isn't SELF-wrapped and doesn't contain a recognizable ELF "
-                      "header either."),
-                   {});
+        showDetail(tr("Nothing to show"), tr("The file is too small to inspect."), {});
     }
 }
 
@@ -235,6 +298,9 @@ void ElfInfoDialog::showDetail(const QString& sectionTitle, const QString& note,
         m_detailNote->show();
     }
 
+    m_detailHexView->hide();
+    m_detailTable->show();
+
     m_detailTable->setRowCount(static_cast<int>(fields.size()));
     for (int row = 0; row < static_cast<int>(fields.size()); row++) {
         auto* field_item = new QTableWidgetItem(fields[row].first);
@@ -246,6 +312,22 @@ void ElfInfoDialog::showDetail(const QString& sectionTitle, const QString& note,
     }
 }
 
+void ElfInfoDialog::showDetailHex(const QString& sectionTitle, const QString& note,
+                                  const QString& hexText) {
+    m_detailTitle->setText(sectionTitle);
+
+    if (note.isEmpty()) {
+        m_detailNote->hide();
+    } else {
+        m_detailNote->setText(note);
+        m_detailNote->show();
+    }
+
+    m_detailTable->hide();
+    m_detailHexView->setPlainText(hexText);
+    m_detailHexView->show();
+}
+
 void ElfInfoDialog::showDetailForItem(QTreeWidgetItem* item) {
     if (item == nullptr) {
         showDetail(QString(), QString(), {});
@@ -254,6 +336,7 @@ void ElfInfoDialog::showDetailForItem(QTreeWidgetItem* item) {
 
     const auto kind = static_cast<NodeKind>(item->data(0, kNodeKindRole).toInt());
     const int index = item->data(0, kNodeIndexRole).toInt();
+    const int group = item->data(0, kNodeGroupRole).toInt();
 
     switch (kind) {
     case NodeKind::SelfWrapper:
@@ -288,6 +371,48 @@ void ElfInfoDialog::showDetailForItem(QTreeWidgetItem* item) {
                 ? QString()
                 : tr("Present, but not readable: %1").arg(S(m_info.dynamic.unavailable_reason)),
             DynamicSectionFields());
+        break;
+    case NodeKind::DynamicSummary:
+        showDetail(tr("Dynamic Linking Summary"),
+                   m_info.dynamic.strings_unavailable_reason.empty()
+                       ? QString()
+                       : tr("Names and libraries couldn't be resolved: %1")
+                             .arg(S(m_info.dynamic.strings_unavailable_reason)),
+                   DynamicSummaryFields());
+        break;
+    case NodeKind::ModuleGroup:
+        showDetail(group == 0 ? tr("Imported Modules") : tr("Exported Modules"), QString(),
+                   ModuleGroupFields(group));
+        break;
+    case NodeKind::ModuleEntry:
+        showDetail(tr("Module"), QString(), ModuleEntryFields(group, index));
+        break;
+    case NodeKind::LibraryGroup:
+        showDetail(group == 0 ? tr("Imported Libraries") : tr("Exported Libraries"), QString(),
+                   LibraryGroupFields(group));
+        break;
+    case NodeKind::LibraryEntry:
+        showDetail(tr("Library"), QString(), LibraryEntryFields(group, index));
+        break;
+    case NodeKind::RawFileHeaderDump:
+        showDetailHex(tr("Raw File Header"),
+                      tr("Neither the SELF wrapper magic nor the ELF magic (\\x7fELF) was found "
+                         "anywhere this looked. This may not be a PS4/PS5 executable at all - "
+                         "here are the first %1 bytes of the file (size: %2 bytes total), so you "
+                         "can identify the actual format by eye.")
+                          .arg(m_info.raw_header.size())
+                          .arg(m_info.file_size),
+                      S(Loader::ElfInfo::HexDump(m_info.raw_header)));
+        break;
+    case NodeKind::RawEhdrOffsetDump:
+        showDetailHex(
+            tr("Raw Bytes at ELF Offset"),
+            tr("The SELF wrapper was recognized, but the bytes at offset %1 (where its "
+               "declared header + segment directory say the ELF header should start) "
+               "aren't a valid ELF header - could be a different container format "
+               "nested inside, an unsupported SELF variant, or a corrupted file.")
+                .arg(S(Loader::ElfInfo::Hex(m_info.ehdr_file_offset))),
+            S(Loader::ElfInfo::HexDump(m_info.raw_at_ehdr_offset, m_info.ehdr_file_offset)));
         break;
     }
 }
@@ -339,6 +464,16 @@ ElfInfoDialog::FieldList ElfInfoDialog::ElfHeaderFields() const {
         module_kind_value += QStringLiteral(" - ") + S(module_class.so_name);
     }
 
+    const auto failures = Loader::ElfInfo::StrictValidationFailures(m_info);
+    QString validation_value = tr("passes");
+    if (!failures.empty()) {
+        QStringList lines;
+        for (const auto& line : failures) {
+            lines << S(line);
+        }
+        validation_value = tr("rejected: %1").arg(lines.join(QStringLiteral("; ")));
+    }
+
     return {
         {tr("Found at file offset"), S(Loader::ElfInfo::Hex(m_info.ehdr_file_offset))},
         {tr("Class"), S(Loader::ElfInfo::ElfClassName(e.e_ident[4]))},
@@ -348,6 +483,8 @@ ElfInfoDialog::FieldList ElfInfoDialog::ElfHeaderFields() const {
         {tr("Type"), S(Loader::ElfInfo::ElfTypeName(e.e_type))},
         {tr("Module kind"), module_kind_value},
         {tr("Machine"), S(Loader::ElfInfo::ElfMachineName(e.e_machine))},
+        {tr("Platform"), S(Loader::ElfInfo::PlatformName(m_info))},
+        {tr("PS4/PS5 loader validation"), validation_value},
         {tr("Entry point"), S(Loader::ElfInfo::Hex(e.e_entry))},
         {tr("Flags"), S(Loader::ElfInfo::Hex(e.e_flags))},
         {tr("Program header count"), QString::number(static_cast<u16>(e.e_phnum))},
@@ -430,6 +567,61 @@ ElfInfoDialog::FieldList ElfInfoDialog::DynamicSectionFields() const {
             {tr("[%1] %2").arg(i).arg(S(Loader::ElfInfo::DynTagName(d.d_tag))), value});
     }
     return fields;
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::DynamicSummaryFields() const {
+    FieldList fields;
+    for (const auto& row : m_info.dynamic.summary) {
+        fields.push_back({S(row.first), S(row.second)});
+    }
+    return fields;
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::ModuleGroupFields(int group) const {
+    const auto& v = group == 0 ? m_info.dynamic.import_modules : m_info.dynamic.export_modules;
+    FieldList fields;
+    for (size_t i = 0; i < v.size(); i++) {
+        fields.push_back(
+            {tr("[%1] %2").arg(i).arg(S(v[i].name)),
+             tr("id %1, v%2.%3").arg(S(v[i].id)).arg(v[i].version_major).arg(v[i].version_minor)});
+    }
+    return fields;
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::ModuleEntryFields(int group, int index) const {
+    const auto& v = group == 0 ? m_info.dynamic.import_modules : m_info.dynamic.export_modules;
+    if (index < 0 || static_cast<size_t>(index) >= v.size()) {
+        return {};
+    }
+    const auto& m = v[static_cast<size_t>(index)];
+    return {
+        {tr("Name"), S(m.name)},
+        {tr("Short ID"), S(m.id)},
+        {tr("Version"), tr("%1.%2").arg(m.version_major).arg(m.version_minor)},
+    };
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::LibraryGroupFields(int group) const {
+    const auto& v = group == 0 ? m_info.dynamic.import_libs : m_info.dynamic.export_libs;
+    FieldList fields;
+    for (size_t i = 0; i < v.size(); i++) {
+        fields.push_back({tr("[%1] %2").arg(i).arg(S(v[i].name)),
+                          tr("id %1, v%2").arg(S(v[i].id)).arg(v[i].version)});
+    }
+    return fields;
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::LibraryEntryFields(int group, int index) const {
+    const auto& v = group == 0 ? m_info.dynamic.import_libs : m_info.dynamic.export_libs;
+    if (index < 0 || static_cast<size_t>(index) >= v.size()) {
+        return {};
+    }
+    const auto& l = v[static_cast<size_t>(index)];
+    return {
+        {tr("Name"), S(l.name)},
+        {tr("Short ID"), S(l.id)},
+        {tr("Version"), QString::number(l.version)},
+    };
 }
 
 void ElfInfoDialog::onCopy() {
