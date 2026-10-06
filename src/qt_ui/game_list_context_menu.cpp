@@ -32,11 +32,13 @@
 #include "common/singleton.h"
 #include "core/emulator_settings.h"
 #include "core/emulator_state.h"
+#include "core/file_format/elf_info.h"
 #include "core/file_format/npbind.h"
 #include "core/file_format/param.h"
 #include "core/file_sys/game_backend.h"
 #include "core/file_sys/zar_packer.h"
 #include "core/ipc/ipc_client.h"
+#include "elf_info_dialog.h"
 #include "game_categories.h"
 #include "game_list_context_menu.h"
 #include "game_list_frame.h"
@@ -1179,6 +1181,8 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
     browse_update_zar->setVisible(
         !current_game.update_path.empty() &&
         Core::FileSys::IsZArchiveFile(std::filesystem::path(current_game.update_path)));
+    manage_game_menu->addSeparator();
+    QAction* dump_elf_info = manage_game_menu->addAction(tr("&Dump ELF Info from eboot.bin..."));
 
     // Categories menu
     QMenu* category_menu = addMenu(tr("&Categories"));
@@ -1358,6 +1362,7 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
             }
         });
     }
+
     connect(delete_save_data, &QAction::triggered, frame,
             [=] { deleteHandler(GameListFrame::DeleteType::SaveData); });
     connect(delete_DLC, &QAction::triggered, frame,
@@ -1430,6 +1435,79 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
         dialog->setAttribute(Qt::WA_DeleteOnClose);
         dialog->show();
     });
+    connect(dump_elf_info, &QAction::triggered, frame, [frame, name, serial, current_game] {
+        const std::filesystem::path game_root = current_game.path;
+        const QString dialog_title = tr("Dump ELF Info");
+
+        // Reading eboot.bin (can be large, and larger still if it's coming
+        // out of a .zar archive) plus parsing it can take a noticeable
+        // moment - do it off the UI thread with a busy indicator instead of
+        // freezing the window, same pattern as the ZArchive pack/unpack
+        // handlers above. There's no meaningful way to cancel a file read
+        // partway through, so this dialog has no Cancel button - it's purely
+        // "this is working, please wait", not a resumable operation.
+        auto* progress = new ProgressDialog(dialog_title, tr("Reading and parsing eboot.bin..."),
+                                            QString(), 0, 0, /*delete_on_close=*/true, frame);
+        progress->show();
+
+        struct ElfDumpResult {
+            bool file_read_failed = false;
+            size_t file_size = 0; // only meaningful when Parse() itself failed
+            std::optional<Loader::ElfInfo::ParsedInfo> info;
+        };
+
+        QPointer<ProgressDialog> progress_guard(progress);
+        auto* watcher = new QFutureWatcher<ElfDumpResult>(frame);
+
+        connect(watcher, &QFutureWatcher<ElfDumpResult>::finished, frame,
+                [frame, watcher, progress_guard, name, serial, dialog_title]() {
+                    const ElfDumpResult result = watcher->result();
+                    watcher->deleteLater();
+
+                    if (progress_guard) {
+                        progress_guard->close();
+                    }
+
+                    if (result.file_read_failed) {
+                        QMessageBox::critical(frame, dialog_title,
+                                              tr("Could not read eboot.bin for this game."));
+                        return;
+                    }
+                    if (!result.info) {
+                        QMessageBox::critical(
+                            frame, dialog_title,
+                            tr("eboot.bin is too small to contain a valid header (%1 bytes).")
+                                .arg(result.file_size));
+                        return;
+                    }
+
+                    const QString title =
+                        name % QStringLiteral(" [") % serial % QStringLiteral("]");
+                    const QString suggested_name = serial.isEmpty()
+                                                       ? QStringLiteral("eboot_info.txt")
+                                                       : serial + QStringLiteral("_eboot_info.txt");
+
+                    auto* dialog = new ElfInfoDialog(title, *result.info, suggested_name, frame);
+                    dialog->setAttribute(Qt::WA_DeleteOnClose);
+                    dialog->show();
+                });
+
+        auto future = QtConcurrent::run([game_root]() -> ElfDumpResult {
+            ElfDumpResult result;
+
+            const auto data = Core::FileSys::ReadGameFile(game_root, "eboot.bin");
+            if (!data) {
+                result.file_read_failed = true;
+                return result;
+            }
+
+            result.file_size = data->size();
+            result.info = Loader::ElfInfo::Parse(*data);
+            return result;
+        });
+        watcher->setFuture(future);
+    });
+
     connect(hide_serial, &QAction::triggered, frame, [game_key, frame](bool checked) {
         if (checked)
             frame->m_hidden_list.insert(game_key);
@@ -1520,7 +1598,6 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
     };
     connect(configure, &QAction::triggered, frame,
             [configure_dialog = std::move(configure_dialog)]() { configure_dialog(true); });
-
     connect(configure_input, &QAction::triggered, frame, [frame, serial, gameinfo] {
         const auto path = Common::FS::GetUserPath(Common::FS::PathType::CustomInputConfigs) /
                           (serial + ".json").toStdString();
@@ -1534,6 +1611,5 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
             frame->ShowCustomConfigIcon(gameinfo);
         }
     });
-
     exec(global_pos);
 }

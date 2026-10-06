@@ -20,3 +20,7 @@
 [submodule "externals/sdl3"]
 	path = externals/sdl3
 	url = https://github.com/shadexternals/sdl3.git
+[submodule "externals/elfio"]
+	path = externals/elfio
+	url = https://github.com/shadexternals/ELFIO.git
+	branch = ps
