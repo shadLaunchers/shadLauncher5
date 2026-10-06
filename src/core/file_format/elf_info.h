@@ -29,6 +29,19 @@ struct SelfSegmentEntry {
     u64_le offset;
     u64_le compressed_size;
     u64_le decompressed_size;
+
+    [[nodiscard]] bool is_data() const {
+        return (static_cast<u64>(type) & 0x800u) != 0;
+    }
+    [[nodiscard]] bool is_encrypted() const {
+        return (static_cast<u64>(type) & 0x2u) != 0;
+    }
+    [[nodiscard]] bool is_compressed_flag() const {
+        return (static_cast<u64>(type) & 0x8u) != 0;
+    }
+    [[nodiscard]] u64 phdr_index() const {
+        return (static_cast<u64>(type) >> 20u) & 0xFFFu;
+    }
 };
 static_assert(sizeof(SelfSegmentEntry) == 32);
 
@@ -76,11 +89,30 @@ struct Elf64Shdr {
 };
 static_assert(sizeof(Elf64Shdr) == 64);
 
+// Elf64_Dyn: d_tag identifies the entry, d_val is either a plain value or a
+// virtual address, depending on the tag.
 struct Elf64Dyn {
     u64_le d_tag;
     u64_le d_val;
 };
 static_assert(sizeof(Elf64Dyn) == 16);
+
+struct Elf64Sym {
+    u32_le st_name;
+    u8 st_info;
+    u8 st_other;
+    u16_le st_shndx;
+    u64_le st_value;
+    u64_le st_size;
+};
+static_assert(sizeof(Elf64Sym) == 24);
+
+struct Elf64Rela {
+    u64_le r_offset;
+    u64_le r_info;
+    u64_le r_addend; // signed in the ELF spec; no s64_le wrapper exists here, cast at use
+};
+static_assert(sizeof(Elf64Rela) == 24);
 #pragma pack(pop)
 
 struct ModuleIdInfo {
@@ -96,6 +128,37 @@ struct LibraryIdInfo {
     int version = 0;
 };
 
+struct SymbolInfo {
+    std::string raw_name; // full st_name string as stored
+    std::string nid;      // first '#' field (the whole name if not NID-form)
+    std::string resolved_name;
+    std::string library_id; // second field, or empty
+    std::string module_id;  // third field, or empty
+    std::string library;    // resolved library name, or empty if unresolved
+    int library_version = 0;
+    std::string module; // resolved module name, or empty if unresolved
+    int module_version_major = 0;
+    int module_version_minor = 0;
+    u8 bind = 0; // STB_*
+    u8 type = 0; // STT_*
+    u64 value = 0;
+    u64 size = 0;
+    bool nid_form = false;  // name had exactly three '#'-separated fields
+    bool is_export = false; // st_value != 0 (Kyty's rule); otherwise an import
+};
+
+struct RelocationInfo {
+    u64 offset = 0;       // r_offset
+    u32 type = 0;         // r_info & 0xffffffff
+    u32 symbol_index = 0; // r_info >> 32
+    s64 addend = 0;
+    bool is_plt = false; // from DT_OS_JMPREL (true) or DT_OS_RELA (false)
+    bool has_symbol = false;
+    std::string symbol_nid;
+    std::string symbol_library;
+    std::string symbol_module;
+};
+
 struct DynamicInfo {
     bool present = false;           // a PT_DYNAMIC program header exists
     bool readable = false;          // and its entries could actually be read
@@ -103,12 +166,19 @@ struct DynamicInfo {
 
     std::vector<Elf64Dyn> entries;
     std::vector<std::string> entry_strings;
+
     std::vector<ModuleIdInfo> import_modules;
     std::vector<ModuleIdInfo> export_modules;
     std::vector<LibraryIdInfo> import_libs;
     std::vector<LibraryIdInfo> export_libs;
+
     std::vector<std::pair<std::string, std::string>> summary;
     std::string strings_unavailable_reason;
+    std::vector<SymbolInfo> symbols;
+    std::string symbols_unavailable_reason;
+
+    std::vector<RelocationInfo> relocations;
+    std::string relocations_unavailable_reason;
 };
 
 struct ParsedInfo {
@@ -123,7 +193,6 @@ struct ParsedInfo {
 
     std::vector<Elf64Shdr> shdrs;
     std::vector<std::string> section_names;
-
     DynamicInfo dynamic;
     u64 file_size = 0;
     std::vector<u8> raw_header; // first bytes of the file, always populated
@@ -157,6 +226,18 @@ std::string PhdrTypeName(u32 v);
 std::string PhdrFlagsName(u32 v);
 std::string ShdrTypeName(u32 v);
 std::string DynTagName(u64 v);
+std::string SymbolBindName(u8 v);
+std::string SymbolTypeName(u8 v);
+std::string RelocTypeName(u32 v);
+struct TlsSummary {
+    bool present = false;
+    u64 image_vaddr = 0;
+    u64 image_size = 0; // p_memsz - total size including zero-fill
+    u64 init_size = 0;  // p_filesz - size actually initialized from the file
+    u64 tcb_offset = 0;
+    u64 align = 0;
+};
+TlsSummary GetTlsSummary(const ParsedInfo& info);
 std::string HexDump(const std::vector<u8>& bytes, u64 base_offset = 0);
 
 } // namespace Loader::ElfInfo

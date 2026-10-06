@@ -175,6 +175,8 @@ set(FILEFORMAT src/core/file_format/param.cpp
                src/core/file_format/ucp.h
                src/core/file_format/elf_info.cpp
                src/core/file_format/elf_info.h
+               src/core/file_format/nid_catalog.cpp
+               src/core/file_format/nid_catalog.h
                src/core/file_sys/game_backend.cpp
                src/core/file_sys/game_backend.h
                src/core/file_sys/backends/host_directory_backend.cpp

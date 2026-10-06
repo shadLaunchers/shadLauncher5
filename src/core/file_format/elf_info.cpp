@@ -3,6 +3,9 @@
 
 #include "elf_info.h"
 
+#include "nid_catalog.h"
+
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <sstream>
@@ -167,6 +170,55 @@ std::string ShdrTypeName(u32 v) {
     }
 }
 
+std::string SymbolBindName(u8 v) {
+    switch (v) {
+    case 0:
+        return "LOCAL";
+    case 1:
+        return "GLOBAL";
+    case 2:
+        return "WEAK";
+    default:
+        return "unknown (" + Hex(v) + ")";
+    }
+}
+
+std::string SymbolTypeName(u8 v) {
+    switch (v) {
+    case 0:
+        return "NOTYPE";
+    case 1:
+        return "OBJECT";
+    case 2:
+        return "FUNC";
+    case 3:
+        return "SECTION";
+    case 4:
+        return "FILE";
+    case 6:
+        return "TLS";
+    default:
+        return "unknown (" + Hex(v) + ")";
+    }
+}
+
+std::string RelocTypeName(u32 v) {
+    switch (v) {
+    case 1:
+        return "R_X86_64_64";
+    case 6:
+        return "R_X86_64_GLOB_DAT";
+    case 7:
+        return "R_X86_64_JUMP_SLOT";
+    case 8:
+        return "R_X86_64_RELATIVE";
+    case 16:
+        return "R_X86_64_DTPMOD64";
+    default:
+        return {};
+    }
+}
+
 std::string DynTagName(u64 v) {
     switch (v) {
     case 0:
@@ -327,15 +379,33 @@ std::string HexDump(const std::vector<u8>& bytes, u64 base_offset) {
 
 namespace {
 
+enum class SegmentReadFailure { None, NotFound, Encrypted, Compressed };
+
+std::string ReasonText(SegmentReadFailure reason, const std::string& what) {
+    switch (reason) {
+    case SegmentReadFailure::Encrypted:
+        return "the segment backing " + what + " is SELF-encrypted and can't be decoded here";
+    case SegmentReadFailure::Compressed:
+        return "the segment backing " + what + " is SELF-compressed and can't be decoded here";
+    case SegmentReadFailure::NotFound:
+    case SegmentReadFailure::None:
+    default:
+        return "couldn't locate " + what + "'s bytes in the file";
+    }
+}
+
 std::optional<std::vector<u8>> ReadFileRange(const std::vector<u8>& data, const ParsedInfo& info,
                                              u64 file_offset, u64 size,
-                                             bool* was_compressed = nullptr) {
-    if (was_compressed != nullptr) {
-        *was_compressed = false;
+                                             SegmentReadFailure* reason = nullptr) {
+    if (reason != nullptr) {
+        *reason = SegmentReadFailure::None;
     }
 
     if (!info.is_self) {
         if (file_offset + size > data.size()) {
+            if (reason != nullptr) {
+                *reason = SegmentReadFailure::NotFound;
+            }
             return std::nullopt;
         }
         return std::vector<u8>(data.begin() + static_cast<ptrdiff_t>(file_offset),
@@ -343,11 +413,10 @@ std::optional<std::vector<u8>> ReadFileRange(const std::vector<u8>& data, const 
     }
 
     for (const auto& seg : info.self_segments) {
-        const u64 type = seg.type;
-        if ((type & 0x800) == 0) {
+        if (!seg.is_data()) {
             continue;
         }
-        const auto phdr_id = static_cast<size_t>((type >> 20) & 0xFFF);
+        const auto phdr_id = static_cast<size_t>(seg.phdr_index());
         if (phdr_id >= info.phdrs.size()) {
             continue;
         }
@@ -357,9 +426,16 @@ std::optional<std::vector<u8>> ReadFileRange(const std::vector<u8>& data, const 
             continue;
         }
 
-        if (static_cast<u64>(seg.compressed_size) != static_cast<u64>(seg.decompressed_size)) {
-            if (was_compressed != nullptr) {
-                *was_compressed = true;
+        if (seg.is_encrypted()) {
+            if (reason != nullptr) {
+                *reason = SegmentReadFailure::Encrypted;
+            }
+            return std::nullopt;
+        }
+        if (seg.is_compressed_flag() ||
+            static_cast<u64>(seg.compressed_size) != static_cast<u64>(seg.decompressed_size)) {
+            if (reason != nullptr) {
+                *reason = SegmentReadFailure::Compressed;
             }
             return std::nullopt;
         }
@@ -367,6 +443,9 @@ std::optional<std::vector<u8>> ReadFileRange(const std::vector<u8>& data, const 
         const u64 rel = file_offset - static_cast<u64>(phdr.p_offset);
         const u64 physical = static_cast<u64>(seg.offset) + rel;
         if (rel + size > static_cast<u64>(seg.decompressed_size) || physical + size > data.size()) {
+            if (reason != nullptr) {
+                *reason = SegmentReadFailure::NotFound;
+            }
             return std::nullopt;
         }
         return std::vector<u8>(data.begin() + static_cast<ptrdiff_t>(physical),
@@ -376,6 +455,9 @@ std::optional<std::vector<u8>> ReadFileRange(const std::vector<u8>& data, const 
     return std::nullopt; // no self segment covers this offset
 }
 
+// Finds which program header's virtual-address range contains `vaddr` and
+// returns the corresponding file offset. Used to resolve DT_STRTAB (given
+// as a virtual address) back to a file position.
 std::optional<u64> VaddrToFileOffset(const ParsedInfo& info, u64 vaddr) {
     for (const auto& p : info.phdrs) {
         const u64 v0 = p.p_vaddr;
@@ -454,6 +536,210 @@ void DecodeLibraryIds(const ParsedInfo& info, const std::vector<u8>& strtab, u64
     }
 }
 
+std::vector<std::string> SplitHash(const std::string& s) {
+    std::vector<std::string> parts;
+    size_t start = 0;
+    for (;;) {
+        const size_t pos = s.find('#', start);
+        if (pos == std::string::npos) {
+            parts.push_back(s.substr(start));
+            return parts;
+        }
+        parts.push_back(s.substr(start, pos - start));
+        start = pos + 1;
+    }
+}
+
+void ParseSymbols(const std::vector<u8>& data, ParsedInfo& info, const std::vector<u8>& strtab) {
+    auto find_val = [&](u64 tag) -> std::optional<u64> {
+        for (const auto& e : info.dynamic.entries) {
+            if (static_cast<u64>(e.d_tag) == tag) {
+                return static_cast<u64>(e.d_val);
+            }
+        }
+        return std::nullopt;
+    };
+
+    const auto os_symtab = find_val(0x61000039 /* DT_OS_SYMTAB */);
+    const auto symtab_vaddr = find_val(6 /* DT_SYMTAB */);
+    const auto total_size = find_val(0x6100003f /* DT_OS_SYMTABSZ */);
+    const u64 entsize = find_val(0x6100003b /* DT_OS_SYMENT */)
+                            .value_or(find_val(11 /* DT_SYMENT */).value_or(sizeof(Elf64Sym)));
+
+    if (!os_symtab && !symtab_vaddr) {
+        return; // no symbol table declared at all - nothing to report
+    }
+    if (!total_size || *total_size == 0) {
+        info.dynamic.symbols_unavailable_reason =
+            "the symbol table's size (DT_OS_SYMTABSZ) is missing";
+        return;
+    }
+    if (entsize != sizeof(Elf64Sym)) {
+        info.dynamic.symbols_unavailable_reason =
+            "unexpected symbol entry size " + std::to_string(entsize) + " (expected 24)";
+        return;
+    }
+    constexpr u64 kMaxSymtabBytes = 256ull * 1024 * 1024;
+    if (*total_size > kMaxSymtabBytes) {
+        info.dynamic.symbols_unavailable_reason = "symbol table size is implausibly large";
+        return;
+    }
+
+    std::optional<u64> file_offset;
+    if (os_symtab) {
+        if (auto idx = FindPhdrByType(info, 0x61000000 /* PT_SCE_DYNLIBDATA */)) {
+            file_offset = static_cast<u64>(info.phdrs[*idx].p_offset) + *os_symtab;
+        }
+    } else if (symtab_vaddr) {
+        file_offset = VaddrToFileOffset(info, *symtab_vaddr);
+    }
+    if (!file_offset) {
+        info.dynamic.symbols_unavailable_reason = "couldn't locate the symbol table in the file";
+        return;
+    }
+
+    SegmentReadFailure fail_reason = SegmentReadFailure::None;
+    auto bytes = ReadFileRange(data, info, *file_offset, *total_size, &fail_reason);
+    if (!bytes) {
+        info.dynamic.symbols_unavailable_reason = ReasonText(fail_reason, "the symbol table");
+        return;
+    }
+
+    const size_t count = bytes->size() / sizeof(Elf64Sym);
+    info.dynamic.symbols.reserve(count);
+    for (size_t i = 0; i < count; i++) {
+        Elf64Sym s{};
+        std::memcpy(&s, bytes->data() + i * sizeof(Elf64Sym), sizeof(Elf64Sym));
+        SymbolInfo out;
+        out.raw_name = ExtractCString(strtab, s.st_name);
+        out.bind = static_cast<u8>(s.st_info >> 4u);
+        out.type = static_cast<u8>(s.st_info & 0xfu);
+        out.value = s.st_value;
+        out.size = s.st_size;
+        out.is_export = out.value != 0;
+
+        const auto parts = SplitHash(out.raw_name);
+        out.nid = parts[0];
+        if (auto resolved = GetDefaultNidCatalog().Resolve(out.nid)) {
+            out.resolved_name = *resolved;
+        }
+        if (parts.size() == 3) {
+            out.nid_form = true;
+            out.library_id = parts[1];
+            out.module_id = parts[2];
+            auto find_lib = [&](const std::vector<LibraryIdInfo>& v) -> const LibraryIdInfo* {
+                for (const auto& l : v) {
+                    if (l.id == out.library_id)
+                        return &l;
+                }
+                return nullptr;
+            };
+            auto find_mod = [&](const std::vector<ModuleIdInfo>& v) -> const ModuleIdInfo* {
+                for (const auto& m : v) {
+                    if (m.id == out.module_id)
+                        return &m;
+                }
+                return nullptr;
+            };
+            const LibraryIdInfo* l = find_lib(info.dynamic.import_libs);
+            if (l == nullptr)
+                l = find_lib(info.dynamic.export_libs);
+            const ModuleIdInfo* m = find_mod(info.dynamic.import_modules);
+            if (m == nullptr)
+                m = find_mod(info.dynamic.export_modules);
+            if (l != nullptr) {
+                out.library = l->name;
+                out.library_version = l->version;
+            }
+            if (m != nullptr) {
+                out.module = m->name;
+                out.module_version_major = m->version_major;
+                out.module_version_minor = m->version_minor;
+            }
+        }
+        info.dynamic.symbols.push_back(std::move(out));
+    }
+}
+
+// Reads one relocation table (DT_OS_JMPREL or DT_OS_RELA/standard
+// fallback) and appends its decoded entries to info.dynamic.relocations.
+// Must run after ParseSymbols() - symbol-referencing entries are
+// cross-linked against info.dynamic.symbols here.
+void ParseRelocationTable(const std::vector<u8>& data, ParsedInfo& info, bool is_plt) {
+    auto find_val = [&](u64 tag) -> std::optional<u64> {
+        for (const auto& e : info.dynamic.entries) {
+            if (static_cast<u64>(e.d_tag) == tag) {
+                return static_cast<u64>(e.d_val);
+            }
+        }
+        return std::nullopt;
+    };
+
+    const u64 table_tag_os = is_plt ? 0x61000029 /* DT_OS_JMPREL */ : 0x6100002f /* DT_OS_RELA */;
+    const u64 table_tag_std = is_plt ? 23 /* DT_JMPREL */ : 7 /* DT_RELA */;
+    const u64 size_tag_os =
+        is_plt ? 0x6100002d /* DT_OS_PLTRELSZ */ : 0x61000031 /* DT_OS_RELASZ */;
+    const u64 size_tag_std = is_plt ? 2 /* DT_PLTRELSZ */ : 8 /* DT_RELASZ */;
+
+    const auto os_table = find_val(table_tag_os);
+    const auto std_table = find_val(table_tag_std);
+    const auto size = find_val(size_tag_os).value_or(find_val(size_tag_std).value_or(0));
+    if (!os_table && !std_table) {
+        return; // this table isn't present at all - not an error
+    }
+    if (size == 0 || size % sizeof(Elf64Rela) != 0) {
+        info.dynamic.relocations_unavailable_reason =
+            std::string(is_plt ? "DT_OS_JMPREL" : "DT_OS_RELA") +
+            "'s size is missing or not a multiple of 24 bytes";
+        return;
+    }
+
+    std::optional<u64> file_offset;
+    if (os_table) {
+        if (auto idx = FindPhdrByType(info, 0x61000000 /* PT_SCE_DYNLIBDATA */)) {
+            file_offset = static_cast<u64>(info.phdrs[*idx].p_offset) + *os_table;
+        }
+    } else if (std_table) {
+        file_offset = VaddrToFileOffset(info, *std_table);
+    }
+    if (!file_offset) {
+        info.dynamic.relocations_unavailable_reason =
+            "couldn't locate the relocation table in the file";
+        return;
+    }
+
+    SegmentReadFailure fail_reason = SegmentReadFailure::None;
+    auto bytes = ReadFileRange(data, info, *file_offset, size, &fail_reason);
+    if (!bytes) {
+        info.dynamic.relocations_unavailable_reason = ReasonText(
+            fail_reason, is_plt ? "the PLT relocation table" : "the RELA relocation table");
+        return;
+    }
+
+    const size_t count = bytes->size() / sizeof(Elf64Rela);
+    info.dynamic.relocations.reserve(info.dynamic.relocations.size() + count);
+    for (size_t i = 0; i < count; i++) {
+        Elf64Rela r{};
+        std::memcpy(&r, bytes->data() + i * sizeof(Elf64Rela), sizeof(Elf64Rela));
+        RelocationInfo out;
+        out.offset = r.r_offset;
+        out.type = static_cast<u32>(static_cast<u64>(r.r_info) & 0xffffffffu);
+        out.symbol_index = static_cast<u32>(static_cast<u64>(r.r_info) >> 32u);
+        out.addend = static_cast<s64>(static_cast<u64>(r.r_addend));
+        out.is_plt = is_plt;
+
+        if ((out.type == 1 || out.type == 6 || out.type == 7) &&
+            out.symbol_index < info.dynamic.symbols.size()) {
+            const auto& sym = info.dynamic.symbols[out.symbol_index];
+            out.has_symbol = true;
+            out.symbol_nid = sym.nid;
+            out.symbol_library = sym.library;
+            out.symbol_module = sym.module;
+        }
+        info.dynamic.relocations.push_back(std::move(out));
+    }
+}
+
 void ParseDynamic(const std::vector<u8>& data, ParsedInfo& info) {
     size_t dynamic_phdr_index = SIZE_MAX;
     for (size_t i = 0; i < info.phdrs.size(); i++) {
@@ -476,14 +762,11 @@ void ParseDynamic(const std::vector<u8>& data, ParsedInfo& info) {
         return;
     }
 
-    bool was_compressed = false;
-    auto bytes = ReadFileRange(data, info, phdr.p_offset, phdr.p_filesz, &was_compressed);
+    SegmentReadFailure fail_reason = SegmentReadFailure::None;
+    auto bytes = ReadFileRange(data, info, phdr.p_offset, phdr.p_filesz, &fail_reason);
     if (!bytes) {
         info.dynamic.readable = false;
-        info.dynamic.unavailable_reason =
-            was_compressed
-                ? "the segment backing PT_DYNAMIC is SELF-compressed and can't be decoded here"
-                : "couldn't locate PT_DYNAMIC's bytes in the file";
+        info.dynamic.unavailable_reason = ReasonText(fail_reason, "PT_DYNAMIC");
         return;
     }
     info.dynamic.readable = true;
@@ -591,15 +874,13 @@ void ParseDynamic(const std::vector<u8>& data, ParsedInfo& info) {
         }
         if (auto dynlibdata_idx = FindPhdrByType(info, 0x61000000 /* PT_SCE_DYNLIBDATA */)) {
             const auto& dyn_phdr = info.phdrs[*dynlibdata_idx];
-            bool strtab_compressed = false;
+            SegmentReadFailure strtab_fail_reason = SegmentReadFailure::None;
             strtab_bytes =
                 ReadFileRange(data, info, static_cast<u64>(dyn_phdr.p_offset) + *os_strtab_offset,
-                              *os_strtab_size, &strtab_compressed);
+                              *os_strtab_size, &strtab_fail_reason);
             if (!strtab_bytes) {
                 info.dynamic.strings_unavailable_reason =
-                    strtab_compressed
-                        ? "PT_SCE_DYNLIBDATA is SELF-compressed and can't be decoded here"
-                        : "couldn't locate the string table's bytes inside PT_SCE_DYNLIBDATA";
+                    ReasonText(strtab_fail_reason, "the string table (inside PT_SCE_DYNLIBDATA)");
             }
         }
     }
@@ -644,6 +925,10 @@ void ParseDynamic(const std::vector<u8>& data, ParsedInfo& info) {
                      info.dynamic.export_libs);
     DecodeLibraryIds(info, *strtab_bytes, 0x61000047 /* DT_OS_EXPORT_LIB_1 */,
                      info.dynamic.export_libs);
+
+    ParseSymbols(data, info, *strtab_bytes);
+    ParseRelocationTable(data, info, /*is_plt=*/true);
+    ParseRelocationTable(data, info, /*is_plt=*/false);
 }
 
 } // namespace
@@ -748,6 +1033,9 @@ ModuleClassification ClassifyModule(const ParsedInfo& info) {
         }
     }
 
+    // A module can export libraries (or its own module identity) without
+    // ever setting a plain DT_SONAME - this is at least as strong a signal
+    // that it's a shared module, not a main executable.
     const bool has_exports =
         !info.dynamic.export_modules.empty() || !info.dynamic.export_libs.empty();
 
@@ -760,6 +1048,10 @@ ModuleClassification ClassifyModule(const ParsedInfo& info) {
     }
 
     if (has_soname || has_exports) {
+        // Shared-module signals take priority: a real main executable has
+        // no reason to declare a SONAME or export anything, so their
+        // presence is the stronger signal even if PT_SCE_PROCPARAM also
+        // happens to be there.
         result.kind = ModuleKind::SharedModule;
         if (has_soname) {
             result.so_name = so_name;
@@ -787,6 +1079,22 @@ std::string ModuleKindName(ModuleKind kind) {
     default:
         return "Unknown (no shared-module or executable signal found)";
     }
+}
+
+TlsSummary GetTlsSummary(const ParsedInfo& info) {
+    TlsSummary out;
+    for (const auto& p : info.phdrs) {
+        if (static_cast<u32>(p.p_type) == 7 /* PT_TLS */) {
+            out.present = true;
+            out.image_vaddr = p.p_vaddr;
+            out.image_size = p.p_memsz;
+            out.init_size = p.p_filesz;
+            out.tcb_offset = out.image_size;
+            out.align = p.p_align;
+            break;
+        }
+    }
+    return out;
 }
 
 std::string PlatformName(const ParsedInfo& info) {
@@ -842,23 +1150,23 @@ std::string ToText(const ParsedInfo& info) {
         out << "Segment entries: " << static_cast<u16>(s.segments_num) << "\n";
         out << "\n";
         out << "  [ #] type(raw)           phdr#  has_phdr  offset             "
-               "compressed          decompressed         compressed?\n";
+               "compressed          decompressed         encrypted  compressed?\n";
         for (size_t i = 0; i < info.self_segments.size(); i++) {
             const auto& seg = info.self_segments[i];
-            const u64 type = seg.type;
-            const bool has_phdr = (type & 0x800) != 0;
-            const u32 phdr_id = static_cast<u32>((type >> 20) & 0xFFF);
+            const bool has_phdr = seg.is_data();
             const bool compressed =
+                seg.is_compressed_flag() ||
                 static_cast<u64>(seg.compressed_size) != static_cast<u64>(seg.decompressed_size);
-            out << "  [" << i << "] " << Hex(type, 16) << "  ";
+            out << "  [" << i << "] " << Hex(seg.type, 16) << "  ";
             if (has_phdr) {
-                out << phdr_id;
+                out << seg.phdr_index();
             } else {
                 out << "-";
             }
             out << "      " << (has_phdr ? "yes" : "no") << "       " << Hex(seg.offset, 16)
                 << "   " << static_cast<u64>(seg.compressed_size) << "  "
-                << static_cast<u64>(seg.decompressed_size) << "  " << (compressed ? "yes" : "no")
+                << static_cast<u64>(seg.decompressed_size) << "  "
+                << (seg.is_encrypted() ? "yes" : "no") << "        " << (compressed ? "yes" : "no")
                 << "\n";
         }
         out << "\n";
@@ -944,6 +1252,21 @@ std::string ToText(const ParsedInfo& info) {
             out << "  " << PhdrFlagsName(p.p_flags) << "  " << Hex(p.p_offset, 16) << "   "
                 << Hex(p.p_vaddr, 16) << "   " << Hex(p.p_filesz, 16) << "   " << Hex(p.p_memsz, 16)
                 << "   " << Hex(p.p_align) << "\n";
+        }
+    }
+
+    {
+        const auto tls = GetTlsSummary(info);
+        if (tls.present) {
+            out << "\n=== TLS (Thread-Local Storage) ===\n";
+            out << "Image vaddr:      " << Hex(tls.image_vaddr) << "\n";
+            out << "Image size:       " << tls.image_size << " bytes (incl. zero-fill)\n";
+            out << "Init data size:   " << tls.init_size << " bytes (from file)\n";
+            out << "Zero-fill size:   "
+                << (tls.image_size > tls.init_size ? tls.image_size - tls.init_size : 0)
+                << " bytes\n";
+            out << "TCB offset:       " << Hex(tls.tcb_offset) << "\n";
+            out << "Alignment:        " << tls.align << "\n";
         }
     }
 
@@ -1034,6 +1357,80 @@ std::string ToText(const ParsedInfo& info) {
     }
     if (!info.dynamic.export_libs.empty()) {
         print_libs("Exported Libraries", info.dynamic.export_libs);
+    }
+
+    if (!info.dynamic.symbols.empty()) {
+        size_t exports = 0;
+        size_t resolved = 0;
+        for (const auto& s : info.dynamic.symbols) {
+            if (s.is_export)
+                exports++;
+            if (!s.resolved_name.empty())
+                resolved++;
+        }
+        out << "\n=== Symbols (" << info.dynamic.symbols.size() << ": " << exports << " exported, "
+            << (info.dynamic.symbols.size() - exports) << " imported, " << resolved
+            << " names resolved) ===\n";
+        out << "(names are NIDs - hashes of the real function names, not the names "
+               "themselves. A handful of very common ones - libc, pthread, libkernel - are "
+               "resolved below; the rest are shown as the raw NID.)\n";
+        constexpr size_t kMaxTextSymbols = 500;
+        const size_t shown = std::min(info.dynamic.symbols.size(), kMaxTextSymbols);
+        for (size_t i = 0; i < shown; i++) {
+            const auto& s = info.dynamic.symbols[i];
+            out << "  [" << i << "] " << (s.is_export ? "EXPORT " : "IMPORT ")
+                << (s.resolved_name.empty() ? s.nid : s.resolved_name + " (" + s.nid + ")") << "  "
+                << SymbolTypeName(s.type) << " " << SymbolBindName(s.bind);
+            if (s.is_export) {
+                out << " " << Hex(s.value);
+            }
+            if (!s.library.empty() || !s.module.empty()) {
+                out << "  " << s.library << " v" << s.library_version << " / " << s.module << " v"
+                    << s.module_version_major << "." << s.module_version_minor;
+            }
+            out << "\n";
+        }
+        if (shown < info.dynamic.symbols.size()) {
+            out << "  ... " << (info.dynamic.symbols.size() - shown)
+                << " more not shown (see the Symbols nodes in the tree view)\n";
+        }
+    } else if (!info.dynamic.symbols_unavailable_reason.empty()) {
+        out << "\n=== Symbols ===\nNot readable: " << info.dynamic.symbols_unavailable_reason
+            << ".\n";
+    }
+
+    if (!info.dynamic.relocations.empty()) {
+        size_t plt_count = 0;
+        for (const auto& r : info.dynamic.relocations) {
+            if (r.is_plt)
+                plt_count++;
+        }
+        out << "\n=== Relocations (" << info.dynamic.relocations.size() << ": " << plt_count
+            << " PLT, " << (info.dynamic.relocations.size() - plt_count) << " RELA) ===\n";
+        constexpr size_t kMaxTextRelocs = 500;
+        const size_t shown = std::min(info.dynamic.relocations.size(), kMaxTextRelocs);
+        for (size_t i = 0; i < shown; i++) {
+            const auto& r = info.dynamic.relocations[i];
+            const auto type_name = RelocTypeName(r.type);
+            out << "  [" << i << "] " << (r.is_plt ? "PLT  " : "RELA ") << Hex(r.offset, 16) << "  "
+                << (type_name.empty() ? "unsupported type (" + std::to_string(r.type) + ")"
+                                      : type_name);
+            if (r.has_symbol) {
+                out << "  " << r.symbol_nid;
+                if (!r.symbol_library.empty())
+                    out << " (" << r.symbol_library << ")";
+            } else if (r.addend != 0) {
+                out << "  addend=" << Hex(static_cast<u64>(r.addend));
+            }
+            out << "\n";
+        }
+        if (shown < info.dynamic.relocations.size()) {
+            out << "  ... " << (info.dynamic.relocations.size() - shown)
+                << " more not shown (see the Relocations nodes in the tree view)\n";
+        }
+    } else if (!info.dynamic.relocations_unavailable_reason.empty()) {
+        out << "\n=== Relocations ===\nNot readable: "
+            << info.dynamic.relocations_unavailable_reason << ".\n";
     }
 
     return out.str();

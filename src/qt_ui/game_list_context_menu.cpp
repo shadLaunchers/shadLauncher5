@@ -1437,30 +1437,75 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
     });
     connect(dump_elf_info, &QAction::triggered, frame, [frame, name, serial, current_game] {
         const std::filesystem::path game_root = current_game.path;
+        const QString dialog_title = tr("Dump ELF Info");
 
-        const auto data = Core::FileSys::ReadGameFile(game_root, "eboot.bin");
-        if (!data) {
-            QMessageBox::critical(frame, tr("Dump ELF Info"),
-                                  tr("Could not read eboot.bin for this game."));
-            return;
-        }
+        // Reading eboot.bin (can be large, and larger still if it's coming
+        // out of a .zar archive) plus parsing it can take a noticeable
+        // moment - do it off the UI thread with a busy indicator instead of
+        // freezing the window, same pattern as the ZArchive pack/unpack
+        // handlers above. There's no meaningful way to cancel a file read
+        // partway through, so this dialog has no Cancel button - it's purely
+        // "this is working, please wait", not a resumable operation.
+        auto* progress = new ProgressDialog(dialog_title, tr("Reading and parsing eboot.bin..."),
+                                            QString(), 0, 0, /*delete_on_close=*/true, frame);
+        progress->show();
 
-        const auto info = Loader::ElfInfo::Parse(*data);
-        if (!info) {
-            QMessageBox::critical(frame, tr("Dump ELF Info"),
-                                  tr("eboot.bin is too small to contain a valid header (%1 bytes).")
-                                      .arg(data->size()));
-            return;
-        }
+        struct ElfDumpResult {
+            bool file_read_failed = false;
+            size_t file_size = 0; // only meaningful when Parse() itself failed
+            std::optional<Loader::ElfInfo::ParsedInfo> info;
+        };
 
-        const QString title = name % QStringLiteral(" [") % serial % QStringLiteral("]");
-        const QString suggested_name = serial.isEmpty()
-                                           ? QStringLiteral("eboot_info.txt")
-                                           : serial + QStringLiteral("_eboot_info.txt");
+        QPointer<ProgressDialog> progress_guard(progress);
+        auto* watcher = new QFutureWatcher<ElfDumpResult>(frame);
 
-        auto* dialog = new ElfInfoDialog(title, *info, suggested_name, frame);
-        dialog->setAttribute(Qt::WA_DeleteOnClose);
-        dialog->show();
+        connect(watcher, &QFutureWatcher<ElfDumpResult>::finished, frame,
+                [frame, watcher, progress_guard, name, serial, dialog_title]() {
+                    const ElfDumpResult result = watcher->result();
+                    watcher->deleteLater();
+
+                    if (progress_guard) {
+                        progress_guard->close();
+                    }
+
+                    if (result.file_read_failed) {
+                        QMessageBox::critical(frame, dialog_title,
+                                              tr("Could not read eboot.bin for this game."));
+                        return;
+                    }
+                    if (!result.info) {
+                        QMessageBox::critical(
+                            frame, dialog_title,
+                            tr("eboot.bin is too small to contain a valid header (%1 bytes).")
+                                .arg(result.file_size));
+                        return;
+                    }
+
+                    const QString title =
+                        name % QStringLiteral(" [") % serial % QStringLiteral("]");
+                    const QString suggested_name = serial.isEmpty()
+                                                       ? QStringLiteral("eboot_info.txt")
+                                                       : serial + QStringLiteral("_eboot_info.txt");
+
+                    auto* dialog = new ElfInfoDialog(title, *result.info, suggested_name, frame);
+                    dialog->setAttribute(Qt::WA_DeleteOnClose);
+                    dialog->show();
+                });
+
+        auto future = QtConcurrent::run([game_root]() -> ElfDumpResult {
+            ElfDumpResult result;
+
+            const auto data = Core::FileSys::ReadGameFile(game_root, "eboot.bin");
+            if (!data) {
+                result.file_read_failed = true;
+                return result;
+            }
+
+            result.file_size = data->size();
+            result.info = Loader::ElfInfo::Parse(*data);
+            return result;
+        });
+        watcher->setFuture(future);
     });
 
     connect(hide_serial, &QAction::triggered, frame, [game_key, frame](bool checked) {

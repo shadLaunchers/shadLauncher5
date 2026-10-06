@@ -3,6 +3,9 @@
 
 #include "elf_info_dialog.h"
 
+#include "core/file_format/nid_catalog.h"
+
+#include <filesystem>
 #include <functional>
 #include <QApplication>
 #include <QClipboard>
@@ -25,6 +28,7 @@ namespace {
 constexpr int kNodeKindRole = Qt::UserRole;
 constexpr int kNodeIndexRole = Qt::UserRole + 1;
 constexpr int kNodeGroupRole = Qt::UserRole + 2;
+constexpr int kPopulatedRole = Qt::UserRole + 3;
 
 QString S(const std::string& s) {
     return QString::fromStdString(s);
@@ -153,6 +157,11 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
     auto* close_btn = new QPushButton(tr("Close"), this);
     buttons->addWidget(copy_btn);
     buttons->addWidget(save_btn);
+    if (!m_info.dynamic.symbols.empty()) {
+        auto* load_nid_db_btn = new QPushButton(tr("Load NID Database..."), this);
+        buttons->addWidget(load_nid_db_btn);
+        connect(load_nid_db_btn, &QPushButton::clicked, this, &ElfInfoDialog::onLoadNidDatabase);
+    }
     buttons->addStretch();
     buttons->addWidget(close_btn);
     layout->addLayout(buttons);
@@ -161,30 +170,34 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
     connect(save_btn, &QPushButton::clicked, this, &ElfInfoDialog::onSave);
     connect(close_btn, &QPushButton::clicked, this, &QDialog::accept);
     connect(m_tree, &QTreeWidget::currentItemChanged, this, &ElfInfoDialog::onTreeSelectionChanged);
+    connect(m_tree, &QTreeWidget::itemExpanded, this, &ElfInfoDialog::onItemExpanded);
 
     buildTree();
 }
 
 void ElfInfoDialog::addTreeNode(QTreeWidgetItem* parent, const QString& label, NodeKind kind,
-                                int index) {
+                                int index, int group) {
     auto* item = new QTreeWidgetItem(parent, {label});
     item->setData(0, kNodeKindRole, static_cast<int>(kind));
     item->setData(0, kNodeIndexRole, index);
+    item->setData(0, kNodeGroupRole, group);
 }
 
 void ElfInfoDialog::buildTree() {
     m_tree->clear();
 
     if (m_info.is_self) {
-        auto* self_root = new QTreeWidgetItem(m_tree, {tr("SELF Wrapper")});
-        self_root->setData(0, kNodeKindRole, static_cast<int>(NodeKind::SelfWrapper));
-        self_root->setData(0, kNodeIndexRole, -1);
-
-        for (size_t i = 0; i < m_info.self_segments.size(); i++) {
-            addTreeNode(self_root, tr("Segment [%1]").arg(i), NodeKind::SelfSegment,
-                        static_cast<int>(i));
+        addLazyGroup(tr("SELF Wrapper"), NodeKind::SelfWrapper, 0, m_info.self_segments.size());
+        // SELF Wrapper is worth showing even with zero segments (it still
+        // has a declared size/count worth seeing), unlike the other groups
+        // below which simply don't exist when empty - so build its root
+        // directly rather than via addLazyGroup() when segments is empty.
+        if (m_info.self_segments.empty()) {
+            auto* self_root = new QTreeWidgetItem(m_tree, {tr("SELF Wrapper")});
+            self_root->setData(0, kNodeKindRole, static_cast<int>(NodeKind::SelfWrapper));
+            self_root->setData(0, kNodeIndexRole, -1);
+            self_root->setData(0, kPopulatedRole, true); // nothing to lazily populate
         }
-        self_root->setExpanded(true);
     }
 
     if (m_info.is_valid_elf) {
@@ -192,34 +205,14 @@ void ElfInfoDialog::buildTree() {
         ehdr_item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::ElfHeader));
         ehdr_item->setData(0, kNodeIndexRole, -1);
 
-        if (!m_info.phdrs.empty()) {
-            auto* phdr_root =
-                new QTreeWidgetItem(m_tree, {tr("Program Headers (%1)").arg(m_info.phdrs.size())});
-            phdr_root->setData(0, kNodeKindRole, static_cast<int>(NodeKind::ProgramHeadersRoot));
-            phdr_root->setData(0, kNodeIndexRole, -1);
-
-            for (size_t i = 0; i < m_info.phdrs.size(); i++) {
-                const QString type_name = S(Loader::ElfInfo::PhdrTypeName(m_info.phdrs[i].p_type));
-                addTreeNode(phdr_root, tr("[%1] %2").arg(i).arg(type_name), NodeKind::ProgramHeader,
-                            static_cast<int>(i));
-            }
-            phdr_root->setExpanded(true);
+        if (Loader::ElfInfo::GetTlsSummary(m_info).present) {
+            auto* tls_item = new QTreeWidgetItem(m_tree, {tr("TLS (Thread-Local Storage)")});
+            tls_item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::TlsInfo));
+            tls_item->setData(0, kNodeIndexRole, -1);
         }
 
-        if (!m_info.shdrs.empty()) {
-            auto* shdr_root =
-                new QTreeWidgetItem(m_tree, {tr("Section Headers (%1)").arg(m_info.shdrs.size())});
-            shdr_root->setData(0, kNodeKindRole, static_cast<int>(NodeKind::SectionHeadersRoot));
-            shdr_root->setData(0, kNodeIndexRole, -1);
-
-            for (size_t i = 0; i < m_info.shdrs.size(); i++) {
-                const QString name =
-                    m_info.section_names[i].empty() ? tr("<unnamed>") : S(m_info.section_names[i]);
-                addTreeNode(shdr_root, tr("[%1] %2").arg(i).arg(name), NodeKind::SectionHeader,
-                            static_cast<int>(i));
-            }
-            shdr_root->setExpanded(true);
-        }
+        addLazyGroup(tr("Program Headers"), NodeKind::ProgramHeadersRoot, 0, m_info.phdrs.size());
+        addLazyGroup(tr("Section Headers"), NodeKind::SectionHeadersRoot, 0, m_info.shdrs.size());
 
         if (m_info.dynamic.present) {
             auto* dyn_item = new QTreeWidgetItem(m_tree, {tr("Dynamic Section")});
@@ -233,42 +226,23 @@ void ElfInfoDialog::buildTree() {
             }
         }
 
-        auto add_group = [this](const QString& label, NodeKind root_kind, NodeKind entry_kind,
-                                int group, size_t count,
-                                const std::function<QString(size_t)>& entry_label) {
-            if (count == 0) {
-                return;
-            }
-            auto* root = new QTreeWidgetItem(m_tree, {tr("%1 (%2)").arg(label).arg(count)});
-            root->setData(0, kNodeKindRole, static_cast<int>(root_kind));
-            root->setData(0, kNodeIndexRole, -1);
-            root->setData(0, kNodeGroupRole, group);
-            for (size_t i = 0; i < count; i++) {
-                auto* item = new QTreeWidgetItem(root, {entry_label(i)});
-                item->setData(0, kNodeKindRole, static_cast<int>(entry_kind));
-                item->setData(0, kNodeIndexRole, static_cast<int>(i));
-                item->setData(0, kNodeGroupRole, group);
-            }
-            root->setExpanded(true);
-        };
         const auto& dyn = m_info.dynamic;
-        auto mod_label = [](const std::vector<Loader::ElfInfo::ModuleIdInfo>& v) {
-            return [&v](size_t i) { return QString::fromStdString(v[i].name); };
-        };
-        auto lib_label = [](const std::vector<Loader::ElfInfo::LibraryIdInfo>& v) {
-            return [&v](size_t i) { return QString::fromStdString(v[i].name); };
-        };
-        add_group(tr("Imported Modules"), NodeKind::ModuleGroup, NodeKind::ModuleEntry, 0,
-                  dyn.import_modules.size(), mod_label(dyn.import_modules));
-        add_group(tr("Exported Modules"), NodeKind::ModuleGroup, NodeKind::ModuleEntry, 1,
-                  dyn.export_modules.size(), mod_label(dyn.export_modules));
-        add_group(tr("Imported Libraries"), NodeKind::LibraryGroup, NodeKind::LibraryEntry, 0,
-                  dyn.import_libs.size(), lib_label(dyn.import_libs));
-        add_group(tr("Exported Libraries"), NodeKind::LibraryGroup, NodeKind::LibraryEntry, 1,
-                  dyn.export_libs.size(), lib_label(dyn.export_libs));
+        addLazyGroup(tr("Imported Modules"), NodeKind::ModuleGroup, 0, dyn.import_modules.size());
+        addLazyGroup(tr("Exported Modules"), NodeKind::ModuleGroup, 1, dyn.export_modules.size());
+        addLazyGroup(tr("Imported Libraries"), NodeKind::LibraryGroup, 0, dyn.import_libs.size());
+        addLazyGroup(tr("Exported Libraries"), NodeKind::LibraryGroup, 1, dyn.export_libs.size());
+        addLazyGroup(tr("Imported Symbols"), NodeKind::SymbolGroup, 0, SymbolIndices(0).size());
+        addLazyGroup(tr("Exported Symbols"), NodeKind::SymbolGroup, 1, SymbolIndices(1).size());
+        addLazyGroup(tr("PLT Relocations"), NodeKind::RelocationGroup, 0,
+                     RelocationIndices(0).size());
+        addLazyGroup(tr("RELA Relocations"), NodeKind::RelocationGroup, 1,
+                     RelocationIndices(1).size());
     }
 
     if (!m_info.is_valid_elf) {
+        // Nothing recognized (or SELF was recognized but what follows isn't
+        // a valid ELF header) - offer a hex dump of the actual bytes so the
+        // format can still be identified by eye instead of a dead end.
         if (m_info.is_self) {
             auto* item = new QTreeWidgetItem(m_tree, {tr("Raw Bytes at ELF Offset (hex)")});
             item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::RawEhdrOffsetDump));
@@ -284,6 +258,98 @@ void ElfInfoDialog::buildTree() {
         m_tree->setCurrentItem(m_tree->topLevelItem(0));
     } else {
         showDetail(tr("Nothing to show"), tr("The file is too small to inspect."), {});
+    }
+}
+
+QTreeWidgetItem* ElfInfoDialog::addLazyGroup(const QString& label, NodeKind root_kind, int group,
+                                             size_t count) {
+    if (count == 0) {
+        return nullptr;
+    }
+    auto* root = new QTreeWidgetItem(m_tree, {tr("%1 (%2)").arg(label).arg(count)});
+    root->setData(0, kNodeKindRole, static_cast<int>(root_kind));
+    root->setData(0, kNodeIndexRole, -1);
+    root->setData(0, kNodeGroupRole, group);
+    root->setData(0, kPopulatedRole, false);
+    new QTreeWidgetItem(root, {tr("Loading...")});
+    return root;
+}
+
+void ElfInfoDialog::onItemExpanded(QTreeWidgetItem* item) {
+    populateGroupChildren(item);
+}
+
+void ElfInfoDialog::populateGroupChildren(QTreeWidgetItem* root) {
+    if (root == nullptr || root->data(0, kPopulatedRole).toBool()) {
+        return;
+    }
+    root->setData(0, kPopulatedRole, true);
+    while (root->childCount() > 0) {
+        delete root->takeChild(0); // drop the "Loading..." placeholder
+    }
+
+    const auto kind = static_cast<NodeKind>(root->data(0, kNodeKindRole).toInt());
+    const int group = root->data(0, kNodeGroupRole).toInt();
+    const auto& dyn = m_info.dynamic;
+
+    switch (kind) {
+    case NodeKind::SelfWrapper:
+        for (size_t i = 0; i < m_info.self_segments.size(); i++) {
+            addTreeNode(root, tr("Segment [%1]").arg(i), NodeKind::SelfSegment,
+                        static_cast<int>(i));
+        }
+        break;
+    case NodeKind::ProgramHeadersRoot:
+        for (size_t i = 0; i < m_info.phdrs.size(); i++) {
+            const QString type_name = S(Loader::ElfInfo::PhdrTypeName(m_info.phdrs[i].p_type));
+            addTreeNode(root, tr("[%1] %2").arg(i).arg(type_name), NodeKind::ProgramHeader,
+                        static_cast<int>(i));
+        }
+        break;
+    case NodeKind::SectionHeadersRoot:
+        for (size_t i = 0; i < m_info.shdrs.size(); i++) {
+            const QString name =
+                m_info.section_names[i].empty() ? tr("<unnamed>") : S(m_info.section_names[i]);
+            addTreeNode(root, tr("[%1] %2").arg(i).arg(name), NodeKind::SectionHeader,
+                        static_cast<int>(i));
+        }
+        break;
+    case NodeKind::ModuleGroup: {
+        const auto& v = group == 0 ? dyn.import_modules : dyn.export_modules;
+        for (size_t i = 0; i < v.size(); i++) {
+            addTreeNode(root, S(v[i].name), NodeKind::ModuleEntry, static_cast<int>(i), group);
+        }
+        break;
+    }
+    case NodeKind::LibraryGroup: {
+        const auto& v = group == 0 ? dyn.import_libs : dyn.export_libs;
+        for (size_t i = 0; i < v.size(); i++) {
+            addTreeNode(root, S(v[i].name), NodeKind::LibraryEntry, static_cast<int>(i), group);
+        }
+        break;
+    }
+    case NodeKind::SymbolGroup: {
+        const auto& indices = SymbolIndices(group);
+        for (size_t i = 0; i < indices.size(); i++) {
+            const auto& sym = dyn.symbols[static_cast<size_t>(indices[i])];
+            const QString label = sym.resolved_name.empty() ? S(sym.nid) : S(sym.resolved_name);
+            addTreeNode(root, label, NodeKind::SymbolEntry, static_cast<int>(i), group);
+        }
+        break;
+    }
+    case NodeKind::RelocationGroup: {
+        const auto& indices = RelocationIndices(group);
+        for (size_t i = 0; i < indices.size(); i++) {
+            const auto& r = dyn.relocations[static_cast<size_t>(indices[i])];
+            const QString type = S(Loader::ElfInfo::RelocTypeName(r.type));
+            const QString label = S(Loader::ElfInfo::Hex(r.offset)) + QStringLiteral(" ") +
+                                  (type.isEmpty() ? tr("unsupported (%1)").arg(r.type) : type);
+            addTreeNode(root, label, NodeKind::RelocationEntry, static_cast<int>(i), group);
+        }
+        break;
+    }
+    default:
+        break; // not a group kind; nothing to populate
     }
 }
 
@@ -394,6 +460,25 @@ void ElfInfoDialog::showDetailForItem(QTreeWidgetItem* item) {
     case NodeKind::LibraryEntry:
         showDetail(tr("Library"), QString(), LibraryEntryFields(group, index));
         break;
+    case NodeKind::SymbolGroup:
+        showDetail(group == 0 ? tr("Imported Symbols") : tr("Exported Symbols"),
+                   tr("Names are NIDs - hashes of the real function names - not human-readable "
+                      "without a NID database."),
+                   {{tr("Count"), QString::number(SymbolIndices(group).size())}});
+        break;
+    case NodeKind::SymbolEntry:
+        showDetail(tr("Symbol"), QString(), SymbolEntryFields(group, index));
+        break;
+    case NodeKind::TlsInfo:
+        showDetail(tr("TLS (Thread-Local Storage)"), QString(), TlsInfoFields());
+        break;
+    case NodeKind::RelocationGroup:
+        showDetail(group == 0 ? tr("PLT Relocations") : tr("RELA Relocations"), QString(),
+                   RelocationGroupFields(group));
+        break;
+    case NodeKind::RelocationEntry:
+        showDetail(tr("Relocation"), QString(), RelocationEntryFields(group, index));
+        break;
     case NodeKind::RawFileHeaderDump:
         showDetailHex(tr("Raw File Header"),
                       tr("Neither the SELF wrapper magic nor the ELF magic (\\x7fELF) was found "
@@ -471,7 +556,8 @@ ElfInfoDialog::FieldList ElfInfoDialog::ElfHeaderFields() const {
         for (const auto& line : failures) {
             lines << S(line);
         }
-        validation_value = tr("rejected: %1").arg(lines.join(QStringLiteral("; ")));
+        validation_value =
+            tr("would be rejected by Kyty's loader: %1").arg(lines.join(QStringLiteral("; ")));
     }
 
     return {
@@ -624,6 +710,112 @@ ElfInfoDialog::FieldList ElfInfoDialog::LibraryEntryFields(int group, int index)
     };
 }
 
+const std::vector<int>& ElfInfoDialog::SymbolIndices(int group) const {
+    if (!m_symbolIndicesBuilt) {
+        for (size_t i = 0; i < m_info.dynamic.symbols.size(); i++) {
+            (m_info.dynamic.symbols[i].is_export ? m_exportSymbolIndices : m_importSymbolIndices)
+                .push_back(static_cast<int>(i));
+        }
+        m_symbolIndicesBuilt = true;
+    }
+    return group == 0 ? m_importSymbolIndices : m_exportSymbolIndices;
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::SymbolEntryFields(int group, int index) const {
+    const auto& indices = SymbolIndices(group);
+    if (index < 0 || static_cast<size_t>(index) >= indices.size()) {
+        return {};
+    }
+    const auto& s =
+        m_info.dynamic.symbols[static_cast<size_t>(indices[static_cast<size_t>(index)])];
+    FieldList fields = {
+        {tr("Resolved name"), s.resolved_name.empty()
+                                  ? tr("(unknown - not a common libc/pthread/libkernel name)")
+                                  : S(s.resolved_name)},
+        {tr("NID"), S(s.nid)},
+        {tr("Raw name"), S(s.raw_name)},
+        {tr("Type"), S(Loader::ElfInfo::SymbolTypeName(s.type))},
+        {tr("Binding"), S(Loader::ElfInfo::SymbolBindName(s.bind))},
+    };
+    if (s.is_export) {
+        fields.push_back({tr("Value (address)"), S(Loader::ElfInfo::Hex(s.value))});
+    }
+    if (s.size != 0) {
+        fields.push_back({tr("Size"), tr("%1 bytes").arg(s.size)});
+    }
+    if (!s.library.empty()) {
+        fields.push_back({tr("Library"), tr("%1 (v%2)").arg(S(s.library)).arg(s.library_version)});
+    } else if (!s.library_id.empty()) {
+        fields.push_back({tr("Library ID"), tr("%1 (unresolved)").arg(S(s.library_id))});
+    }
+    if (!s.module.empty()) {
+        fields.push_back({tr("Module"), tr("%1 (v%2.%3)")
+                                            .arg(S(s.module))
+                                            .arg(s.module_version_major)
+                                            .arg(s.module_version_minor)});
+    } else if (!s.module_id.empty()) {
+        fields.push_back({tr("Module ID"), tr("%1 (unresolved)").arg(S(s.module_id))});
+    }
+    return fields;
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::TlsInfoFields() const {
+    const auto tls = Loader::ElfInfo::GetTlsSummary(m_info);
+    if (!tls.present) {
+        return {};
+    }
+    return {
+        {tr("Image vaddr"), S(Loader::ElfInfo::Hex(tls.image_vaddr))},
+        {tr("Image size"), tr("%1 bytes (incl. zero-fill)").arg(tls.image_size)},
+        {tr("Init data size"), tr("%1 bytes (from file)").arg(tls.init_size)},
+        {tr("Zero-fill size"),
+         tr("%1 bytes").arg(tls.image_size > tls.init_size ? tls.image_size - tls.init_size : 0)},
+        {tr("TCB offset"), S(Loader::ElfInfo::Hex(tls.tcb_offset))},
+        {tr("Alignment"), QString::number(tls.align)},
+    };
+}
+
+const std::vector<int>& ElfInfoDialog::RelocationIndices(int group) const {
+    if (!m_relocIndicesBuilt) {
+        for (size_t i = 0; i < m_info.dynamic.relocations.size(); i++) {
+            (m_info.dynamic.relocations[i].is_plt ? m_pltRelocIndices : m_relaRelocIndices)
+                .push_back(static_cast<int>(i));
+        }
+        m_relocIndicesBuilt = true;
+    }
+    return group == 0 ? m_pltRelocIndices : m_relaRelocIndices;
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::RelocationGroupFields(int group) const {
+    return {{tr("Count"), QString::number(RelocationIndices(group).size())}};
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::RelocationEntryFields(int group, int index) const {
+    const auto& indices = RelocationIndices(group);
+    if (index < 0 || static_cast<size_t>(index) >= indices.size()) {
+        return {};
+    }
+    const auto& r =
+        m_info.dynamic.relocations[static_cast<size_t>(indices[static_cast<size_t>(index)])];
+    const QString type_name = S(Loader::ElfInfo::RelocTypeName(r.type));
+    FieldList fields = {
+        {tr("Offset"), S(Loader::ElfInfo::Hex(r.offset, 16))},
+        {tr("Type"), type_name.isEmpty() ? tr("unsupported type (%1)").arg(r.type) : type_name},
+        {tr("Symbol index"), QString::number(r.symbol_index)},
+        {tr("Addend"), S(Loader::ElfInfo::Hex(static_cast<u64>(r.addend)))},
+    };
+    if (r.has_symbol) {
+        fields.push_back({tr("Symbol"), S(r.symbol_nid)});
+        if (!r.symbol_library.empty()) {
+            fields.push_back({tr("Library"), S(r.symbol_library)});
+        }
+        if (!r.symbol_module.empty()) {
+            fields.push_back({tr("Module"), S(r.symbol_module)});
+        }
+    }
+    return fields;
+}
+
 void ElfInfoDialog::onCopy() {
     QApplication::clipboard()->setText(m_text);
 }
@@ -643,4 +835,47 @@ void ElfInfoDialog::onSave() {
 
     QTextStream stream(&file);
     stream << m_text;
+}
+
+void ElfInfoDialog::onLoadNidDatabase() {
+    const QString path =
+        QFileDialog::getOpenFileName(this, tr("Load NID Database"), QString(),
+                                     tr("NID database or names file (*.csv *.txt);;All files (*)"));
+    if (path.isEmpty()) {
+        return;
+    }
+
+    const std::filesystem::path fs_path = path.toStdString();
+    auto& catalog = Loader::ElfInfo::GetMutableDefaultNidCatalog();
+    size_t loaded = catalog.LoadNidsCsvFile(fs_path);
+    if (loaded == 0) {
+        loaded = catalog.LoadNamesFile(fs_path);
+    }
+
+    if (loaded == 0) {
+        QMessageBox::warning(
+            this, tr("Load NID Database"),
+            tr("No entries could be loaded from this file. Expected either a plain list of "
+               "function names (one per line), or a NID database (\"<nid> <name>\" per line, "
+               "or a CSV with nid/name columns)."));
+        return;
+    }
+
+    RefreshSymbolResolution();
+    QMessageBox::information(
+        this, tr("Load NID Database"),
+        tr("Loaded %1 entries. Symbol names have been refreshed.").arg(loaded));
+}
+
+void ElfInfoDialog::RefreshSymbolResolution() {
+    const auto& catalog = Loader::ElfInfo::GetDefaultNidCatalog();
+    for (auto& sym : m_info.dynamic.symbols) {
+        if (auto resolved = catalog.Resolve(sym.nid)) {
+            sym.resolved_name = *resolved;
+        }
+    }
+
+    m_text = S(Loader::ElfInfo::ToText(m_info));
+    m_rawView->setPlainText(m_text);
+    buildTree();
 }
