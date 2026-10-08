@@ -425,6 +425,549 @@
     </message>
 </context>
 <context>
+    <name>ElfInfoDialog</name>
+    <message>
+        <source>ELF Info - %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SELF-wrapped %1 </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Plain (not SELF-wrapped) %1 </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>shared module (PRX/SPRX)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>main executable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>file (couldn&apos;t tell executable from PRX/SPRX - see ELF Header for details)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not recognized as SELF or ELF - this may not be a valid eboot.bin</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Field</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Structured</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Raw Text</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy to Clipboard</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save to File...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Load NID Database...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SELF Wrapper</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ELF Header</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TLS (Thread-Local Storage)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Program Headers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Section Headers</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dynamic Section</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dynamic Linking Summary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Imported Modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Exported Modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Imported Libraries</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Exported Libraries</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Imported Symbols</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Exported Symbols</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PLT Relocations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RELA Relocations</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Raw Bytes at ELF Offset (hex)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Raw File Header (hex)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nothing to show</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The file is too small to inspect.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Loading...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Segment [%1]</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>[%1] %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&lt;unnamed&gt;</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>unsupported (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Segment payload bytes aren&apos;t decoded here - SELF&apos;s segment compression is a proprietary, undocumented Sony format. This shows only what the segment directory itself states.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SELF Segment [%1]</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Program Header [%1]</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Section Header [%1]</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Present, but not readable: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Names and libraries couldn&apos;t be resolved: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Module</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Library</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Names are NIDs - hashes of the real function names - not human-readable without a NID database.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Count</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Symbol</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Relocation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Raw File Header</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Neither the SELF wrapper magic nor the ELF magic (\x7fELF) was found anywhere this looked. This may not be a PS4/PS5 executable at all - here are the first %1 bytes of the file (size: %2 bytes total), so you can identify the actual format by eye.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Raw Bytes at ELF Offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The SELF wrapper was recognized, but the bytes at offset %1 (where its declared header + segment directory say the ELF header should start) aren&apos;t a valid ELF header - could be a different container format nested inside, an unsupported SELF variant, or a corrupted file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Declared file size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Segment entries</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Type (raw)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Backs a program header</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>no</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Program header index</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Offset in file</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Compressed size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Decompressed size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Compressed?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>no (stored as-is)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>passes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>would be rejected by Kyty&apos;s loader: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Found at file offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Class</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Data encoding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>OS/ABI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ABI version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Module kind</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Machine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Platform</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PS4/PS5 loader validation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Entry point</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Program header count</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Program header entry size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Program header table offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Section header count</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> (present but not read - see Raw Text tab for details)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Virtual address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Physical address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Memory size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Alignment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Link (sh_link)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Info (sh_info)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Address alignment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Entry size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>id %1, v%2.%3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Short ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1.%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>id %1, v%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Resolved name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(unknown - not a common libc/pthread/libkernel name)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Raw name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Binding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Value (address)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (v%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Library ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (unresolved)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (v%2.%3)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Module ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Image vaddr</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Image size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 bytes (incl. zero-fill)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Init data size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 bytes (from file)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Zero-fill size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TCB offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>unsupported type (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Symbol index</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Addend</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save ELF Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Text Files (*.txt)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not write to %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Load NID Database</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NID database or names file (*.csv *.txt);;All files (*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No entries could be loaded from this file. Expected either a plain list of function names (one per line), or a NID database (&quot;&lt;nid&gt; &lt;name&gt;&quot; per line, or a CSV with nid/name columns).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Loaded %1 entries. Symbol names have been refreshed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>GameCompatibility</name>
     <message>
         <source>Downloading Compatibility Database</source>
@@ -1057,6 +1600,26 @@ Leave empty to use the original name.</source>
     </message>
     <message>
         <source>Remove Custom &amp;Input Settings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Dump ELF Info from eboot.bin...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Dump ELF Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reading and parsing eboot.bin...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not read eboot.bin for this game.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>eboot.bin is too small to contain a valid header (%1 bytes).</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
