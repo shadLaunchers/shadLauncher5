@@ -3,18 +3,26 @@
 
 #include "elf_info_dialog.h"
 
+#include "core/analysis/sdk_metadata.h"
 #include "core/file_format/nid_catalog.h"
+#include "find_export_dialog.h"
+#include "nid_catalog_sync.h"
+#include "strings_dialog.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <functional>
+#include <map>
 #include <QApplication>
 #include <QClipboard>
+#include <QEvent>
 #include <QFile>
 #include <QFileDialog>
 #include <QFont>
 #include <QFontDatabase>
 #include <QHBoxLayout>
 #include <QHeaderView>
+#include <QMenu>
 #include <QMessageBox>
 #include <QPushButton>
 #include <QSplitter>
@@ -29,6 +37,7 @@ constexpr int kNodeKindRole = Qt::UserRole;
 constexpr int kNodeIndexRole = Qt::UserRole + 1;
 constexpr int kNodeGroupRole = Qt::UserRole + 2;
 constexpr int kPopulatedRole = Qt::UserRole + 3;
+constexpr int kNodeSubIndexRole = Qt::UserRole + 4;
 
 QString S(const std::string& s) {
     return QString::fromStdString(s);
@@ -37,9 +46,11 @@ QString S(const std::string& s) {
 } // namespace
 
 ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::ParsedInfo& info,
-                             const QString& suggestedFileName, QWidget* parent)
-    : QDialog(parent), m_info(info), m_text(S(Loader::ElfInfo::ToText(info))),
-      m_suggestedFileName(suggestedFileName) {
+                             const QString& suggestedFileName, QWidget* parent,
+                             std::shared_ptr<const std::vector<u8>> raw, const QString& gameTag)
+    : QDialog(parent), m_info(info), m_suggestedFileName(suggestedFileName), m_raw(std::move(raw)),
+      m_gameTag(gameTag.isEmpty() ? title : gameTag) {
+    m_text = FullText();
     setWindowTitle(tr("ELF Info - %1").arg(title));
     resize(900, 640);
 
@@ -112,6 +123,8 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
 
     m_detailNote = new QLabel(detail_panel);
     m_detailNote->setWordWrap(true);
+    m_detailNote->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+    m_detailNote->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Maximum);
     m_detailNote->setStyleSheet(QStringLiteral("color: palette(mid);"));
     m_detailNote->hide();
     detail_layout->addWidget(m_detailNote);
@@ -124,7 +137,7 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
     m_detailTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_detailTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_detailTable->setAlternatingRowColors(true);
-    detail_layout->addWidget(m_detailTable);
+    detail_layout->addWidget(m_detailTable, /*stretch=*/1); // spare height goes here, not the note
 
     // Shown instead of m_detailTable for hex-dump nodes - a field/value
     // table doesn't suit a multi-line, fixed-width dump.
@@ -133,7 +146,8 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
     m_detailHexView->setLineWrapMode(QPlainTextEdit::NoWrap);
     m_detailHexView->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     m_detailHexView->hide();
-    detail_layout->addWidget(m_detailHexView);
+    detail_layout->addWidget(m_detailHexView,
+                             /*stretch=*/1); // spare height goes here, not the note
 
     splitter->addWidget(detail_panel);
     splitter->setStretchFactor(0, 0);
@@ -161,6 +175,40 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
         auto* load_nid_db_btn = new QPushButton(tr("Load NID Database..."), this);
         buttons->addWidget(load_nid_db_btn);
         connect(load_nid_db_btn, &QPushButton::clicked, this, &ElfInfoDialog::onLoadNidDatabase);
+        auto* sync_nid_btn = new QPushButton(tr("Sync NID Catalog"), this);
+        sync_nid_btn->setToolTip(tr("Download the latest community NID catalog and apply it "
+                                    "to these symbols.") +
+                                 QLatin1Char('\n') + NidCatalogSync::StatusText());
+        buttons->addWidget(sync_nid_btn);
+        connect(sync_nid_btn, &QPushButton::clicked, this,
+                [this] { NidCatalogSync::RunWithProgress(this); });
+        connect(NidCatalogEvents::Instance(), &NidCatalogEvents::CatalogChanged, sync_nid_btn,
+                [sync_nid_btn] {
+                    sync_nid_btn->setToolTip(
+                        tr("Download the latest community NID catalog and apply it to these "
+                           "symbols.") +
+                        QLatin1Char('\n') + NidCatalogSync::StatusText());
+                });
+
+        m_exportUnresolvedBtn = new QPushButton(tr("Export Unresolved NIDs..."), this);
+        m_exportUnresolvedBtn->setToolTip(
+            tr("Save imports whose NID has no known name as CSV (library,nid,count,games) - "
+               "the format used for community catalog submissions."));
+        m_exportUnresolvedBtn->setEnabled(UnresolvedImportCount() > 0);
+        buttons->addWidget(m_exportUnresolvedBtn);
+        connect(m_exportUnresolvedBtn, &QPushButton::clicked, this,
+                &ElfInfoDialog::onExportUnresolvedNids);
+    }
+    if (m_raw && m_info.is_self && m_info.is_valid_elf) {
+        auto* extract_btn = new QPushButton(tr("Extract ELF..."), this);
+        extract_btn->setToolTip(tr("Rebuild a standalone ELF from this SELF container."));
+        buttons->addWidget(extract_btn);
+        connect(extract_btn, &QPushButton::clicked, this, &ElfInfoDialog::onExtractElf);
+    }
+    if (m_raw) {
+        auto* strings_btn = new QPushButton(tr("Strings..."), this);
+        buttons->addWidget(strings_btn);
+        connect(strings_btn, &QPushButton::clicked, this, &ElfInfoDialog::onShowStrings);
     }
     buttons->addStretch();
     buttons->addWidget(close_btn);
@@ -171,6 +219,11 @@ ElfInfoDialog::ElfInfoDialog(const QString& title, const Loader::ElfInfo::Parsed
     connect(close_btn, &QPushButton::clicked, this, &QDialog::accept);
     connect(m_tree, &QTreeWidget::currentItemChanged, this, &ElfInfoDialog::onTreeSelectionChanged);
     connect(m_tree, &QTreeWidget::itemExpanded, this, &ElfInfoDialog::onItemExpanded);
+    m_tree->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_tree, &QTreeWidget::customContextMenuRequested, this,
+            &ElfInfoDialog::onTreeContextMenu);
+    connect(NidCatalogEvents::Instance(), &NidCatalogEvents::CatalogChanged, this,
+            &ElfInfoDialog::RefreshSymbolResolution);
 
     buildTree();
 }
@@ -188,10 +241,6 @@ void ElfInfoDialog::buildTree() {
 
     if (m_info.is_self) {
         addLazyGroup(tr("SELF Wrapper"), NodeKind::SelfWrapper, 0, m_info.self_segments.size());
-        // SELF Wrapper is worth showing even with zero segments (it still
-        // has a declared size/count worth seeing), unlike the other groups
-        // below which simply don't exist when empty - so build its root
-        // directly rather than via addLazyGroup() when segments is empty.
         if (m_info.self_segments.empty()) {
             auto* self_root = new QTreeWidgetItem(m_tree, {tr("SELF Wrapper")});
             self_root->setData(0, kNodeKindRole, static_cast<int>(NodeKind::SelfWrapper));
@@ -209,6 +258,18 @@ void ElfInfoDialog::buildTree() {
             auto* tls_item = new QTreeWidgetItem(m_tree, {tr("TLS (Thread-Local Storage)")});
             tls_item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::TlsInfo));
             tls_item->setData(0, kNodeIndexRole, -1);
+        }
+
+        if (m_info.lib_versions_present) {
+            if (m_info.lib_versions.empty()) {
+                auto* item = new QTreeWidgetItem(m_tree, {tr("SDK Library Versions")});
+                item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::LibVersionGroup));
+                item->setData(0, kNodeIndexRole, -1);
+                item->setData(0, kPopulatedRole, true);
+            } else {
+                addLazyGroup(tr("SDK Library Versions"), NodeKind::LibVersionGroup, 0,
+                             m_info.lib_versions.size());
+            }
         }
 
         addLazyGroup(tr("Program Headers"), NodeKind::ProgramHeadersRoot, 0, m_info.phdrs.size());
@@ -240,9 +301,6 @@ void ElfInfoDialog::buildTree() {
     }
 
     if (!m_info.is_valid_elf) {
-        // Nothing recognized (or SELF was recognized but what follows isn't
-        // a valid ELF header) - offer a hex dump of the actual bytes so the
-        // format can still be identified by eye instead of a dead end.
         if (m_info.is_self) {
             auto* item = new QTreeWidgetItem(m_tree, {tr("Raw Bytes at ELF Offset (hex)")});
             item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::RawEhdrOffsetDump));
@@ -285,7 +343,7 @@ void ElfInfoDialog::populateGroupChildren(QTreeWidgetItem* root) {
     }
     root->setData(0, kPopulatedRole, true);
     while (root->childCount() > 0) {
-        delete root->takeChild(0); // drop the "Loading..." placeholder
+        delete root->takeChild(0);
     }
 
     const auto kind = static_cast<NodeKind>(root->data(0, kNodeKindRole).toInt());
@@ -297,6 +355,13 @@ void ElfInfoDialog::populateGroupChildren(QTreeWidgetItem* root) {
         for (size_t i = 0; i < m_info.self_segments.size(); i++) {
             addTreeNode(root, tr("Segment [%1]").arg(i), NodeKind::SelfSegment,
                         static_cast<int>(i));
+        }
+        break;
+    case NodeKind::LibVersionGroup:
+        for (size_t i = 0; i < m_info.lib_versions.size(); i++) {
+            const auto& e = m_info.lib_versions[i];
+            addTreeNode(root, S(e.name) + QStringLiteral("  ") + S(e.GuessedVersionString()),
+                        NodeKind::LibVersionEntry, static_cast<int>(i));
         }
         break;
     case NodeKind::ProgramHeadersRoot:
@@ -329,11 +394,58 @@ void ElfInfoDialog::populateGroupChildren(QTreeWidgetItem* root) {
         break;
     }
     case NodeKind::SymbolGroup: {
-        const auto& indices = SymbolIndices(group);
-        for (size_t i = 0; i < indices.size(); i++) {
-            const auto& sym = dyn.symbols[static_cast<size_t>(indices[i])];
-            const QString label = sym.resolved_name.empty() ? S(sym.nid) : S(sym.resolved_name);
-            addTreeNode(root, label, NodeKind::SymbolEntry, static_cast<int>(i), group);
+        if (group == 0) {
+            // Imports: category -> library -> symbol (e.g. kernel -> libc -> malloc).
+            const auto& cats = Categories();
+            for (size_t c = 0; c < cats.size(); c++) {
+                auto* cat_item = new QTreeWidgetItem(
+                    root, {tr("%1 (%2)").arg(cats[c].name).arg(cats[c].import_count)});
+                cat_item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::CategoryEntry));
+                cat_item->setData(0, kNodeIndexRole, static_cast<int>(c));
+                cat_item->setData(0, kNodeGroupRole, 0);
+                // Filled right here, not lazily - keep onItemExpanded from clearing it.
+                cat_item->setData(0, kPopulatedRole, true);
+                for (size_t l = 0; l < cats[c].libraries.size(); l++) {
+                    const auto& lib = cats[c].libraries[l];
+                    auto* lib_item = new QTreeWidgetItem(
+                        cat_item, {tr("%1 (%2)").arg(lib.name).arg(lib.positions.size())});
+                    lib_item->setData(0, kNodeKindRole,
+                                      static_cast<int>(NodeKind::CategoryLibrary));
+                    lib_item->setData(0, kNodeIndexRole, static_cast<int>(l));
+                    lib_item->setData(0, kNodeGroupRole, static_cast<int>(c));
+                    lib_item->setData(0, kPopulatedRole, true);
+                    addSymbolLeaves(lib_item, 0, lib.positions);
+                }
+            }
+            break;
+        }
+        const auto& modules = SymbolModules(group);
+        for (size_t m = 0; m < modules.size(); m++) {
+            const auto& mod = modules[m];
+            const QString label = mod.version.isEmpty()
+                                      ? tr("%1 (%2)").arg(mod.name).arg(mod.count)
+                                      : tr("%1 %2 (%3)").arg(mod.name, mod.version).arg(mod.count);
+            auto* mod_item = new QTreeWidgetItem(root, {label});
+            mod_item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::SymbolModule));
+            mod_item->setData(0, kNodeIndexRole, static_cast<int>(m));
+            mod_item->setData(0, kNodeGroupRole, group);
+            // Filled right here, not lazily - keep onItemExpanded from clearing it.
+            mod_item->setData(0, kPopulatedRole, true);
+            if (mod.libraries.size() == 1) {
+                addSymbolLeaves(mod_item, group, mod.libraries.front().positions);
+                continue;
+            }
+            for (size_t l = 0; l < mod.libraries.size(); l++) {
+                const auto& lib = mod.libraries[l];
+                auto* lib_item = new QTreeWidgetItem(
+                    mod_item, {tr("%1 (%2)").arg(lib.name).arg(lib.positions.size())});
+                lib_item->setData(0, kNodeKindRole, static_cast<int>(NodeKind::SymbolLibrary));
+                lib_item->setData(0, kNodeIndexRole, static_cast<int>(m));
+                lib_item->setData(0, kNodeGroupRole, group);
+                lib_item->setData(0, kNodeSubIndexRole, static_cast<int>(l));
+                lib_item->setData(0, kPopulatedRole, true);
+                addSymbolLeaves(lib_item, group, lib.positions);
+            }
         }
         break;
     }
@@ -361,6 +473,7 @@ void ElfInfoDialog::showDetail(const QString& sectionTitle, const QString& note,
         m_detailNote->hide();
     } else {
         m_detailNote->setText(note);
+        FitDetailNote();
         m_detailNote->show();
     }
 
@@ -386,6 +499,7 @@ void ElfInfoDialog::showDetailHex(const QString& sectionTitle, const QString& no
         m_detailNote->hide();
     } else {
         m_detailNote->setText(note);
+        FitDetailNote();
         m_detailNote->show();
     }
 
@@ -461,16 +575,76 @@ void ElfInfoDialog::showDetailForItem(QTreeWidgetItem* item) {
         showDetail(tr("Library"), QString(), LibraryEntryFields(group, index));
         break;
     case NodeKind::SymbolGroup:
-        showDetail(group == 0 ? tr("Imported Symbols") : tr("Exported Symbols"),
-                   tr("Names are NIDs - hashes of the real function names - not human-readable "
-                      "without a NID database."),
-                   {{tr("Count"), QString::number(SymbolIndices(group).size())}});
+        if (group == 0) {
+            FieldList fields = {{tr("Count"), QString::number(SymbolIndices(0).size())}};
+            const FieldList cats = CategoryGroupFields();
+            fields.insert(fields.end(), cats.begin(), cats.end());
+            showDetail(tr("Imported Symbols"),
+                       tr("Grouped by subsystem, then library. Names are NIDs - hashes of the "
+                          "real function names - until a NID database resolves them. Prototypes "
+                          "come from a small built-in set of unverified signatures."),
+                       fields);
+        } else {
+            showDetail(tr("Exported Symbols"),
+                       tr("Grouped by module, then by library when a module has several."),
+                       {{tr("Count"), QString::number(SymbolIndices(1).size())},
+                        {tr("Modules"), QString::number(SymbolModules(1).size())}});
+        }
         break;
     case NodeKind::SymbolEntry:
         showDetail(tr("Symbol"), QString(), SymbolEntryFields(group, index));
         break;
+    case NodeKind::SymbolModule:
+        if (index >= 0 && static_cast<size_t>(index) < SymbolModules(group).size()) {
+            showDetail(tr("Module: %1").arg(SymbolModules(group)[static_cast<size_t>(index)].name),
+                       QString(), SymbolModuleFields(group, index));
+        }
+        break;
+    case NodeKind::SymbolLibrary: {
+        const int lib_index = item->data(0, kNodeSubIndexRole).toInt();
+        const auto& modules = SymbolModules(group);
+        if (index >= 0 && static_cast<size_t>(index) < modules.size() && lib_index >= 0 &&
+            static_cast<size_t>(lib_index) < modules[static_cast<size_t>(index)].libraries.size()) {
+            const auto& lib =
+                modules[static_cast<size_t>(index)].libraries[static_cast<size_t>(lib_index)];
+            showDetail(tr("Library: %1").arg(lib.name), QString(),
+                       {{tr("Module"), modules[static_cast<size_t>(index)].name},
+                        {tr("Symbols"), QString::number(lib.positions.size())}});
+        }
+        break;
+    }
     case NodeKind::TlsInfo:
         showDetail(tr("TLS (Thread-Local Storage)"), QString(), TlsInfoFields());
+        break;
+    case NodeKind::LibVersionGroup:
+        showDetail(tr("SDK Library Versions"),
+                   m_info.lib_versions_unavailable_reason.empty()
+                       ? tr("From the PT_SCE_LIBVERSION segment: the SDK version each library "
+                            "was built against. The major.minor.patch split follows the PS4 "
+                            "encoding and is a best guess on PS5 - the raw value is shown too.")
+                       : tr("Present, but not readable: %1")
+                             .arg(S(m_info.lib_versions_unavailable_reason)),
+                   LibVersionGroupFields());
+        break;
+    case NodeKind::LibVersionEntry:
+        showDetail(tr("Library Version"), QString(), LibVersionEntryFields(index));
+        break;
+    case NodeKind::CategoryEntry:
+        if (index >= 0 && static_cast<size_t>(index) < Categories().size()) {
+            showDetail(tr("Category: %1").arg(Categories()[static_cast<size_t>(index)].name),
+                       QString(), CategoryEntryFields(index));
+        }
+        break;
+    case NodeKind::CategoryLibrary:
+        if (group >= 0 && static_cast<size_t>(group) < Categories().size()) {
+            const auto& cat = Categories()[static_cast<size_t>(group)];
+            if (index >= 0 && static_cast<size_t>(index) < cat.libraries.size()) {
+                showDetail(cat.libraries[static_cast<size_t>(index)].name,
+                           tr("Imported functions, with their prototype where one is known "
+                              "(otherwise their NID)."),
+                           CategoryLibraryFields(group, index));
+            }
+        }
         break;
     case NodeKind::RelocationGroup:
         showDetail(group == 0 ? tr("PLT Relocations") : tr("RELA Relocations"), QString(),
@@ -499,6 +673,96 @@ void ElfInfoDialog::showDetailForItem(QTreeWidgetItem* item) {
                 .arg(S(Loader::ElfInfo::Hex(m_info.ehdr_file_offset))),
             S(Loader::ElfInfo::HexDump(m_info.raw_at_ehdr_offset, m_info.ehdr_file_offset)));
         break;
+    }
+}
+
+void ElfInfoDialog::FitDetailNote() {
+    // Let the layout size the word-wrapped note through height-for-width; the
+    // table below has the stretch, so the note only ever gets the height its
+    // text needs. (Pinning the height by hand misbehaved on some platforms.)
+    m_detailNote->setMinimumHeight(0);
+    m_detailNote->setMaximumHeight(QWIDGETSIZE_MAX);
+    m_detailNote->updateGeometry();
+}
+
+void ElfInfoDialog::SetGameContext(std::filesystem::path game_root,
+                                   std::filesystem::path sys_modules_dir,
+                                   const QString& game_title) {
+    m_gameRoot = std::move(game_root);
+    m_sysModulesDir = std::move(sys_modules_dir);
+    m_gameTitle = game_title;
+}
+
+void ElfInfoDialog::SelectSymbol(const std::string& nid, bool exported) {
+    const int group = exported ? 1 : 0;
+    for (int i = 0; i < m_tree->topLevelItemCount(); i++) {
+        QTreeWidgetItem* root = m_tree->topLevelItem(i);
+        if (static_cast<NodeKind>(root->data(0, kNodeKindRole).toInt()) != NodeKind::SymbolGroup ||
+            root->data(0, kNodeGroupRole).toInt() != group) {
+            continue;
+        }
+        populateGroupChildren(root);
+        const auto& indices = SymbolIndices(group);
+        std::function<QTreeWidgetItem*(QTreeWidgetItem*)> find =
+            [&](QTreeWidgetItem* item) -> QTreeWidgetItem* {
+            for (int c = 0; c < item->childCount(); c++) {
+                QTreeWidgetItem* child = item->child(c);
+                if (static_cast<NodeKind>(child->data(0, kNodeKindRole).toInt()) ==
+                    NodeKind::SymbolEntry) {
+                    const int pos = child->data(0, kNodeIndexRole).toInt();
+                    if (pos >= 0 && static_cast<size_t>(pos) < indices.size() &&
+                        m_info.dynamic.symbols[static_cast<size_t>(indices[pos])].nid == nid) {
+                        return child;
+                    }
+                } else if (QTreeWidgetItem* hit = find(child)) {
+                    return hit;
+                }
+            }
+            return nullptr;
+        };
+        if (QTreeWidgetItem* hit = find(root)) {
+            for (QTreeWidgetItem* p = hit->parent(); p != nullptr; p = p->parent()) {
+                p->setExpanded(true);
+            }
+            m_tree->setCurrentItem(hit);
+            m_tree->scrollToItem(hit);
+        }
+        return;
+    }
+}
+
+void ElfInfoDialog::onTreeContextMenu(const QPoint& pos) {
+    QTreeWidgetItem* item = m_tree->itemAt(pos);
+    if (item == nullptr ||
+        static_cast<NodeKind>(item->data(0, kNodeKindRole).toInt()) != NodeKind::SymbolEntry) {
+        return;
+    }
+    const int group = item->data(0, kNodeGroupRole).toInt();
+    const int index = item->data(0, kNodeIndexRole).toInt();
+    const auto& indices = SymbolIndices(group);
+    if (index < 0 || static_cast<size_t>(index) >= indices.size()) {
+        return;
+    }
+    const std::string nid = m_info.dynamic.symbols[static_cast<size_t>(indices[index])].nid;
+
+    QMenu menu(this);
+    QAction* find = menu.addAction(group == 0 ? tr("Find which module provides this...")
+                                              : tr("Find modules that export this..."));
+    QAction* copy_nid = menu.addAction(tr("Copy NID"));
+    const bool can_search = !m_gameRoot.empty() || !m_sysModulesDir.empty();
+    find->setEnabled(can_search);
+    if (!can_search) {
+        find->setToolTip(tr("Open ELF Info from the game list to search the game's modules."));
+    }
+    QAction* chosen = menu.exec(m_tree->viewport()->mapToGlobal(pos));
+    if (chosen == copy_nid) {
+        QApplication::clipboard()->setText(S(nid));
+    } else if (chosen == find) {
+        auto* dialog = new FindExportDialog(m_gameTitle.isEmpty() ? m_gameTag : m_gameTitle,
+                                            m_gameRoot, m_sysModulesDir, S(nid),
+                                            /*include_sys_modules=*/true, parentWidget());
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
     }
 }
 
@@ -721,6 +985,99 @@ const std::vector<int>& ElfInfoDialog::SymbolIndices(int group) const {
     return group == 0 ? m_importSymbolIndices : m_exportSymbolIndices;
 }
 
+const std::vector<ElfInfoDialog::SymbolModuleBucket>& ElfInfoDialog::SymbolModules(
+    int group) const {
+    const int g = group == 0 ? 0 : 1;
+    if (m_symbolModulesBuilt[g]) {
+        return m_symbolModules[g];
+    }
+    m_symbolModulesBuilt[g] = true;
+
+    struct ModuleAcc {
+        QString version;
+        std::map<QString, std::vector<int>> libraries;
+    };
+    std::map<QString, ModuleAcc> grouped;
+    const auto& indices = SymbolIndices(group);
+    for (size_t pos = 0; pos < indices.size(); pos++) {
+        const auto& s = m_info.dynamic.symbols[static_cast<size_t>(indices[pos])];
+        QString module;
+        QString version;
+        if (!s.module.empty()) {
+            module = S(s.module);
+            version =
+                QStringLiteral("v%1.%2").arg(s.module_version_major).arg(s.module_version_minor);
+        } else if (!s.module_id.empty()) {
+            module = tr("(unresolved module %1)").arg(S(s.module_id));
+        } else {
+            module = tr("(no module - not a NID symbol)");
+        }
+        QString library;
+        if (!s.library.empty()) {
+            library = S(s.library);
+        } else if (!s.library_id.empty()) {
+            library = tr("(unresolved library %1)").arg(S(s.library_id));
+        } else {
+            library = tr("(no library)");
+        }
+        auto& acc = grouped[module];
+        acc.version = version;
+        acc.libraries[library].push_back(static_cast<int>(pos));
+    }
+
+    auto by_name = [this, &indices](int a, int b) {
+        const QString na =
+            SymbolDisplayName(m_info.dynamic.symbols[static_cast<size_t>(indices[a])]);
+        const QString nb =
+            SymbolDisplayName(m_info.dynamic.symbols[static_cast<size_t>(indices[b])]);
+        return QString::compare(na, nb, Qt::CaseInsensitive) < 0;
+    };
+    auto& out = m_symbolModules[g];
+    for (auto& [module, acc] : grouped) {
+        SymbolModuleBucket bucket;
+        bucket.name = module;
+        bucket.version = acc.version;
+        for (auto& [library, positions] : acc.libraries) {
+            std::sort(positions.begin(), positions.end(), by_name);
+            bucket.count += positions.size();
+            bucket.libraries.push_back({library, std::move(positions)});
+        }
+        out.push_back(std::move(bucket));
+    }
+    // Real modules alphabetically, the "(unresolved ...)" buckets last.
+    std::stable_sort(out.begin(), out.end(), [](const auto& a, const auto& b) {
+        const bool pa = a.name.startsWith(QLatin1Char('('));
+        const bool pb = b.name.startsWith(QLatin1Char('('));
+        if (pa != pb) {
+            return pb;
+        }
+        return QString::compare(a.name, b.name, Qt::CaseInsensitive) < 0;
+    });
+    return out;
+}
+
+void ElfInfoDialog::addSymbolLeaves(QTreeWidgetItem* parent, int group,
+                                    const std::vector<int>& positions) {
+    const auto& indices = SymbolIndices(group);
+    for (const int pos : positions) {
+        const auto& sym = m_info.dynamic.symbols[static_cast<size_t>(indices[pos])];
+        addTreeNode(parent, SymbolDisplayName(sym), NodeKind::SymbolEntry, pos, group);
+    }
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::SymbolModuleFields(int group, int module) const {
+    const auto& mod = SymbolModules(group)[static_cast<size_t>(module)];
+    FieldList fields = {{tr("Symbols"), QString::number(mod.count)}};
+    if (!mod.version.isEmpty()) {
+        fields.push_back({tr("Version"), mod.version});
+    }
+    for (const auto& lib : mod.libraries) {
+        fields.push_back({tr("Library %1").arg(lib.name),
+                          tr("%n symbol(s)", nullptr, static_cast<int>(lib.positions.size()))});
+    }
+    return fields;
+}
+
 ElfInfoDialog::FieldList ElfInfoDialog::SymbolEntryFields(int group, int index) const {
     const auto& indices = SymbolIndices(group);
     if (index < 0 || static_cast<size_t>(index) >= indices.size()) {
@@ -747,6 +1104,17 @@ ElfInfoDialog::FieldList ElfInfoDialog::SymbolEntryFields(int group, int index) 
         fields.push_back({tr("Library"), tr("%1 (v%2)").arg(S(s.library)).arg(s.library_version)});
     } else if (!s.library_id.empty()) {
         fields.push_back({tr("Library ID"), tr("%1 (unresolved)").arg(S(s.library_id))});
+    }
+    if (!s.is_export && s.nid_form) {
+        // Same grouping as the Imported Symbols tree; an unresolved library ID
+        // says nothing about the subsystem, so it stays "unknown".
+        fields.push_back({tr("Category"), s.library.empty()
+                                              ? tr("unknown")
+                                              : S(Core::Analysis::InferCategory(s.library))});
+    }
+    if (const auto* sig = Core::Analysis::FindSignature(s.resolved_name)) {
+        fields.push_back({tr("Prototype"),
+                          tr("%1  (unverified)").arg(S(Core::Analysis::FormatPrototype(*sig)))});
     }
     if (!s.module.empty()) {
         fields.push_back({tr("Module"), tr("%1 (v%2.%3)")
@@ -816,6 +1184,284 @@ ElfInfoDialog::FieldList ElfInfoDialog::RelocationEntryFields(int group, int ind
     return fields;
 }
 
+ElfInfoDialog::FieldList ElfInfoDialog::LibVersionGroupFields() const {
+    FieldList fields = {{tr("Count"), QString::number(m_info.lib_versions.size())}};
+    for (const auto& e : m_info.lib_versions) {
+        fields.push_back({S(e.name), S(e.GuessedVersionString()) + QStringLiteral("  (") +
+                                         S(Loader::ElfInfo::Hex(e.version_raw, 8)) +
+                                         QStringLiteral(")")});
+    }
+    return fields;
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::LibVersionEntryFields(int index) const {
+    if (index < 0 || static_cast<size_t>(index) >= m_info.lib_versions.size()) {
+        return {};
+    }
+    const auto& e = m_info.lib_versions[static_cast<size_t>(index)];
+    QString raw_hex;
+    for (const u8 b : e.raw) {
+        raw_hex += QStringLiteral("%1 ").arg(b, 2, 16, QLatin1Char('0'));
+    }
+    return {
+        {tr("Library"), S(e.name)},
+        {tr("Version (guessed)"), S(e.GuessedVersionString())},
+        {tr("Version (raw)"), S(Loader::ElfInfo::Hex(e.version_raw, 8))},
+        {tr("Raw entry bytes"), raw_hex.trimmed()},
+    };
+}
+
+const std::vector<ElfInfoDialog::CategoryBucket>& ElfInfoDialog::Categories() const {
+    if (m_categoriesBuilt) {
+        return m_categories;
+    }
+    m_categoriesBuilt = true;
+    // category -> library -> import positions (in SymbolIndices(0)).
+    std::map<QString, std::map<QString, std::vector<int>>> grouped;
+    const auto& imports = SymbolIndices(0);
+    for (size_t pos = 0; pos < imports.size(); pos++) {
+        const auto& s = m_info.dynamic.symbols[static_cast<size_t>(imports[pos])];
+        QString lib;
+        QString category;
+        if (!s.nid_form) {
+            lib = tr("(non-NID symbols)");
+            category = tr("other");
+        } else if (!s.library.empty()) {
+            lib = S(s.library);
+            category = S(Core::Analysis::InferCategory(s.library));
+        } else {
+            lib = tr("(unresolved library %1)").arg(S(s.library_id));
+            category = tr("unknown");
+        }
+        grouped[category][lib].push_back(static_cast<int>(pos));
+    }
+    for (auto& [category, libs] : grouped) {
+        CategoryBucket bucket;
+        bucket.name = category;
+        for (auto& [lib, positions] : libs) {
+            std::sort(positions.begin(), positions.end(), [this, &imports](int a, int b) {
+                return QString::compare(
+                           SymbolDisplayName(
+                               m_info.dynamic.symbols[static_cast<size_t>(imports[a])]),
+                           SymbolDisplayName(
+                               m_info.dynamic.symbols[static_cast<size_t>(imports[b])]),
+                           Qt::CaseInsensitive) < 0;
+            });
+            LibraryBucket lb;
+            lb.name = lib;
+            for (const int pos : positions) {
+                lb.symbol_indices.push_back(imports[static_cast<size_t>(pos)]);
+            }
+            lb.positions = std::move(positions);
+            bucket.import_count += lb.positions.size();
+            bucket.libraries.push_back(std::move(lb));
+        }
+        std::sort(bucket.libraries.begin(), bucket.libraries.end(),
+                  [](const LibraryBucket& a, const LibraryBucket& b) {
+                      return QString::compare(a.name, b.name, Qt::CaseInsensitive) < 0;
+                  });
+        m_categories.push_back(std::move(bucket));
+    }
+    // Biggest subsystems first.
+    std::stable_sort(m_categories.begin(), m_categories.end(),
+                     [](const CategoryBucket& a, const CategoryBucket& b) {
+                         return a.import_count > b.import_count;
+                     });
+    return m_categories;
+}
+
+QString ElfInfoDialog::SymbolDisplayName(const Loader::ElfInfo::SymbolInfo& s) const {
+    return s.resolved_name.empty() ? S(s.nid) : S(s.resolved_name);
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::CategoryGroupFields() const {
+    FieldList fields;
+    size_t with_prototype = 0;
+    for (const auto& c : Categories()) {
+        fields.push_back(
+            {c.name, tr("%n import(s)", nullptr, static_cast<int>(c.import_count)) +
+                         QStringLiteral(", ") +
+                         tr("%n library(ies)", nullptr, static_cast<int>(c.libraries.size()))});
+        for (const auto& lib : c.libraries) {
+            for (const int idx : lib.symbol_indices) {
+                if (Core::Analysis::FindSignature(
+                        m_info.dynamic.symbols[static_cast<size_t>(idx)].resolved_name)) {
+                    with_prototype++;
+                }
+            }
+        }
+    }
+    fields.push_back({tr("Imports with a known prototype"), QString::number(with_prototype)});
+    return fields;
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::CategoryEntryFields(int index) const {
+    const auto& cat = Categories()[static_cast<size_t>(index)];
+    FieldList fields;
+    for (const auto& lib : cat.libraries) {
+        fields.push_back(
+            {lib.name, tr("%n import(s)", nullptr, static_cast<int>(lib.symbol_indices.size()))});
+    }
+    return fields;
+}
+
+ElfInfoDialog::FieldList ElfInfoDialog::CategoryLibraryFields(int category, int index) const {
+    const auto& lib =
+        Categories()[static_cast<size_t>(category)].libraries[static_cast<size_t>(index)];
+    FieldList fields;
+    for (const int idx : lib.symbol_indices) {
+        const auto& s = m_info.dynamic.symbols[static_cast<size_t>(idx)];
+        QString value;
+        if (const auto* sig = Core::Analysis::FindSignature(s.resolved_name)) {
+            value = S(Core::Analysis::FormatPrototype(*sig));
+        } else if (s.resolved_name.empty()) {
+            value = tr("(name unknown)");
+        } else {
+            value = tr("NID %1").arg(S(s.nid)); // no prototype known - show something useful
+        }
+        fields.push_back({SymbolDisplayName(s), value});
+    }
+    std::stable_sort(fields.begin(), fields.end(),
+                     [](const auto& a, const auto& b) { return a.first < b.first; });
+    return fields;
+}
+
+QString ElfInfoDialog::FullText() const {
+    QString text = S(Loader::ElfInfo::ToText(m_info));
+    const auto& cats = Categories();
+    if (cats.empty()) {
+        return text;
+    }
+    text += QStringLiteral("\n=== Imports by category ===\n");
+    for (const auto& c : cats) {
+        text += QStringLiteral("%1: %2 imports\n").arg(c.name).arg(c.import_count);
+        for (const auto& lib : c.libraries) {
+            text += QStringLiteral("  %1: %2\n").arg(lib.name).arg(lib.symbol_indices.size());
+            for (const int idx : lib.symbol_indices) {
+                const auto& s = m_info.dynamic.symbols[static_cast<size_t>(idx)];
+                if (const auto* sig = Core::Analysis::FindSignature(s.resolved_name)) {
+                    text +=
+                        QStringLiteral("    %1\n").arg(S(Core::Analysis::FormatPrototype(*sig)));
+                }
+            }
+        }
+    }
+    text += QStringLiteral("(Prototypes come from a small built-in, unverified signature set.)\n");
+    return text;
+}
+
+size_t ElfInfoDialog::UnresolvedImportCount() const {
+    size_t n = 0;
+    for (const auto& sym : m_info.dynamic.symbols) {
+        if (!sym.is_export && sym.nid_form && sym.resolved_name.empty()) {
+            n++;
+        }
+    }
+    return n;
+}
+
+void ElfInfoDialog::onExtractElf() {
+    if (!m_raw) {
+        return;
+    }
+    const auto result = Loader::ElfInfo::ExtractElf(*m_raw, m_info);
+    if (!result.error.empty()) {
+        QMessageBox::critical(this, tr("Extract ELF"),
+                              tr("Could not extract an ELF: %1").arg(S(result.error)));
+        return;
+    }
+
+    QString suggested = m_suggestedFileName;
+    suggested.replace(QStringLiteral("_info.txt"), QStringLiteral(".elf"));
+    if (!suggested.endsWith(QStringLiteral(".elf"))) {
+        suggested = QStringLiteral("eboot.elf");
+    }
+    const QString path = QFileDialog::getSaveFileName(this, tr("Save Extracted ELF"), suggested,
+                                                      tr("ELF Files (*.elf);;All files (*)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly) ||
+        file.write(reinterpret_cast<const char*>(result.elf.data()),
+                   static_cast<qint64>(result.elf.size())) !=
+            static_cast<qint64>(result.elf.size())) {
+        QMessageBox::critical(this, tr("Error"), tr("Could not write to %1").arg(path));
+        return;
+    }
+
+    QString message = tr("Wrote %1 bytes (%2 loadable segment(s) placed).")
+                          .arg(result.elf.size())
+                          .arg(result.copied_load_segments);
+    if (result.encrypted_segments > 0 || result.compressed_segments > 0) {
+        message += QStringLiteral("\n\n") +
+                   tr("Warning: the SELF marks %1 segment(s) as encrypted and %2 as compressed. "
+                      "Those bytes were copied as-is, so the matching parts of the ELF are not "
+                      "usable code - this only gives a clean ELF for already-decrypted dumps.")
+                       .arg(result.encrypted_segments)
+                       .arg(result.compressed_segments);
+    }
+    QMessageBox::information(this, tr("Extract ELF"), message);
+}
+
+void ElfInfoDialog::onShowStrings() {
+    if (!m_raw) {
+        return;
+    }
+    QString suggested = m_suggestedFileName;
+    suggested.replace(QStringLiteral("_info.txt"), QStringLiteral("_strings.txt"));
+    auto* dialog = new StringsDialog(m_gameTag, m_raw, suggested, parentWidget());
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    dialog->show();
+}
+
+void ElfInfoDialog::onExportUnresolvedNids() {
+    // (library, nid) -> occurrences, mirroring ps5rs' export-unknown CSV.
+    std::map<std::pair<std::string, std::string>, size_t> unresolved;
+    for (const auto& sym : m_info.dynamic.symbols) {
+        if (!sym.is_export && sym.nid_form && sym.resolved_name.empty()) {
+            const std::string lib = sym.library.empty() ? sym.library_id : sym.library;
+            unresolved[{lib, sym.nid}]++;
+        }
+    }
+    if (unresolved.empty()) {
+        QMessageBox::information(this, tr("Export Unresolved NIDs"),
+                                 tr("Every imported NID already resolves to a name."));
+        return;
+    }
+
+    QString suggested = m_suggestedFileName;
+    suggested.replace(QStringLiteral("_info.txt"), QStringLiteral("_unknown_nids.csv"));
+    if (!suggested.endsWith(QStringLiteral(".csv"))) {
+        suggested = QStringLiteral("unknown_nids.csv");
+    }
+    const QString path = QFileDialog::getSaveFileName(this, tr("Export Unresolved NIDs"), suggested,
+                                                      tr("CSV Files (*.csv)"));
+    if (path.isEmpty()) {
+        return;
+    }
+    QFile file(path);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QMessageBox::critical(this, tr("Error"), tr("Could not write to %1").arg(path));
+        return;
+    }
+    auto csv_field = [](QString v) {
+        if (v.contains(QLatin1Char(',')) || v.contains(QLatin1Char('"'))) {
+            v.replace(QStringLiteral("\""), QStringLiteral("\"\""));
+            v = QStringLiteral("\"") + v + QStringLiteral("\"");
+        }
+        return v;
+    };
+    QTextStream stream(&file);
+    stream << "library,nid,count,games\n";
+    for (const auto& [key, count] : unresolved) {
+        stream << csv_field(S(key.first)) << ',' << csv_field(S(key.second)) << ',' << count << ','
+               << csv_field(m_gameTag) << '\n';
+    }
+    QMessageBox::information(this, tr("Export Unresolved NIDs"),
+                             tr("Exported %1 unresolved NID(s).").arg(unresolved.size()));
+}
+
 void ElfInfoDialog::onCopy() {
     QApplication::clipboard()->setText(m_text);
 }
@@ -875,7 +1521,16 @@ void ElfInfoDialog::RefreshSymbolResolution() {
         }
     }
 
-    m_text = S(Loader::ElfInfo::ToText(m_info));
+    m_symbolModulesBuilt[0] = m_symbolModulesBuilt[1] = false;
+    m_symbolModules[0].clear();
+    m_symbolModules[1].clear();
+    m_categoriesBuilt = false;
+    m_categories.clear();
+
+    m_text = FullText();
     m_rawView->setPlainText(m_text);
+    if (m_exportUnresolvedBtn != nullptr) {
+        m_exportUnresolvedBtn->setEnabled(UnresolvedImportCount() > 0);
+    }
     buildTree();
 }

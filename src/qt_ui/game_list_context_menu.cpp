@@ -30,6 +30,7 @@
 #include "cheats_patches_dialog.h"
 #include "common/path_util.h"
 #include "common/singleton.h"
+#include "core/analysis/middleware.h"
 #include "core/emulator_settings.h"
 #include "core/emulator_state.h"
 #include "core/file_format/elf_info.h"
@@ -39,6 +40,7 @@
 #include "core/file_sys/zar_packer.h"
 #include "core/ipc/ipc_client.h"
 #include "elf_info_dialog.h"
+#include "find_export_dialog.h"
 #include "game_categories.h"
 #include "game_list_context_menu.h"
 #include "game_list_frame.h"
@@ -46,11 +48,13 @@
 #include "gui_settings.h"
 #include "input_bindings_dialog.h"
 #include "localized.h"
+#include "module_picker_dialog.h"
 #include "npbind_dialog.h"
 #include "param_viewer_dialog.h"
 #include "progress_dialog.h"
 #include "qt_utils.h"
 #include "settings_dialog.h"
+#include "tech_info_dialog.h"
 #include "trophy_viewer.h"
 #include "zarchive_viewer_dialog.h"
 
@@ -98,8 +102,6 @@ struct DeletePaths {
     QString save_data;
     QString shader_cache_dir;
     QString shader_cache_zip;
-    // Trophy data lives in two places: the trophy files unpacked from the game's
-    // container, and one progress file per user holding what they unlocked.
     QStringList trophy_dirs;
     QStringList trophy_user_files;
 };
@@ -128,9 +130,6 @@ static DeletePaths ResolveDeletePaths(const std::filesystem::path& addon_install
     Common::FS::PathToQString(paths.shader_cache_zip,
                               Common::FS::GetUserPath(Common::FS::PathType::CacheDir) /
                                   (gameinfo->info.serial + ".zip"));
-
-    // Trophy data is filed under the game's NPComm IDs, which come out of
-    // npbind.dat inside the game itself.
     std::filesystem::path npbind_path =
         std::filesystem::path(gameinfo->info.path) / "sce_sys/trophy2" / "npbind.dat";
     if (const auto resolved =
@@ -166,8 +165,6 @@ static DeletePaths ResolveDeletePaths(const std::filesystem::path& addon_install
     return paths;
 }
 
-// True when the path is set and something is actually there. Used to keep the
-// "Delete..." submenu down to the entries that would do something.
 static bool DeleteTargetExists(const QString& path) {
     if (path.isEmpty()) {
         return false;
@@ -177,8 +174,6 @@ static bool DeleteTargetExists(const QString& path) {
     return std::filesystem::exists(Common::FS::PathFromQString(path), ec) && !ec;
 }
 
-// Categories are keyed on the install path, so an operation that relocates a
-// game (the ZArchive conversions) has to carry its assignments over.
 static void RetargetCategories(GameListFrame* frame, const std::string& old_path,
                                const std::string& new_path) {
     if (GameCategories* categories = frame ? frame->GetCategories() : nullptr) {
@@ -191,8 +186,6 @@ GameListContextMenu::GameListContextMenu(GameListFrame* frame) : QMenu(frame), m
 void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_pos) {
     GameListFrame* frame = m_frame;
 
-    // Where each "Delete..." entry points. Worked out once so the menu can hide
-    // the entries whose target isn't on disk and the handler can reuse them.
     const DeletePaths delete_paths =
         ResolveDeletePaths(frame->m_emu_settings ? frame->m_emu_settings->GetAddonInstallDir()
                                                  : std::filesystem::path{},
@@ -212,29 +205,16 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
             const std::filesystem::path path_to_delete = Common::FS::PathFromQString(path);
             std::error_code remove_ec;
             if (std::filesystem::is_regular_file(path_to_delete, remove_ec)) {
-                // A ZArchive-packed game/update is a single file, not a
-                // directory; QDir::removeRecursively() would silently
-                // do nothing for it.
                 std::filesystem::remove(path_to_delete, remove_ec);
             } else {
                 QDir(path).removeRecursively();
             }
         };
 
-        // Wipes the game together with its update. Shared by "Delete Game" and
-        // "Delete Game + Update" so the two can never drift apart.
         auto remove_game_and_update = [&] {
             BackgroundMusicPlayer::getInstance().StopMusic();
-
-            // Delete the update first: if it were interrupted partway, we'd
-            // rather be left with just the (still-launchable) base game
-            // than an orphaned update pointing at a deleted base.
             remove_path(update_path);
             remove_path(game_path);
-
-            // The game itself is gone; drop it from the in-memory list and
-            // redraw from memory instead of rescanning every configured
-            // game directory just to remove one entry.
             auto& game_data = frame->m_game_data;
             game_data.erase(std::remove(game_data.begin(), game_data.end(), gameinfo),
                             game_data.end());
@@ -246,8 +226,6 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
 
         switch (type) {
         case GameListFrame::DeleteType::Game:
-            // An update is worthless without the game it patches, so it goes as
-            // well. Say so plainly rather than leaving an orphan behind.
             if (has_update) {
                 const QMessageBox::StandardButton reply = QMessageBox::question(
                     frame, tr("Delete Game"),
@@ -433,25 +411,17 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
             const std::filesystem::path path_to_delete = Common::FS::PathFromQString(folder_path);
             std::error_code remove_ec;
             if (std::filesystem::is_regular_file(path_to_delete, remove_ec)) {
-                // A ZArchive-packed game/update is a single file, not a
-                // directory; QDir::removeRecursively() would silently do
-                // nothing for it.
                 std::filesystem::remove(path_to_delete, remove_ec);
             } else {
                 QDir(folder_path).removeRecursively();
             }
 
             if (type == GameListFrame::DeleteType::Game) {
-                // The game itself is gone; drop it from the in-memory list
-                // and redraw from memory instead of rescanning every
-                // configured game directory just to remove one entry.
                 auto& game_data = frame->m_game_data;
                 game_data.erase(std::remove(game_data.begin(), game_data.end(), gameinfo),
                                 game_data.end());
                 frame->Refresh(false);
             } else if (type == GameListFrame::DeleteType::Update) {
-                // Only this one game's size (and its update_path) changed;
-                // update it in place rather than rescanning the drive.
                 gameinfo->info.update_path.clear();
                 gameinfo->info.size_on_disk = UINT64_MAX;
                 frame->Refresh(false);
@@ -459,9 +429,6 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
         }
     };
 
-    // Packs an arbitrary folder (either a base game or its associated
-    // update/patch folder) into a .zar archive. Shared by
-    // convertToZArchiveHandler and convertUpdateToZArchiveHandler below.
     auto convertPathToZArchiveHandler =
         [frame](const std::filesystem::path& source_path, const QString& display_name,
                 const QString& dialog_title, const QString& extra_note,
@@ -626,13 +593,6 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
             watcher->setFuture(future);
         };
 
-    // Updates a single game's cached info in place and repopulates the
-    // visible list from memory, instead of a full Refresh(true) rescan of
-    // every configured game directory just because one game's path/size
-    // changed. Only does so if new_path is actually somewhere the launcher
-    // would find it on a real scan (one of the configured game folders);
-    // otherwise applying the update would show an entry that vanishes
-    // again the next time the drive is rescanned.
     auto refreshOneGameLight = [frame](const game_info& game) {
         if (game) {
             game->info.size_on_disk = UINT64_MAX;
@@ -736,8 +696,6 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
         }
 
         std::filesystem::path output_path = Common::FS::PathFromQString(output_path_str);
-        // If the user picked an existing empty/foreign folder directly, extract there;
-        // otherwise nest under a folder named after the archive to avoid clobbering.
         std::error_code exists_ec;
         if (std::filesystem::exists(output_path, exists_ec) && !exists_ec) {
             bool has_entries = false;
@@ -841,13 +799,6 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
                                    "could not be deleted. You can remove it manually."));
                         }
                     }
-
-                    // Only this one game's path/size changed; update it in
-                    // place and let the list redraw from memory instead of
-                    // rescanning every configured game directory. But only
-                    // if the extracted folder is actually somewhere a real
-                    // scan would find it - otherwise showing it now would
-                    // just have it vanish again on the next full refresh.
                     const auto install_dirs = frame->m_emu_settings
                                                   ? frame->m_emu_settings->GetGameInstallDirs()
                                                   : std::vector<std::filesystem::path>{};
@@ -1183,6 +1134,13 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
         Core::FileSys::IsZArchiveFile(std::filesystem::path(current_game.update_path)));
     manage_game_menu->addSeparator();
     QAction* dump_elf_info = manage_game_menu->addAction(tr("&Dump ELF Info from eboot.bin..."));
+    QAction* module_elf_info = manage_game_menu->addAction(tr("ELF Info for a &Module..."));
+    module_elf_info->setToolTip(tr("Pick any module of the game (sce_module or any other folder) "
+                                   "or of sys_modules and open it in ELF Info."));
+    QAction* tech_info = manage_game_menu->addAction(tr("Engine && &Middleware Info..."));
+    QAction* find_export = manage_game_menu->addAction(tr("&Find Export..."));
+    find_export->setToolTip(tr("Find which of the game's modules (or sys_modules) provides a "
+                               "function, by name or NID."));
 
     // Categories menu
     QMenu* category_menu = addMenu(tr("&Categories"));
@@ -1454,13 +1412,14 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
             bool file_read_failed = false;
             size_t file_size = 0; // only meaningful when Parse() itself failed
             std::optional<Loader::ElfInfo::ParsedInfo> info;
+            std::shared_ptr<const std::vector<u8>> data; // kept for Extract ELF / Strings
         };
 
         QPointer<ProgressDialog> progress_guard(progress);
         auto* watcher = new QFutureWatcher<ElfDumpResult>(frame);
 
         connect(watcher, &QFutureWatcher<ElfDumpResult>::finished, frame,
-                [frame, watcher, progress_guard, name, serial, dialog_title]() {
+                [frame, watcher, progress_guard, name, serial, dialog_title, game_root]() {
                     const ElfDumpResult result = watcher->result();
                     watcher->deleteLater();
 
@@ -1487,7 +1446,9 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
                                                        ? QStringLiteral("eboot_info.txt")
                                                        : serial + QStringLiteral("_eboot_info.txt");
 
-                    auto* dialog = new ElfInfoDialog(title, *result.info, suggested_name, frame);
+                    auto* dialog = new ElfInfoDialog(title, *result.info, suggested_name, frame,
+                                                     result.data, title);
+                    dialog->SetGameContext(game_root, EmulatorSettings.GetSysModulesDir(), title);
                     dialog->setAttribute(Qt::WA_DeleteOnClose);
                     dialog->show();
                 });
@@ -1503,9 +1464,84 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
 
             result.file_size = data->size();
             result.info = Loader::ElfInfo::Parse(*data);
+            result.data = std::make_shared<const std::vector<u8>>(std::move(*data));
             return result;
         });
         watcher->setFuture(future);
+    });
+
+    connect(module_elf_info, &QAction::triggered, frame, [frame, name, serial, current_game] {
+        const QString title = name % QStringLiteral(" [") % serial % QStringLiteral("]");
+        auto* dialog = new ModulePickerDialog(title, std::filesystem::path(current_game.path),
+                                              EmulatorSettings.GetSysModulesDir(),
+                                              /*include_sys_modules=*/false, frame);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+    });
+
+    connect(find_export, &QAction::triggered, frame, [frame, name, serial, current_game] {
+        const QString title = name % QStringLiteral(" [") % serial % QStringLiteral("]");
+        auto* dialog = new FindExportDialog(title, std::filesystem::path(current_game.path),
+                                            EmulatorSettings.GetSysModulesDir(), QString(),
+                                            /*include_sys_modules=*/false, frame);
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
+        dialog->show();
+    });
+
+    connect(tech_info, &QAction::triggered, frame, [frame, name, serial, current_game] {
+        const std::filesystem::path game_root = current_game.path;
+        const QString dialog_title = tr("Engine & Middleware Info");
+        auto cancel = std::make_shared<std::atomic_bool>(false);
+        auto* progress = new ProgressDialog(dialog_title, tr("Scanning eboot.bin..."), tr("Cancel"),
+                                            0, 0, /*delete_on_close=*/true, frame);
+        progress->show();
+        QPointer<ProgressDialog> progress_guard(progress);
+        connect(progress, &QProgressDialog::canceled, frame, [cancel] { cancel->store(true); });
+
+        auto* watcher = new QFutureWatcher<Core::Analysis::GameTechReport>(frame);
+        connect(watcher, &QFutureWatcher<Core::Analysis::GameTechReport>::finished, frame,
+                [frame, watcher, progress_guard, name, serial, dialog_title]() {
+                    Core::Analysis::GameTechReport report = watcher->result();
+                    watcher->deleteLater();
+                    if (progress_guard) {
+                        progress_guard->close();
+                    }
+                    if (report.cancelled) {
+                        return;
+                    }
+                    if (!report.eboot_found && report.modules.empty()) {
+                        QMessageBox::critical(frame, dialog_title,
+                                              tr("Could not read eboot.bin or any modules for "
+                                                 "this game."));
+                        return;
+                    }
+                    auto* dialog = new TechInfoDialog(name, serial, std::move(report), frame);
+                    dialog->setAttribute(Qt::WA_DeleteOnClose);
+                    dialog->show();
+                });
+
+        Core::Analysis::AnalyzeProgress hooks;
+        hooks.cancel = cancel.get();
+        hooks.on_step = [progress_guard](const std::string& current, size_t done, size_t total) {
+            const QString file = QString::fromStdString(current);
+            QMetaObject::invokeMethod(
+                qApp,
+                [progress_guard, file, done, total] {
+                    if (!progress_guard) {
+                        return;
+                    }
+                    progress_guard->SetRange(0, static_cast<int>(total));
+                    progress_guard->SetValue(static_cast<int>(done));
+                    if (!file.isEmpty()) {
+                        progress_guard->setLabelText(tr("Scanning %1...").arg(file));
+                    }
+                },
+                Qt::QueuedConnection);
+        };
+
+        watcher->setFuture(QtConcurrent::run([game_root, hooks, cancel]() {
+            return Core::Analysis::AnalyzeGame(game_root, hooks);
+        }));
     });
 
     connect(hide_serial, &QAction::triggered, frame, [game_key, frame](bool checked) {
@@ -1519,8 +1555,6 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
         frame->Refresh();
     });
     connect(edit_title, &QAction::triggered, frame, [frame, name, serial, game_key, game_path] {
-        // The name from param.json, shown as the placeholder and used to detect
-        // "the user typed the original name back in".
         const QString original_title = name;
         const QString old_title =
             frame->GetInfoCache() ? frame->GetInfoCache()->GetTitle(game_path) : QString();
@@ -1557,7 +1591,6 @@ void GameListContextMenu::Show(const game_info& gameinfo, const QPoint& global_p
         frame->Refresh();
     });
     connect(edit_notes, &QAction::triggered, frame, [frame, name, serial, game_key, game_path] {
-        // fetch old notes from the game info database
         const QString old_notes =
             frame->GetInfoCache() ? frame->GetInfoCache()->GetNotes(game_path) : QString();
 

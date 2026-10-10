@@ -177,6 +177,14 @@ set(FILEFORMAT src/core/file_format/param.cpp
                src/core/file_format/elf_info.h
                src/core/file_format/nid_catalog.cpp
                src/core/file_format/nid_catalog.h
+               src/core/analysis/string_analysis.cpp
+               src/core/analysis/string_analysis.h
+               src/core/analysis/middleware.cpp
+               src/core/analysis/middleware.h
+               src/core/analysis/sdk_metadata.cpp
+               src/core/analysis/sdk_metadata.h
+               src/core/analysis/export_index.cpp
+               src/core/analysis/export_index.h
                src/core/file_sys/game_backend.cpp
                src/core/file_sys/game_backend.h
                src/core/file_sys/backends/host_directory_backend.cpp
@@ -300,6 +308,18 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/zarchive_viewer_dialog.h
           src/qt_ui/elf_info_dialog.cpp
           src/qt_ui/elf_info_dialog.h
+          src/qt_ui/strings_dialog.cpp
+          src/qt_ui/strings_dialog.h
+          src/qt_ui/tech_info_dialog.cpp
+          src/qt_ui/tech_info_dialog.h
+          src/qt_ui/find_export_dialog.cpp
+          src/qt_ui/find_export_dialog.h
+          src/qt_ui/module_opener.cpp
+          src/qt_ui/module_opener.h
+          src/qt_ui/module_picker_dialog.cpp
+          src/qt_ui/module_picker_dialog.h
+          src/qt_ui/nid_catalog_sync.cpp
+          src/qt_ui/nid_catalog_sync.h
           ${UPDATER}
 )
 

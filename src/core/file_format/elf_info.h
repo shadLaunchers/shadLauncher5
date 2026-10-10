@@ -14,7 +14,7 @@ namespace Loader::ElfInfo {
 
 #pragma pack(push, 1)
 struct SelfHeader {
-    u8 ident[12]; // SELF magic + version/mode bytes
+    u8 ident[12];
     u16_le size1;
     u16_le size2;
     u64_le file_size;
@@ -76,7 +76,7 @@ struct Elf64Phdr {
 static_assert(sizeof(Elf64Phdr) == 56);
 
 struct Elf64Shdr {
-    u32_le sh_name; // byte offset into the section-header string table
+    u32_le sh_name;
     u32_le sh_type;
     u64_le sh_flags;
     u64_le sh_addr;
@@ -89,8 +89,6 @@ struct Elf64Shdr {
 };
 static_assert(sizeof(Elf64Shdr) == 64);
 
-// Elf64_Dyn: d_tag identifies the entry, d_val is either a plain value or a
-// virtual address, depending on the tag.
 struct Elf64Dyn {
     u64_le d_tag;
     u64_le d_val;
@@ -110,7 +108,7 @@ static_assert(sizeof(Elf64Sym) == 24);
 struct Elf64Rela {
     u64_le r_offset;
     u64_le r_info;
-    u64_le r_addend; // signed in the ELF spec; no s64_le wrapper exists here, cast at use
+    u64_le r_addend;
 };
 static_assert(sizeof(Elf64Rela) == 24);
 #pragma pack(pop)
@@ -129,30 +127,30 @@ struct LibraryIdInfo {
 };
 
 struct SymbolInfo {
-    std::string raw_name; // full st_name string as stored
-    std::string nid;      // first '#' field (the whole name if not NID-form)
+    std::string raw_name;
+    std::string nid;
     std::string resolved_name;
-    std::string library_id; // second field, or empty
-    std::string module_id;  // third field, or empty
-    std::string library;    // resolved library name, or empty if unresolved
+    std::string library_id;
+    std::string module_id;
+    std::string library;
     int library_version = 0;
-    std::string module; // resolved module name, or empty if unresolved
+    std::string module;
     int module_version_major = 0;
     int module_version_minor = 0;
     u8 bind = 0; // STB_*
     u8 type = 0; // STT_*
     u64 value = 0;
     u64 size = 0;
-    bool nid_form = false;  // name had exactly three '#'-separated fields
-    bool is_export = false; // st_value != 0 (Kyty's rule); otherwise an import
+    bool nid_form = false;
+    bool is_export = false;
 };
 
 struct RelocationInfo {
-    u64 offset = 0;       // r_offset
-    u32 type = 0;         // r_info & 0xffffffff
-    u32 symbol_index = 0; // r_info >> 32
+    u64 offset = 0;
+    u32 type = 0;
+    u32 symbol_index = 0;
     s64 addend = 0;
-    bool is_plt = false; // from DT_OS_JMPREL (true) or DT_OS_RELA (false)
+    bool is_plt = false;
     bool has_symbol = false;
     std::string symbol_nid;
     std::string symbol_library;
@@ -160,9 +158,9 @@ struct RelocationInfo {
 };
 
 struct DynamicInfo {
-    bool present = false;           // a PT_DYNAMIC program header exists
-    bool readable = false;          // and its entries could actually be read
-    std::string unavailable_reason; // set when present && !readable
+    bool present = false;
+    bool readable = false;
+    std::string unavailable_reason;
 
     std::vector<Elf64Dyn> entries;
     std::vector<std::string> entry_strings;
@@ -181,33 +179,48 @@ struct DynamicInfo {
     std::string relocations_unavailable_reason;
 };
 
+struct LibVersionEntry {
+    std::string name;
+    u32 version_raw = 0;
+    std::vector<u8> raw;
+
+    [[nodiscard]] std::string GuessedVersionString() const;
+};
+
+std::vector<LibVersionEntry> ParseLibVersion(const std::vector<u8>& segment);
+
 struct ParsedInfo {
     bool is_self = false;
     SelfHeader self_header{};
     std::vector<SelfSegmentEntry> self_segments;
 
-    bool is_valid_elf = false; // false => couldn't even read a plausible Ehdr
-    u64 ehdr_file_offset = 0;  // physical file offset the Ehdr was read from
+    bool is_valid_elf = false;
+    u64 ehdr_file_offset = 0;
     Elf64Ehdr ehdr{};
     std::vector<Elf64Phdr> phdrs;
 
     std::vector<Elf64Shdr> shdrs;
     std::vector<std::string> section_names;
     DynamicInfo dynamic;
+
+    bool lib_versions_present = false;
+    std::vector<LibVersionEntry> lib_versions;
+    std::string lib_versions_unavailable_reason;
+
     u64 file_size = 0;
-    std::vector<u8> raw_header; // first bytes of the file, always populated
+    std::vector<u8> raw_header;
     std::vector<u8> raw_at_ehdr_offset;
 };
 
 enum class ModuleKind {
-    Unknown,      // neither signal found; can't tell
-    Executable,   // PT_SCE_PROCPARAM present, no shared-module signal
-    SharedModule, // DT_SONAME and/or export_modules/export_libs present (PRX/SPRX)
+    Unknown,
+    Executable,
+    SharedModule,
 };
 
 struct ModuleClassification {
     ModuleKind kind = ModuleKind::Unknown;
-    std::string so_name; // set when kind == SharedModule and DT_SONAME resolved
+    std::string so_name;
 };
 
 ModuleClassification ClassifyModule(const ParsedInfo& info);
@@ -232,12 +245,22 @@ std::string RelocTypeName(u32 v);
 struct TlsSummary {
     bool present = false;
     u64 image_vaddr = 0;
-    u64 image_size = 0; // p_memsz - total size including zero-fill
-    u64 init_size = 0;  // p_filesz - size actually initialized from the file
+    u64 image_size = 0;
+    u64 init_size = 0;
     u64 tcb_offset = 0;
     u64 align = 0;
 };
 TlsSummary GetTlsSummary(const ParsedInfo& info);
 std::string HexDump(const std::vector<u8>& bytes, u64 base_offset = 0);
+
+struct ExtractResult {
+    std::vector<u8> elf;
+    bool was_self = false;
+    size_t encrypted_segments = 0;
+    size_t compressed_segments = 0;
+    size_t copied_load_segments = 0;
+    std::string error;
+};
+ExtractResult ExtractElf(const std::vector<u8>& data, const ParsedInfo& info);
 
 } // namespace Loader::ElfInfo

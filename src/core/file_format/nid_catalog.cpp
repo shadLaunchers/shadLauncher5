@@ -8,8 +8,10 @@
 #include <cstdint>
 #include <cstring>
 #include <fstream>
+#include <mutex>
 #include <sstream>
 #include <vector>
+#include "common/path_util.h"
 
 namespace Loader::ElfInfo {
 
@@ -141,10 +143,12 @@ std::string ComputeNid(std::string_view name) {
 }
 
 void NidCatalog::Add(std::string_view name) {
+    std::unique_lock lock(mutex_);
     by_nid_.insert_or_assign(ComputeNid(name), std::string(name));
 }
 
 std::optional<std::string> NidCatalog::Resolve(const std::string& nid) const {
+    std::shared_lock lock(mutex_);
     const auto it = by_nid_.find(nid);
     if (it == by_nid_.end()) {
         return std::nullopt;
@@ -182,23 +186,38 @@ std::vector<std::string_view> SplitLines(std::string_view content) {
     return lines;
 }
 
-std::vector<std::string_view> SplitN(std::string_view s, char sep, size_t max_fields) {
-    std::vector<std::string_view> fields;
-    size_t start = 0;
-    while (fields.size() + 1 < max_fields) {
-        size_t pos = s.find(sep, start);
-        if (pos == std::string_view::npos) {
-            break;
+std::vector<std::string> SplitCsv(std::string_view s) {
+    std::vector<std::string> fields;
+    std::string cur;
+    bool quoted = false;
+    for (size_t i = 0; i < s.size(); i++) {
+        const char c = s[i];
+        if (quoted) {
+            if (c == '"') {
+                if (i + 1 < s.size() && s[i + 1] == '"') {
+                    cur += '"';
+                    i++;
+                } else {
+                    quoted = false;
+                }
+            } else {
+                cur += c;
+            }
+        } else if (c == '"') {
+            quoted = true;
+        } else if (c == ',') {
+            fields.push_back(std::move(cur));
+            cur.clear();
+        } else {
+            cur += c;
         }
-        fields.push_back(s.substr(start, pos - start));
-        start = pos + 1;
     }
-    fields.push_back(s.substr(start));
+    fields.push_back(std::move(cur));
     return fields;
 }
 
-std::string_view Field(const std::vector<std::string_view>& fields, size_t index) {
-    return index < fields.size() ? fields[index] : std::string_view();
+std::string_view Field(const std::vector<std::string>& fields, size_t index) {
+    return index < fields.size() ? std::string_view(fields[index]) : std::string_view();
 }
 
 std::string ReadWholeFile(const std::filesystem::path& path) {
@@ -256,10 +275,11 @@ size_t NidCatalog::LoadNidsCsvFile(const std::filesystem::path& path) {
 
 size_t NidCatalog::LoadNidsCsvRich(std::string_view first_line, std::string_view content) {
     const std::string_view header = Trim(first_line);
-    const auto header_cols = SplitN(header, ',', 2);
+    const auto header_cols = SplitCsv(header);
     const bool skip_header = Trim(Field(header_cols, 0)) == "nid";
     const bool is_six_col_header = header.find("nid_hex") != std::string_view::npos;
 
+    std::unique_lock lock(mutex_);
     size_t count = 0;
     for (auto raw_line : SplitLines(content)) {
         const auto line = Trim(raw_line);
@@ -270,31 +290,20 @@ size_t NidCatalog::LoadNidsCsvRich(std::string_view first_line, std::string_view
             continue;
         }
 
-        const auto comma_count = static_cast<size_t>(std::count(line.begin(), line.end(), ','));
-        const bool is_six_col = is_six_col_header || comma_count == 5;
-
-        if (is_six_col) {
-            const auto cols = SplitN(line, ',', 6);
-            const auto nid = Trim(Field(cols, 0));
-            const auto name = Trim(Field(cols, 2));
-            if (!nid.empty() && !name.empty()) {
-                by_nid_.insert_or_assign(std::string(nid), std::string(name));
-                ++count;
-            }
-        } else {
-            const auto cols = SplitN(line, ',', 5);
-            const auto nid = Trim(Field(cols, 0));
-            const auto name = Trim(Field(cols, 1));
-            if (!nid.empty() && !name.empty()) {
-                by_nid_.insert_or_assign(std::string(nid), std::string(name));
-                ++count;
-            }
+        const auto cols = SplitCsv(line);
+        const bool is_six_col = is_six_col_header || cols.size() == 6;
+        const auto nid = Trim(Field(cols, 0));
+        const auto name = Trim(Field(cols, is_six_col ? 2 : 1));
+        if (!nid.empty() && !name.empty()) {
+            by_nid_.insert_or_assign(std::string(nid), std::string(name));
+            ++count;
         }
     }
     return count;
 }
 
 size_t NidCatalog::LoadNidsCsvLegacy(std::string_view content) {
+    std::unique_lock lock(mutex_);
     size_t count = 0;
     for (auto raw_line : SplitLines(content)) {
         const auto line = Trim(raw_line);
@@ -488,6 +497,19 @@ void NidCatalog::AddBuiltins() {
 
 NidCatalog::NidCatalog() {
     AddBuiltins();
+}
+
+size_t NidCatalog::LoadSyncedCatalog() {
+    const auto path = SyncedCatalogDir() / "nids.csv";
+    std::error_code ec;
+    if (!std::filesystem::is_regular_file(path, ec)) {
+        return 0;
+    }
+    return LoadNidsCsvFile(path);
+}
+
+std::filesystem::path SyncedCatalogDir() {
+    return Common::FS::GetUserPath(Common::FS::PathType::UserDir) / "nid_catalog";
 }
 
 NidCatalog& GetMutableDefaultNidCatalog() {

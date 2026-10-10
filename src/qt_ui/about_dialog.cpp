@@ -136,6 +136,9 @@ AboutDialog::AboutDialog(QWidget* parent) : QDialog(parent) {
     credits->setText(
         tr("Powered by the <a href=\"https://github.com/shadps5-emu/shadPS5\">shadPS5</a> "
            "emulator.<br>"
+           "Thanks to <a href=\"https://github.com/claimore22/ps5rs\">ps5rs</a> for the "
+           "binary analysis and NID catalog work behind ELF Info and Engine &amp; "
+           "Middleware Info.<br>"
            "Licensed under the GNU General Public License v2.0 or later."));
     {
         QFont f = credits->font();

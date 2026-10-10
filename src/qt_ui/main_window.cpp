@@ -11,6 +11,7 @@
 #include <QMessageBox>
 #include <QPainter>
 #include <QPixmap>
+#include <QPointer>
 #include <QStatusBar>
 #include <QtConcurrent>
 #include <common/scm_rev.h>
@@ -29,6 +30,8 @@
 #include "hotkeys_editor_dialog.h"
 #include "input_bindings_dialog.h"
 #include "main_window.h"
+#include "module_picker_dialog.h"
+#include "nid_catalog_sync.h"
 #include "progress_dialog.h"
 #include "qt_ui/check_update.h"
 #include "settings_dialog.h"
@@ -103,12 +106,9 @@ bool MainWindow::init() {
 
     Q_EMIT RequestGlobalStylesheetChange();
     configureGuiFromSettings();
-
-    // Refresh gamelist last
+    NidCatalogSync::LoadSyncedCatalogAsync();
     m_game_list_frame->Refresh(true);
     m_game_list_frame->CheckCompatibilityAtStartup();
-
-    // Expandable spacer to push elements to the right (Version Manager)
     QWidget* expandingSpacer = new QWidget(this);
     expandingSpacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     ui->toolBar->addWidget(expandingSpacer);
@@ -210,6 +210,27 @@ void MainWindow::createConnects() {
                                    RunningGameSerial(), this);
         dialog.exec();
     });
+
+    {
+        auto* sync_nids = new QAction(tr("Sync Community &NID Catalog..."), this);
+        sync_nids->setToolTip(tr("Download the community NID name catalog so ELF Info can "
+                                 "show real function names for imported symbols."));
+        ui->menuUtilities->insertAction(ui->actionSetup_Wizard, sync_nids);
+        connect(sync_nids, &QAction::triggered, this,
+                [this] { NidCatalogSync::RunWithProgress(this); });
+
+        auto* sys_modules_info = new QAction(tr("sys_modules ELF &Info..."), this);
+        sys_modules_info->setToolTip(
+            tr("Browse the modules in your sys_modules folder and open any of them in ELF Info."));
+        ui->menuUtilities->insertAction(ui->actionSetup_Wizard, sys_modules_info);
+        connect(sys_modules_info, &QAction::triggered, this, [this] {
+            auto* dialog =
+                new ModulePickerDialog(tr("sys_modules"), {}, m_emu_settings->GetSysModulesDir(),
+                                       /*include_sys_modules=*/true, this);
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->show();
+        });
+    }
 
     connect(ui->actionSetup_Wizard, &QAction::triggered, this, [this] {
         SetupWizard wizard(m_gui_settings, m_emu_settings, this);

@@ -6,6 +6,8 @@
 #include "nid_catalog.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <sstream>
@@ -17,6 +19,7 @@ namespace {
 constexpr u8 kSelfMagic[4] = {0x4F, 0x15, 0x3D, 0x1D};
 constexpr u8 kSelfMagic2[4] = {0x54, 0x14, 0xF5, 0xEE};
 constexpr u8 kElfMagic[4] = {0x7F, 'E', 'L', 'F'};
+constexpr u32 kPtSceLibVersion = 0x61000003;
 
 bool HasMagic(const std::vector<u8>& data, size_t offset, const u8* magic, size_t magic_len) {
     if (offset + magic_len > data.size()) {
@@ -126,6 +129,10 @@ std::string PhdrTypeName(u32 v) {
         return "PT_SCE_DYNLIBDATA (PS4/PS5)";
     case 0x61000001:
         return "PT_SCE_PROCPARAM (PS4/PS5)";
+    case 0x61000002:
+        return "PT_SCE_COMMENT (PS4/PS5)";
+    case 0x61000003:
+        return "PT_SCE_LIBVERSION (PS4/PS5)";
     case 0x61000010:
         return "PT_SCE_RELRO (PS4/PS5)";
     default:
@@ -896,7 +903,7 @@ void ParseDynamic(const std::vector<u8>& data, ParsedInfo& info) {
                 "no DT_OS_STRTAB/DT_STRTAB (with a size) found, or it couldn't be located in the "
                 "file";
         }
-        return; // no string table resolvable - nothing further to decode
+        return;
     }
     info.dynamic.strings_unavailable_reason.clear();
 
@@ -949,13 +956,13 @@ std::optional<ParsedInfo> Parse(const std::vector<u8>& data) {
         info.is_self = true;
 
         if (!ReadAt(data, 0, info.self_header)) {
-            info.is_self = false; // magic matched but header itself is truncated
+            info.is_self = false;
         } else {
             const size_t seg_table_offset = sizeof(SelfHeader);
             for (u16 i = 0; i < info.self_header.segments_num; i++) {
                 SelfSegmentEntry seg{};
                 if (!ReadAt(data, seg_table_offset + i * sizeof(SelfSegmentEntry), seg)) {
-                    break; // segment directory itself is truncated; report what we got
+                    break;
                 }
                 info.self_segments.push_back(seg);
             }
@@ -985,7 +992,7 @@ std::optional<ParsedInfo> Parse(const std::vector<u8>& data) {
         for (u16 i = 0; i < static_cast<u16>(info.ehdr.e_phnum); i++) {
             Elf64Phdr phdr{};
             if (!ReadAt(data, phdr_base + static_cast<u64>(i) * sizeof(Elf64Phdr), phdr)) {
-                break; // phdr table truncated; report what we got
+                break;
             }
             info.phdrs.push_back(phdr);
         }
@@ -996,7 +1003,8 @@ std::optional<ParsedInfo> Parse(const std::vector<u8>& data) {
         for (u16 i = 0; i < static_cast<u16>(info.ehdr.e_shnum); i++) {
             Elf64Shdr shdr{};
             if (!ReadAt(data, shdr_base + static_cast<u64>(i) * sizeof(Elf64Shdr), shdr)) {
-                break; // shdr table truncated; report what we got
+                break;
+                t
             }
             info.shdrs.push_back(shdr);
         }
@@ -1015,7 +1023,157 @@ std::optional<ParsedInfo> Parse(const std::vector<u8>& data) {
 
     ParseDynamic(data, info);
 
+    if (const auto idx = FindPhdrByType(info, kPtSceLibVersion)) {
+        info.lib_versions_present = true;
+        const auto& ph = info.phdrs[*idx];
+        SegmentReadFailure reason = SegmentReadFailure::None;
+        if (auto blob = ReadFileRange(data, info, ph.p_offset, ph.p_filesz, &reason)) {
+            info.lib_versions = ParseLibVersion(*blob);
+        } else {
+            info.lib_versions_unavailable_reason = ReasonText(reason, "PT_SCE_LIBVERSION");
+        }
+    }
+
     return info;
+}
+
+std::string LibVersionEntry::GuessedVersionString() const {
+    const u32 major = version_raw >> 24;
+    const u32 minor = (version_raw >> 12) & 0xFFF;
+    const u32 patch = version_raw & 0xFFF;
+    return std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(patch);
+}
+
+std::vector<LibVersionEntry> ParseLibVersion(const std::vector<u8>& segment) {
+    std::vector<LibVersionEntry> entries;
+    size_t offset = 0;
+    while (offset < segment.size()) {
+        const size_t length = segment[offset++];
+        if (length == 0 || offset + length > segment.size()) {
+            break;
+        }
+        LibVersionEntry entry;
+        entry.raw.assign(segment.begin() + static_cast<ptrdiff_t>(offset),
+                         segment.begin() + static_cast<ptrdiff_t>(offset + length));
+        offset += length;
+
+        const std::string payload(entry.raw.begin(), entry.raw.end());
+        const auto colon = payload.rfind(':');
+        if (colon == std::string::npos) {
+            entry.name = payload;
+        } else {
+            entry.name = payload.substr(0, colon);
+            const std::string ver = payload.substr(colon + 1);
+            const bool hex8 = ver.size() == 8 && std::all_of(ver.begin(), ver.end(), [](char c) {
+                                  return std::isxdigit(static_cast<unsigned char>(c)) != 0;
+                              });
+            if (hex8) {
+                entry.version_raw = static_cast<u32>(std::stoul(ver, nullptr, 16));
+            } else if (entry.raw.size() >= 4) {
+                const size_t n = entry.raw.size();
+                entry.version_raw = (u32(entry.raw[n - 4]) << 24) | (u32(entry.raw[n - 3]) << 16) |
+                                    (u32(entry.raw[n - 2]) << 8) | u32(entry.raw[n - 1]);
+                if (n >= 5 && entry.raw[n - 5] == ':') {
+                    entry.name.assign(entry.raw.begin(), entry.raw.end() - 5);
+                }
+            }
+        }
+        entry.name.erase(std::remove_if(entry.name.begin(), entry.name.end(),
+                                        [](char c) {
+                                            return static_cast<unsigned char>(c) < 0x20 ||
+                                                   static_cast<unsigned char>(c) >= 0x7F;
+                                        }),
+                         entry.name.end());
+        entries.push_back(std::move(entry));
+    }
+    return entries;
+}
+
+ExtractResult ExtractElf(const std::vector<u8>& data, const ParsedInfo& info) {
+    ExtractResult result;
+    if (!info.is_valid_elf) {
+        result.error = "no valid ELF header was found in this file";
+        return result;
+    }
+    if (!info.is_self) {
+        result.elf = data;
+        return result;
+    }
+    result.was_self = true;
+
+    for (const auto& seg : info.self_segments) {
+        if (seg.is_encrypted()) {
+            result.encrypted_segments++;
+        }
+        if (seg.is_compressed_flag()) {
+            result.compressed_segments++;
+        }
+    }
+
+    constexpr u32 kPtLoad = 1;
+    u64 max_offset = 0;
+    for (const auto& ph : info.phdrs) {
+        if (static_cast<u64>(ph.p_filesz) > 0) {
+            max_offset =
+                std::max(max_offset, static_cast<u64>(ph.p_offset) + static_cast<u64>(ph.p_filesz));
+        }
+    }
+    if (max_offset == 0) {
+        result.error = "no loadable segments found";
+        return result;
+    }
+    constexpr u64 kMaxOutput = 4ull << 30; // sanity cap against corrupt headers
+    if (max_offset > kMaxOutput) {
+        result.error = "program headers describe an implausibly large image";
+        return result;
+    }
+
+    std::vector<u8> out(static_cast<size_t>(max_offset), 0);
+    const u64 base = info.ehdr_file_offset;
+
+    const size_t ehdr_len =
+        std::min<size_t>({sizeof(Elf64Ehdr), out.size(), data.size() - static_cast<size_t>(base)});
+    std::memcpy(out.data(), data.data() + base, ehdr_len);
+    if (out.size() >= sizeof(Elf64Ehdr)) {
+        constexpr size_t kShoffPos = 40, kShnumPos = 60, kShstrndxPos = 62;
+        std::memset(out.data() + kShoffPos, 0, 8);
+        std::memset(out.data() + kShnumPos, 0, 2);
+        std::memset(out.data() + kShstrndxPos, 0, 2);
+    }
+
+    const u64 phoff = info.ehdr.e_phoff;
+    const u64 ph_size = static_cast<u64>(info.phdrs.size()) * sizeof(Elf64Phdr);
+    if (base + phoff + ph_size <= data.size() && phoff + ph_size <= out.size()) {
+        std::memcpy(out.data() + phoff, data.data() + base + phoff, ph_size);
+    }
+
+    for (size_t i = 0; i < info.phdrs.size(); i++) {
+        const auto& ph = info.phdrs[i];
+        const u64 filesz = ph.p_filesz;
+        if (static_cast<u32>(ph.p_type) != kPtLoad || filesz == 0) {
+            continue;
+        }
+        for (const auto& seg : info.self_segments) {
+            if (!seg.is_data() || seg.phdr_index() != i) {
+                continue;
+            }
+            const u64 src = seg.offset;
+            const u64 dst = ph.p_offset;
+            const u64 size = std::min<u64>(filesz, seg.compressed_size);
+            if (src + size <= data.size() && dst + size <= out.size()) {
+                std::memcpy(out.data() + dst, data.data() + src, size);
+                result.copied_load_segments++;
+            }
+            break;
+        }
+    }
+
+    if (out.size() < 4 || std::memcmp(out.data(), kElfMagic, 4) != 0) {
+        result.error = "extracted image failed ELF header validation";
+        return result;
+    }
+    result.elf = std::move(out);
+    return result;
 }
 
 ModuleClassification ClassifyModule(const ParsedInfo& info) {
@@ -1032,10 +1190,6 @@ ModuleClassification ClassifyModule(const ParsedInfo& info) {
             }
         }
     }
-
-    // A module can export libraries (or its own module identity) without
-    // ever setting a plain DT_SONAME - this is at least as strong a signal
-    // that it's a shared module, not a main executable.
     const bool has_exports =
         !info.dynamic.export_modules.empty() || !info.dynamic.export_libs.empty();
 
@@ -1048,10 +1202,6 @@ ModuleClassification ClassifyModule(const ParsedInfo& info) {
     }
 
     if (has_soname || has_exports) {
-        // Shared-module signals take priority: a real main executable has
-        // no reason to declare a SONAME or export anything, so their
-        // presence is the stronger signal even if PT_SCE_PROCPARAM also
-        // happens to be there.
         result.kind = ModuleKind::SharedModule;
         if (has_soname) {
             result.so_name = so_name;
@@ -1267,6 +1417,21 @@ std::string ToText(const ParsedInfo& info) {
                 << " bytes\n";
             out << "TCB offset:       " << Hex(tls.tcb_offset) << "\n";
             out << "Alignment:        " << tls.align << "\n";
+        }
+    }
+
+    if (info.lib_versions_present) {
+        out << "\n=== SDK library versions (PT_SCE_LIBVERSION) ===\n";
+        if (!info.lib_versions_unavailable_reason.empty()) {
+            out << "Not readable: " << info.lib_versions_unavailable_reason << "\n";
+        } else if (info.lib_versions.empty()) {
+            out << "(segment present but empty)\n";
+        } else {
+            out << "(major.minor.patch split is the PS4 encoding - a best guess on PS5)\n";
+            for (const auto& e : info.lib_versions) {
+                out << "  " << e.name << "  " << e.GuessedVersionString() << "  ("
+                    << Hex(e.version_raw, 8) << ")\n";
+            }
         }
     }
 
