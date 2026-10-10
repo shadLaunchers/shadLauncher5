@@ -1004,7 +1004,6 @@ std::optional<ParsedInfo> Parse(const std::vector<u8>& data) {
             Elf64Shdr shdr{};
             if (!ReadAt(data, shdr_base + static_cast<u64>(i) * sizeof(Elf64Shdr), shdr)) {
                 break;
-                t
             }
             info.shdrs.push_back(shdr);
         }
