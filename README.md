@@ -62,11 +62,11 @@ A Qt-based game launcher for a someday ps5 emulator. shadLauncher5 manages your 
 - **param.json viewer** — inspect a title's PARAM.JSON (title ID, content ID, supported languages, age ratings, etc.) directly from the context menu.
 - **npbind.dat viewer** — inspect a title's NP bind data.
 - **Trophy Viewer** — browse a game's trophy list and unlock data.
-- **ELF Info** (*Manage Game → Dump ELF Info from eboot.bin*) — SELF/ELF headers, segments, imports/exports and relocations, plus the per-library **SDK versions** from `PT_SCE_LIBVERSION` with **Imported Symbols** grouped by subsystem and library (e.g. Kernel & System → libc → malloc; PSN & Online, Graphics & Video, Audio, Storage & Files, …), C prototypes for common functions, and **Exported Symbols** grouped by module. From there you can **Extract ELF** (rebuild a standalone ELF from a decrypted SELF), browse a searchable **Strings** list with file offsets, and **Export Unresolved NIDs** as CSV.
-- **ELF Info for any module** — *Manage Game → ELF Info for a Module…* lists every module of the game (eboot.bin, `sce_module` and any other folder) plus, optionally, your `sys_modules` folder; *Utilities → sys_modules ELF Info…* lists `sys_modules` on its own. Filter, double-click to open, or **Browse for a File…** to open any other ELF/SELF on disk.
-- **Engine & Middleware Info** (*Manage Game*) — fingerprints the engine (Unreal 4/5, Unity, Godot, RE Engine, Decima, …) and middleware (FMOD, Wwise, PhysX, Bink, Oodle, Gameface, …) from eboot strings and `sce_module` PRX names, with build/depot breadcrumbs and a JSON export.
-- **Find Export** (*Manage Game*, or right-click a symbol in ELF Info → *Find which module provides this…*) — searches every eboot/PRX in the game, and optionally your `sys_modules` folder, for a function by name, part of a name or NID, and shows which module provides it. Double-click a result to open that module in ELF Info.
-- **Sync Community NID Catalog** (*Utilities*) — downloads the community NID name catalog so imported symbols show real function names.
+- **ELF Info** - Full info for eboot.bin
+- **ELF Info for any module** - Full info for game modules and sysmodules
+- **Engine & Middleware Info** - Analyse for game's engine
+- **Find Export** - Find exports of eboot or any prx file
+- **Sync Community NID Catalog** - Sync nid catalog with online one
 
 - Cached name, serial, icon, and install-size metadata for fast list loading, with **Clear Metadata Cache** to force a clean re-read from disk for a single title.
 - Playtime and last-played tracking.
