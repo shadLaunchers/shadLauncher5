@@ -34,15 +34,15 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Powered by the &lt;a href=&quot;https://github.com/shadps5-emu/shadPS5&quot;&gt;shadPS5&lt;/a&gt; emulator.&lt;br&gt;Licensed under the GNU General Public License v2.0 or later.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Copy Build Info</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <source>Copied!</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Powered by the &lt;a href=&quot;https://github.com/shadps5-emu/shadPS5&quot;&gt;shadPS5&lt;/a&gt; emulator.&lt;br&gt;Thanks to &lt;a href=&quot;https://github.com/claimore22/ps5rs&quot;&gt;ps5rs&lt;/a&gt; for the binary analysis and NID catalog work behind ELF Info and Engine &amp;amp; Middleware Info.&lt;br&gt;Licensed under the GNU General Public License v2.0 or later.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -619,10 +619,6 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Names are NIDs - hashes of the real function names - not human-readable without a NID database.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Count</source>
         <translation type="unfinished"></translation>
     </message>
@@ -964,6 +960,401 @@
     </message>
     <message>
         <source>Loaded %1 entries. Symbol names have been refreshed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sync NID Catalog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download the latest community NID catalog and apply it to these symbols.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export Unresolved NIDs...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save imports whose NID has no known name as CSV (library,nid,count,games) - the format used for community catalog submissions.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extract ELF...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Rebuild a standalone ELF from this SELF container.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Strings...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SDK Library Versions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 %2 (%3)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Grouped by subsystem, then library. Names are NIDs - hashes of the real function names - until a NID database resolves them. Prototypes come from a small built-in set of unverified signatures.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Grouped by module, then by library when a module has several.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Module: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Library: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Symbols</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>From the PT_SCE_LIBVERSION segment: the SDK version each library was built against. The major.minor.patch split follows the PS4 encoding and is a best guess on PS5 - the raw value is shown too.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Library Version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Category: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Imported functions, with their prototype where one is known (otherwise their NID).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Find which module provides this...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Find modules that export this...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy NID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open ELF Info from the game list to search the game&apos;s modules.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(unresolved module %1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(no module - not a NID symbol)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(unresolved library %1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(no library)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Library %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n symbol(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Category</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>unknown</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Prototype</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1  (unverified)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version (guessed)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version (raw)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Raw entry bytes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(non-NID symbols)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>other</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n import(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n library(ies)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Imports with a known prototype</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(name unknown)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NID %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extract ELF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not extract an ELF: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Extracted ELF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ELF Files (*.elf);;All files (*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Wrote %1 bytes (%2 loadable segment(s) placed).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Warning: the SELF marks %1 segment(s) as encrypted and %2 as compressed. Those bytes were copied as-is, so the matching parts of the ELF are not usable code - this only gives a clean ELF for already-decrypted dumps.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export Unresolved NIDs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Every imported NID already resolves to a name.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CSV Files (*.csv)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Exported %1 unresolved NID(s).</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ExportHitsModel</name>
+    <message>
+        <source>Function</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Provided by</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Library</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Address</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Match</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>FindExportDialog</name>
+    <message>
+        <source>Find Export - %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Function name, part of a name, or NID...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Also search sys_modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Include the modules in %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Double-click a result to open ELF Info for that module.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Modules...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>List every scanned file, whether its exports could be read, and the module/library names it declares.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Indexing game: %1 (%2/%3)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Indexing sys_modules: %1 (%2/%3)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1: %2 modules, %3 exports</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> (%1 unreadable)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>sys_modules: no modules found in %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>sys_modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Indexing...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Modules whose exports couldn&apos;t be read:
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>this game or sys_modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>this game</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Type a function name, part of one, or a NID.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Provided by %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Exported by %1 modules: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No match yet - still indexing...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not exported by any module in %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 matches (showing the first %2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n match(es)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Scanned Modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nothing has been indexed yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Files that start with an ELF/SELF header. A module whose exports can&apos;t be read is usually still encrypted - only decrypted dumps can be searched.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Status</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Exports</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Declares module</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Declares libraries</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>OK</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1620,6 +2011,42 @@ Leave empty to use the original name.</source>
     </message>
     <message>
         <source>eboot.bin is too small to contain a valid header (%1 bytes).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ELF Info for a &amp;Module...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pick any module of the game (sce_module or any other folder) or of sys_modules and open it in ELF Info.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Engine &amp;&amp; &amp;Middleware Info...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>&amp;Find Export...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Find which of the game&apos;s modules (or sys_modules) provides a function, by name or NID.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Engine &amp; Middleware Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scanning eboot.bin...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not read eboot.bin or any modules for this game.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scanning %1...</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -2675,6 +3102,168 @@ Select an emulator version from the right panel.</source>
         <source>Edit controller bindings per port, for all games or one game</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Sync Community &amp;NID Catalog...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download the community NID name catalog so ELF Info can show real function names for imported symbols.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>sys_modules ELF &amp;Info...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Browse the modules in your sys_modules folder and open any of them in ELF Info.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>sys_modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>ModulePickerDialog</name>
+    <message>
+        <source>sys_modules - ELF Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Choose a Module - %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter by file name or folder...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show sys_modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Location</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Double-click to open in ELF Info.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Browse for a File...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open any eboot, PRX/SPRX or other ELF/SELF file on disk.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open in ELF Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Looking for modules...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>sys_modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n game file(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>no modules found in %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n sys_modules file(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Open a Module or Executable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PS5 executables and modules (*.bin *.prx *.sprx *.so *.elf *.self *.native);;All files (*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>NidCatalogSync</name>
+    <message>
+        <source>Sync NID Catalog</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Downloading the community NID catalog...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Downloading the community NID catalog... %1 entries</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The community NID catalog hasn&apos;t been downloaded yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Last synced %1 - %2 entries.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(unknown date)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download failed (HTTP %1): %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The catalog server sent an unexpected response.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The NID catalog is already up to date (%1 entries).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not write %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> (+%1 since the last sync)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> (%1 fewer than the last sync)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Downloaded the community NID catalog: %1 entries%2. %3 names are now available for symbol resolution.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>NpBindDialog</name>
@@ -3109,6 +3698,58 @@ Select an emulator version from the right panel.</source>
     </message>
     <message>
         <source>Analog Sticks (stick input only)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(name unknown)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>exact name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>name contains</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>From your sys_modules folder</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Shipped with the game</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ELF Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Reading and parsing %1...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not read %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 is too small to contain a valid header (%2 bytes).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Third-party</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sony / system</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unidentified</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -3777,6 +4418,303 @@ The next steps ask where your games live and which emulator version to use. You 
     </message>
     <message>
         <source>Open Version Manager...</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>StringsDialog</name>
+    <message>
+        <source>Strings - %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filter (case-insensitive substring)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Min length: </source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extracting strings...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy Selected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export Shown...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Showing %1 of %2 strings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export Strings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Text Files (*.txt)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not write to %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>StringsModel</name>
+    <message>
+        <source>File Offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Length</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>String</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>TechInfoDialog</name>
+    <message>
+        <source>Engine &amp; Middleware - %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Engine: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>eboot.bin: %1 (%2), %3 strings scanned.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SELF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>plain ELF</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>eboot.bin was not found - only module names could be checked.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Modules: %1 third-party, %2 unidentified, %3 Sony/system.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fingerprints</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Modules (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SDK Versions (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Detection is heuristic: it matches strings inside eboot.bin and the file names of PRX modules, so it can miss engines that strip identifying strings and can over-report libraries that are only mentioned.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy Summary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export JSON...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1% confidence (score %2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n match(es)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>evidence</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Finding</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Engine</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>from file layout</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No known engine fingerprint found</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Middleware modules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n module(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Third-party libraries (eboot strings)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Library version strings</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SDK hints</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Custom engine forks</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Build breadcrumbs</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Build system</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Source depot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Project</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Engine source paths</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SCE libraries referenced</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Module</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Kind</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Vendor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Product</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Imports</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Exports</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not parseable as SELF/ELF (encrypted, or not a module).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Imports from: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No PRX/SPRX modules were found in this game.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Library</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version (guessed)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Raw</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Middleware: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Build system: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Source depot: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export Engine &amp; Middleware Report</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>JSON Files (*.json)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Error</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not write to %1</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
