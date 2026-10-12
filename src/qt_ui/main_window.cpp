@@ -32,6 +32,7 @@
 #include "main_window.h"
 #include "module_picker_dialog.h"
 #include "nid_catalog_sync.h"
+#include "pkg_info_dialog.h"
 #include "progress_dialog.h"
 #include "qt_ui/check_update.h"
 #include "settings_dialog.h"
@@ -227,6 +228,20 @@ void MainWindow::createConnects() {
             auto* dialog =
                 new ModulePickerDialog(tr("sys_modules"), {}, m_emu_settings->GetSysModulesDir(),
                                        /*include_sys_modules=*/true, this);
+            dialog->setAttribute(Qt::WA_DeleteOnClose);
+            dialog->show();
+        });
+
+        auto* pkg_info = new QAction(tr("PS5 &PKG Info..."), this);
+        pkg_info->setToolTip(
+            tr("Show the header, metadata, param.json and icon of a PS5 package."));
+        ui->menuUtilities->insertAction(ui->actionSetup_Wizard, pkg_info);
+        connect(pkg_info, &QAction::triggered, this, [this] {
+            const QString path = PkgInfoDialog::PickPackage(this);
+            if (path.isEmpty()) {
+                return;
+            }
+            auto* dialog = new PkgInfoDialog(path, this);
             dialog->setAttribute(Qt::WA_DeleteOnClose);
             dialog->show();
         });

@@ -177,6 +177,10 @@ set(FILEFORMAT src/core/file_format/param.cpp
                src/core/file_format/elf_info.h
                src/core/file_format/nid_catalog.cpp
                src/core/file_format/nid_catalog.h
+               src/core/file_format/dds.cpp
+               src/core/file_format/dds.h
+               src/core/file_format/ps5_pkg.cpp
+               src/core/file_format/ps5_pkg.h
                src/core/analysis/string_analysis.cpp
                src/core/analysis/string_analysis.h
                src/core/analysis/middleware.cpp
@@ -294,6 +298,8 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/version_dialog.ui
           src/qt_ui/npbind_dialog.cpp
           src/qt_ui/npbind_dialog.h
+          src/qt_ui/pkg_info_dialog.cpp
+          src/qt_ui/pkg_info_dialog.h
           src/qt_ui/cheats_patches_dialog.cpp
           src/qt_ui/cheats_patches_dialog.h
           src/qt_ui/cheats_patches_dialog.ui
