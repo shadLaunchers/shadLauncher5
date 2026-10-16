@@ -36,10 +36,9 @@
                                         - Split BC6H decompression function into 'half' and
                                           'float' variants
 
-      Michael Schmidt (@RunDevelopment) - Found better "magic" coefficients for integer interpolation
-                                          of reference colors in BC1 color block, that match with
-                                          the floating point interpolation. This also made it faster
-                                          than integer division by 3!
+      Michael Schmidt (@RunDevelopment) - Found better "magic" coefficients for integer
+   interpolation of reference colors in BC1 color block, that match with the floating point
+   interpolation. This also made it faster than integer division by 3!
 
    bugfixes:
       @linkmauve
@@ -57,12 +56,12 @@
 /* if BCDEC_STATIC causes problems, try defining BCDECDEF to 'inline' or 'static inline' */
 #ifndef BCDECDEF
 #ifdef BCDEC_STATIC
-#define BCDECDEF    static
+#define BCDECDEF static
 #else
 #ifdef __cplusplus
-#define BCDECDEF    extern "C"
+#define BCDECDEF extern "C"
 #else
-#define BCDECDEF    extern
+#define BCDECDEF extern
 #endif
 #endif
 #endif
@@ -86,21 +85,21 @@
     https://gist.github.com/rygorous/2144712
 */
 
-#define BCDEC_BC1_BLOCK_SIZE    8
-#define BCDEC_BC2_BLOCK_SIZE    16
-#define BCDEC_BC3_BLOCK_SIZE    16
-#define BCDEC_BC4_BLOCK_SIZE    8
-#define BCDEC_BC5_BLOCK_SIZE    16
-#define BCDEC_BC6H_BLOCK_SIZE   16
-#define BCDEC_BC7_BLOCK_SIZE    16
+#define BCDEC_BC1_BLOCK_SIZE 8
+#define BCDEC_BC2_BLOCK_SIZE 16
+#define BCDEC_BC3_BLOCK_SIZE 16
+#define BCDEC_BC4_BLOCK_SIZE 8
+#define BCDEC_BC5_BLOCK_SIZE 16
+#define BCDEC_BC6H_BLOCK_SIZE 16
+#define BCDEC_BC7_BLOCK_SIZE 16
 
-#define BCDEC_BC1_COMPRESSED_SIZE(w, h)     ((((w)>>2)*((h)>>2))*BCDEC_BC1_BLOCK_SIZE)
-#define BCDEC_BC2_COMPRESSED_SIZE(w, h)     ((((w)>>2)*((h)>>2))*BCDEC_BC2_BLOCK_SIZE)
-#define BCDEC_BC3_COMPRESSED_SIZE(w, h)     ((((w)>>2)*((h)>>2))*BCDEC_BC3_BLOCK_SIZE)
-#define BCDEC_BC4_COMPRESSED_SIZE(w, h)     ((((w)>>2)*((h)>>2))*BCDEC_BC4_BLOCK_SIZE)
-#define BCDEC_BC5_COMPRESSED_SIZE(w, h)     ((((w)>>2)*((h)>>2))*BCDEC_BC5_BLOCK_SIZE)
-#define BCDEC_BC6H_COMPRESSED_SIZE(w, h)    ((((w)>>2)*((h)>>2))*BCDEC_BC6H_BLOCK_SIZE)
-#define BCDEC_BC7_COMPRESSED_SIZE(w, h)     ((((w)>>2)*((h)>>2))*BCDEC_BC7_BLOCK_SIZE)
+#define BCDEC_BC1_COMPRESSED_SIZE(w, h) ((((w) >> 2) * ((h) >> 2)) * BCDEC_BC1_BLOCK_SIZE)
+#define BCDEC_BC2_COMPRESSED_SIZE(w, h) ((((w) >> 2) * ((h) >> 2)) * BCDEC_BC2_BLOCK_SIZE)
+#define BCDEC_BC3_COMPRESSED_SIZE(w, h) ((((w) >> 2) * ((h) >> 2)) * BCDEC_BC3_BLOCK_SIZE)
+#define BCDEC_BC4_COMPRESSED_SIZE(w, h) ((((w) >> 2) * ((h) >> 2)) * BCDEC_BC4_BLOCK_SIZE)
+#define BCDEC_BC5_COMPRESSED_SIZE(w, h) ((((w) >> 2) * ((h) >> 2)) * BCDEC_BC5_BLOCK_SIZE)
+#define BCDEC_BC6H_COMPRESSED_SIZE(w, h) ((((w) >> 2) * ((h) >> 2)) * BCDEC_BC6H_BLOCK_SIZE)
+#define BCDEC_BC7_COMPRESSED_SIZE(w, h) ((((w) >> 2) * ((h) >> 2)) * BCDEC_BC7_BLOCK_SIZE)
 
 BCDECDEF void bcdec_bc1(const void* compressedBlock, void* decompressedBlock, int destinationPitch);
 BCDECDEF void bcdec_bc2(const void* compressedBlock, void* decompressedBlock, int destinationPitch);
@@ -109,13 +108,19 @@ BCDECDEF void bcdec_bc3(const void* compressedBlock, void* decompressedBlock, in
 BCDECDEF void bcdec_bc4(const void* compressedBlock, void* decompressedBlock, int destinationPitch);
 BCDECDEF void bcdec_bc5(const void* compressedBlock, void* decompressedBlock, int destinationPitch);
 #else
-BCDECDEF void bcdec_bc4(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned);
-BCDECDEF void bcdec_bc5(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned);
-BCDECDEF void bcdec_bc4_float(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned);
-BCDECDEF void bcdec_bc5_float(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned);
+BCDECDEF void bcdec_bc4(const void* compressedBlock, void* decompressedBlock, int destinationPitch,
+                        int isSigned);
+BCDECDEF void bcdec_bc5(const void* compressedBlock, void* decompressedBlock, int destinationPitch,
+                        int isSigned);
+BCDECDEF void bcdec_bc4_float(const void* compressedBlock, void* decompressedBlock,
+                              int destinationPitch, int isSigned);
+BCDECDEF void bcdec_bc5_float(const void* compressedBlock, void* decompressedBlock,
+                              int destinationPitch, int isSigned);
 #endif
-BCDECDEF void bcdec_bc6h_float(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned);
-BCDECDEF void bcdec_bc6h_half(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned);
+BCDECDEF void bcdec_bc6h_float(const void* compressedBlock, void* decompressedBlock,
+                               int destinationPitch, int isSigned);
+BCDECDEF void bcdec_bc6h_half(const void* compressedBlock, void* decompressedBlock,
+                              int destinationPitch, int isSigned);
 BCDECDEF void bcdec_bc7(const void* compressedBlock, void* decompressedBlock, int destinationPitch);
 
 #endif /* BCDEC_HEADER_INCLUDED */
@@ -138,7 +143,8 @@ static unsigned long long bcdec__getu64le(const void* s) {
     return l | (h << 32);
 }
 
-static void bcdec__color_block(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int onlyOpaqueMode) {
+static void bcdec__color_block(const void* compressedBlock, void* decompressedBlock,
+                               int destinationPitch, int onlyOpaqueMode) {
     unsigned short c0, c1;
     unsigned int refColors[4]; /* 0xAABBGGRR */
     unsigned char* dstColors;
@@ -151,12 +157,12 @@ static void bcdec__color_block(const void* compressedBlock, void* decompressedBl
 
     /* Unpack 565 ref colors */
     r0 = (c0 >> 11) & 0x1F;
-    g0 = (c0 >> 5)  & 0x3F;
-    b0 =  c0        & 0x1F;
+    g0 = (c0 >> 5) & 0x3F;
+    b0 = c0 & 0x1F;
 
     r1 = (c1 >> 11) & 0x1F;
-    g1 = (c1 >> 5)  & 0x3F;
-    b1 =  c1        & 0x1F;
+    g1 = (c1 >> 5) & 0x3F;
+    b1 = c1 & 0x1F;
 
     /* Expand 565 ref colors to 888 */
     r = (r0 * 527 + 23) >> 6;
@@ -169,24 +175,25 @@ static void bcdec__color_block(const void* compressedBlock, void* decompressedBl
     b = (b1 * 527 + 23) >> 6;
     refColors[1] = 0xFF000000 | (b << 16) | (g << 8) | r;
 
-    if (c0 > c1 || onlyOpaqueMode) {    /* Standard BC1 mode (also BC3 color block uses ONLY this mode) */
+    if (c0 > c1 ||
+        onlyOpaqueMode) { /* Standard BC1 mode (also BC3 color block uses ONLY this mode) */
         /* color_2 = 2/3*color_0 + 1/3*color_1
            color_3 = 1/3*color_0 + 2/3*color_1 */
-        r = ((2 * r0 + r1) *  351 +   61) >>  7;
+        r = ((2 * r0 + r1) * 351 + 61) >> 7;
         g = ((2 * g0 + g1) * 2763 + 1039) >> 11;
-        b = ((2 * b0 + b1) *  351 +   61) >>  7;
+        b = ((2 * b0 + b1) * 351 + 61) >> 7;
         refColors[2] = 0xFF000000 | (b << 16) | (g << 8) | r;
 
-        r = ((r0 + r1 * 2) *  351 +   61) >>  7;
+        r = ((r0 + r1 * 2) * 351 + 61) >> 7;
         g = ((g0 + g1 * 2) * 2763 + 1039) >> 11;
-        b = ((b0 + b1 * 2) *  351 +   61) >>  7;
+        b = ((b0 + b1 * 2) * 351 + 61) >> 7;
         refColors[3] = 0xFF000000 | (b << 16) | (g << 8) | r;
-    } else {                            /* Quite rare BC1A mode */
+    } else { /* Quite rare BC1A mode */
         /* color_2 = 1/2*color_0 + 1/2*color_1;
            color_3 = 0;                         */
-        r = ((r0 + r1) * 1053 +  125) >>  8;
+        r = ((r0 + r1) * 1053 + 125) >> 8;
         g = ((g0 + g1) * 4145 + 1019) >> 11;
-        b = ((b0 + b1) * 1053 +  125) >>  8;
+        b = ((b0 + b1) * 1053 + 125) >> 8;
         refColors[2] = 0xFF000000 | (b << 16) | (g << 8) | r;
 
         refColors[3] = 0x00000000;
@@ -207,7 +214,8 @@ static void bcdec__color_block(const void* compressedBlock, void* decompressedBl
     }
 }
 
-static void bcdec__sharp_alpha_block(const void* compressedBlock, void* decompressedBlock, int destinationPitch) {
+static void bcdec__sharp_alpha_block(const void* compressedBlock, void* decompressedBlock,
+                                     int destinationPitch) {
     unsigned short alpha;
     const unsigned char* alphaPtr;
     unsigned char* decompressed;
@@ -228,7 +236,8 @@ static void bcdec__sharp_alpha_block(const void* compressedBlock, void* decompre
     }
 }
 
-static void bcdec__smooth_alpha_block(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int pixelSize) {
+static void bcdec__smooth_alpha_block(const void* compressedBlock, void* decompressedBlock,
+                                      int destinationPitch, int pixelSize) {
     unsigned char* decompressed;
     unsigned char alpha[8];
     int i, j;
@@ -242,19 +251,18 @@ static void bcdec__smooth_alpha_block(const void* compressedBlock, void* decompr
 
     if (alpha[0] > alpha[1]) {
         /* 6 interpolated alpha values. */
-        alpha[2] = (6 * alpha[0] +     alpha[1]) / 7;   /* 6/7*alpha_0 + 1/7*alpha_1 */
-        alpha[3] = (5 * alpha[0] + 2 * alpha[1]) / 7;   /* 5/7*alpha_0 + 2/7*alpha_1 */
-        alpha[4] = (4 * alpha[0] + 3 * alpha[1]) / 7;   /* 4/7*alpha_0 + 3/7*alpha_1 */
-        alpha[5] = (3 * alpha[0] + 4 * alpha[1]) / 7;   /* 3/7*alpha_0 + 4/7*alpha_1 */
-        alpha[6] = (2 * alpha[0] + 5 * alpha[1]) / 7;   /* 2/7*alpha_0 + 5/7*alpha_1 */
-        alpha[7] = (    alpha[0] + 6 * alpha[1]) / 7;   /* 1/7*alpha_0 + 6/7*alpha_1 */
-    }
-    else {
+        alpha[2] = (6 * alpha[0] + alpha[1]) / 7;     /* 6/7*alpha_0 + 1/7*alpha_1 */
+        alpha[3] = (5 * alpha[0] + 2 * alpha[1]) / 7; /* 5/7*alpha_0 + 2/7*alpha_1 */
+        alpha[4] = (4 * alpha[0] + 3 * alpha[1]) / 7; /* 4/7*alpha_0 + 3/7*alpha_1 */
+        alpha[5] = (3 * alpha[0] + 4 * alpha[1]) / 7; /* 3/7*alpha_0 + 4/7*alpha_1 */
+        alpha[6] = (2 * alpha[0] + 5 * alpha[1]) / 7; /* 2/7*alpha_0 + 5/7*alpha_1 */
+        alpha[7] = (alpha[0] + 6 * alpha[1]) / 7;     /* 1/7*alpha_0 + 6/7*alpha_1 */
+    } else {
         /* 4 interpolated alpha values. */
-        alpha[2] = (4 * alpha[0] +     alpha[1]) / 5;   /* 4/5*alpha_0 + 1/5*alpha_1 */
-        alpha[3] = (3 * alpha[0] + 2 * alpha[1]) / 5;   /* 3/5*alpha_0 + 2/5*alpha_1 */
-        alpha[4] = (2 * alpha[0] + 3 * alpha[1]) / 5;   /* 2/5*alpha_0 + 3/5*alpha_1 */
-        alpha[5] = (    alpha[0] + 4 * alpha[1]) / 5;   /* 1/5*alpha_0 + 4/5*alpha_1 */
+        alpha[2] = (4 * alpha[0] + alpha[1]) / 5;     /* 4/5*alpha_0 + 1/5*alpha_1 */
+        alpha[3] = (3 * alpha[0] + 2 * alpha[1]) / 5; /* 3/5*alpha_0 + 2/5*alpha_1 */
+        alpha[4] = (2 * alpha[0] + 3 * alpha[1]) / 5; /* 2/5*alpha_0 + 3/5*alpha_1 */
+        alpha[5] = (alpha[0] + 4 * alpha[1]) / 5;     /* 1/5*alpha_0 + 4/5*alpha_1 */
         alpha[6] = 0x00;
         alpha[7] = 0xFF;
     }
@@ -271,23 +279,26 @@ static void bcdec__smooth_alpha_block(const void* compressedBlock, void* decompr
 }
 
 #ifdef BCDEC_BC4BC5_PRECISE
-static void bcdec__bc4_block(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int pixelSize, int isSigned) {
+static void bcdec__bc4_block(const void* compressedBlock, void* decompressedBlock,
+                             int destinationPitch, int pixelSize, int isSigned) {
     signed char* sblock;
     unsigned char* ublock;
     int alpha[8];
     int i, j;
     unsigned long long block, indices;
 
-    static int aWeights4[4] = { 13107, 26215, 39321, 52429 };
-    static int aWeights6[6] = { 9363, 18724, 28086, 37450, 46812, 56173 };
+    static int aWeights4[4] = {13107, 26215, 39321, 52429};
+    static int aWeights6[6] = {9363, 18724, 28086, 37450, 46812, 56173};
 
     block = bcdec__getu64le(compressedBlock);
 
     if (isSigned) {
         alpha[0] = (char)(block & 0xFF);
         alpha[1] = (char)((block >> 8) & 0xFF);
-        if (alpha[0] < -127) alpha[0] = -127;     /* -128 clamps to -127 */
-        if (alpha[1] < -127) alpha[1] = -127;     /* -128 clamps to -127 */
+        if (alpha[0] < -127)
+            alpha[0] = -127; /* -128 clamps to -127 */
+        if (alpha[1] < -127)
+            alpha[1] = -127; /* -128 clamps to -127 */
     } else {
         alpha[0] = block & 0xFF;
         alpha[1] = (block >> 8) & 0xFF;
@@ -295,20 +306,30 @@ static void bcdec__bc4_block(const void* compressedBlock, void* decompressedBloc
 
     if (alpha[0] > alpha[1]) {
         /* 6 interpolated alpha values. */
-        alpha[2] = (aWeights6[5] * alpha[0] + aWeights6[0] * alpha[1] + 32768) >> 16;   /* 6/7*alpha_0 + 1/7*alpha_1 */
-        alpha[3] = (aWeights6[4] * alpha[0] + aWeights6[1] * alpha[1] + 32768) >> 16;   /* 5/7*alpha_0 + 2/7*alpha_1 */
-        alpha[4] = (aWeights6[3] * alpha[0] + aWeights6[2] * alpha[1] + 32768) >> 16;   /* 4/7*alpha_0 + 3/7*alpha_1 */
-        alpha[5] = (aWeights6[2] * alpha[0] + aWeights6[3] * alpha[1] + 32768) >> 16;   /* 3/7*alpha_0 + 4/7*alpha_1 */
-        alpha[6] = (aWeights6[1] * alpha[0] + aWeights6[4] * alpha[1] + 32768) >> 16;   /* 2/7*alpha_0 + 5/7*alpha_1 */
-        alpha[7] = (aWeights6[0] * alpha[0] + aWeights6[5] * alpha[1] + 32768) >> 16;   /* 1/7*alpha_0 + 6/7*alpha_1 */
+        alpha[2] = (aWeights6[5] * alpha[0] + aWeights6[0] * alpha[1] + 32768) >>
+                   16; /* 6/7*alpha_0 + 1/7*alpha_1 */
+        alpha[3] = (aWeights6[4] * alpha[0] + aWeights6[1] * alpha[1] + 32768) >>
+                   16; /* 5/7*alpha_0 + 2/7*alpha_1 */
+        alpha[4] = (aWeights6[3] * alpha[0] + aWeights6[2] * alpha[1] + 32768) >>
+                   16; /* 4/7*alpha_0 + 3/7*alpha_1 */
+        alpha[5] = (aWeights6[2] * alpha[0] + aWeights6[3] * alpha[1] + 32768) >>
+                   16; /* 3/7*alpha_0 + 4/7*alpha_1 */
+        alpha[6] = (aWeights6[1] * alpha[0] + aWeights6[4] * alpha[1] + 32768) >>
+                   16; /* 2/7*alpha_0 + 5/7*alpha_1 */
+        alpha[7] = (aWeights6[0] * alpha[0] + aWeights6[5] * alpha[1] + 32768) >>
+                   16; /* 1/7*alpha_0 + 6/7*alpha_1 */
     } else {
         /* 4 interpolated alpha values. */
-        alpha[2] = (aWeights4[3] * alpha[0] + aWeights4[0] * alpha[1] + 32768) >> 16;   /* 4/5*alpha_0 + 1/5*alpha_1 */
-        alpha[3] = (aWeights4[2] * alpha[0] + aWeights4[1] * alpha[1] + 32768) >> 16;   /* 3/5*alpha_0 + 2/5*alpha_1 */
-        alpha[4] = (aWeights4[1] * alpha[0] + aWeights4[2] * alpha[1] + 32768) >> 16;   /* 2/5*alpha_0 + 3/5*alpha_1 */
-        alpha[5] = (aWeights4[0] * alpha[0] + aWeights4[3] * alpha[1] + 32768) >> 16;   /* 1/5*alpha_0 + 4/5*alpha_1 */
-        alpha[6] = isSigned ? -127 :   0;
-        alpha[7] = isSigned ?  127 : 255;
+        alpha[2] = (aWeights4[3] * alpha[0] + aWeights4[0] * alpha[1] + 32768) >>
+                   16; /* 4/5*alpha_0 + 1/5*alpha_1 */
+        alpha[3] = (aWeights4[2] * alpha[0] + aWeights4[1] * alpha[1] + 32768) >>
+                   16; /* 3/5*alpha_0 + 2/5*alpha_1 */
+        alpha[4] = (aWeights4[1] * alpha[0] + aWeights4[2] * alpha[1] + 32768) >>
+                   16; /* 2/5*alpha_0 + 3/5*alpha_1 */
+        alpha[5] = (aWeights4[0] * alpha[0] + aWeights4[3] * alpha[1] + 32768) >>
+                   16; /* 1/5*alpha_0 + 4/5*alpha_1 */
+        alpha[6] = isSigned ? -127 : 0;
+        alpha[7] = isSigned ? 127 : 255;
     }
 
     indices = block >> 16;
@@ -333,7 +354,8 @@ static void bcdec__bc4_block(const void* compressedBlock, void* decompressedBloc
     }
 }
 
-static void bcdec__bc4_block_float(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int pixelSize, int isSigned) {
+static void bcdec__bc4_block_float(const void* compressedBlock, void* decompressedBlock,
+                                   int destinationPitch, int pixelSize, int isSigned) {
     float* decompressed;
     float alpha[8];
     int i, j;
@@ -345,8 +367,10 @@ static void bcdec__bc4_block_float(const void* compressedBlock, void* decompress
     if (isSigned) {
         alpha[0] = (float)((char)(block & 0xFF)) / 127.0f;
         alpha[1] = (float)((char)((block >> 8) & 0xFF)) / 127.0f;
-        if (alpha[0] < -1.0f) alpha[0] = -1.0f;     /* -128 clamps to -127 */
-        if (alpha[1] < -1.0f) alpha[1] = -1.0f;     /* -128 clamps to -127 */
+        if (alpha[0] < -1.0f)
+            alpha[0] = -1.0f; /* -128 clamps to -127 */
+        if (alpha[1] < -1.0f)
+            alpha[1] = -1.0f; /* -128 clamps to -127 */
     } else {
         alpha[0] = (float)(block & 0xFF) / 255.0f;
         alpha[1] = (float)((block >> 8) & 0xFF) / 255.0f;
@@ -354,18 +378,18 @@ static void bcdec__bc4_block_float(const void* compressedBlock, void* decompress
 
     if (alpha[0] > alpha[1]) {
         /* 6 interpolated alpha values. */
-        alpha[2] = (6.0f * alpha[0] +        alpha[1]) / 7.0f;   /* 6/7*alpha_0 + 1/7*alpha_1 */
-        alpha[3] = (5.0f * alpha[0] + 2.0f * alpha[1]) / 7.0f;   /* 5/7*alpha_0 + 2/7*alpha_1 */
-        alpha[4] = (4.0f * alpha[0] + 3.0f * alpha[1]) / 7.0f;   /* 4/7*alpha_0 + 3/7*alpha_1 */
-        alpha[5] = (3.0f * alpha[0] + 4.0f * alpha[1]) / 7.0f;   /* 3/7*alpha_0 + 4/7*alpha_1 */
-        alpha[6] = (2.0f * alpha[0] + 5.0f * alpha[1]) / 7.0f;   /* 2/7*alpha_0 + 5/7*alpha_1 */
-        alpha[7] = (       alpha[0] + 6.0f * alpha[1]) / 7.0f;   /* 1/7*alpha_0 + 6/7*alpha_1 */
+        alpha[2] = (6.0f * alpha[0] + alpha[1]) / 7.0f;        /* 6/7*alpha_0 + 1/7*alpha_1 */
+        alpha[3] = (5.0f * alpha[0] + 2.0f * alpha[1]) / 7.0f; /* 5/7*alpha_0 + 2/7*alpha_1 */
+        alpha[4] = (4.0f * alpha[0] + 3.0f * alpha[1]) / 7.0f; /* 4/7*alpha_0 + 3/7*alpha_1 */
+        alpha[5] = (3.0f * alpha[0] + 4.0f * alpha[1]) / 7.0f; /* 3/7*alpha_0 + 4/7*alpha_1 */
+        alpha[6] = (2.0f * alpha[0] + 5.0f * alpha[1]) / 7.0f; /* 2/7*alpha_0 + 5/7*alpha_1 */
+        alpha[7] = (alpha[0] + 6.0f * alpha[1]) / 7.0f;        /* 1/7*alpha_0 + 6/7*alpha_1 */
     } else {
         /* 4 interpolated alpha values. */
-        alpha[2] = (4.0f * alpha[0] +        alpha[1]) / 5.0f;   /* 4/5*alpha_0 + 1/5*alpha_1 */
-        alpha[3] = (3.0f * alpha[0] + 2.0f * alpha[1]) / 5.0f;   /* 3/5*alpha_0 + 2/5*alpha_1 */
-        alpha[4] = (2.0f * alpha[0] + 3.0f * alpha[1]) / 5.0f;   /* 2/5*alpha_0 + 3/5*alpha_1 */
-        alpha[5] = (       alpha[0] + 4.0f * alpha[1]) / 5.0f;   /* 1/5*alpha_0 + 4/5*alpha_1 */
+        alpha[2] = (4.0f * alpha[0] + alpha[1]) / 5.0f;        /* 4/5*alpha_0 + 1/5*alpha_1 */
+        alpha[3] = (3.0f * alpha[0] + 2.0f * alpha[1]) / 5.0f; /* 3/5*alpha_0 + 2/5*alpha_1 */
+        alpha[4] = (2.0f * alpha[0] + 3.0f * alpha[1]) / 5.0f; /* 2/5*alpha_0 + 3/5*alpha_1 */
+        alpha[5] = (alpha[0] + 4.0f * alpha[1]) / 5.0f;        /* 1/5*alpha_0 + 4/5*alpha_1 */
         alpha[6] = isSigned ? -1.0f : 0.0f;
         alpha[7] = 1.0f;
     }
@@ -395,7 +419,7 @@ static int bcdec__bitstream_read_bits(bcdec__bitstream_t* bstream, int numBits) 
     /* Put the low N bits of "high" into the high 64-N bits of "low". */
     bstream->low |= (bstream->high & mask) << (sizeof(bstream->high) * 8 - numBits);
     bstream->high >>= numBits;
-    
+
     return bits;
 }
 
@@ -417,50 +441,60 @@ static int bcdec__bitstream_read_bits_r(bcdec__bitstream_t* bstream, int numBits
     return result;
 }
 
-
-
-BCDECDEF void bcdec_bc1(const void* compressedBlock, void* decompressedBlock, int destinationPitch) {
+BCDECDEF void bcdec_bc1(const void* compressedBlock, void* decompressedBlock,
+                        int destinationPitch) {
     bcdec__color_block(compressedBlock, decompressedBlock, destinationPitch, 0);
 }
 
-BCDECDEF void bcdec_bc2(const void* compressedBlock, void* decompressedBlock, int destinationPitch) {
+BCDECDEF void bcdec_bc2(const void* compressedBlock, void* decompressedBlock,
+                        int destinationPitch) {
     bcdec__color_block(((char*)compressedBlock) + 8, decompressedBlock, destinationPitch, 1);
     bcdec__sharp_alpha_block(compressedBlock, ((char*)decompressedBlock) + 3, destinationPitch);
 }
 
-BCDECDEF void bcdec_bc3(const void* compressedBlock, void* decompressedBlock, int destinationPitch) {
+BCDECDEF void bcdec_bc3(const void* compressedBlock, void* decompressedBlock,
+                        int destinationPitch) {
     bcdec__color_block(((char*)compressedBlock) + 8, decompressedBlock, destinationPitch, 1);
     bcdec__smooth_alpha_block(compressedBlock, ((char*)decompressedBlock) + 3, destinationPitch, 4);
 }
 
 #ifndef BCDEC_BC4BC5_PRECISE
-BCDECDEF void bcdec_bc4(const void* compressedBlock, void* decompressedBlock, int destinationPitch) {
+BCDECDEF void bcdec_bc4(const void* compressedBlock, void* decompressedBlock,
+                        int destinationPitch) {
     bcdec__smooth_alpha_block(compressedBlock, decompressedBlock, destinationPitch, 1);
 #else
-BCDECDEF void bcdec_bc4(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned) {
+BCDECDEF void bcdec_bc4(const void* compressedBlock, void* decompressedBlock, int destinationPitch,
+                        int isSigned) {
     bcdec__bc4_block(compressedBlock, decompressedBlock, destinationPitch, 1, isSigned);
 #endif
 }
 
 #ifndef BCDEC_BC4BC5_PRECISE
-BCDECDEF void bcdec_bc5(const void* compressedBlock, void* decompressedBlock, int destinationPitch) {
+BCDECDEF void bcdec_bc5(const void* compressedBlock, void* decompressedBlock,
+                        int destinationPitch) {
     bcdec__smooth_alpha_block(compressedBlock, decompressedBlock, destinationPitch, 2);
-    bcdec__smooth_alpha_block(((char*)compressedBlock) + 8, ((char*)decompressedBlock) + 1, destinationPitch, 2);
+    bcdec__smooth_alpha_block(((char*)compressedBlock) + 8, ((char*)decompressedBlock) + 1,
+                              destinationPitch, 2);
 #else
-BCDECDEF void bcdec_bc5(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned) {
+BCDECDEF void bcdec_bc5(const void* compressedBlock, void* decompressedBlock, int destinationPitch,
+                        int isSigned) {
     bcdec__bc4_block(compressedBlock, decompressedBlock, destinationPitch, 2, isSigned);
-    bcdec__bc4_block(((char*)compressedBlock) + 8, ((char*)decompressedBlock) + 1, destinationPitch, 2, isSigned);
+    bcdec__bc4_block(((char*)compressedBlock) + 8, ((char*)decompressedBlock) + 1, destinationPitch,
+                     2, isSigned);
 #endif
 }
 
 #ifdef BCDEC_BC4BC5_PRECISE
-BCDECDEF void bcdec_bc4_float(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned) {
+BCDECDEF void bcdec_bc4_float(const void* compressedBlock, void* decompressedBlock,
+                              int destinationPitch, int isSigned) {
     bcdec__bc4_block_float(compressedBlock, decompressedBlock, destinationPitch, 1, isSigned);
 }
 
-BCDECDEF void bcdec_bc5_float(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned) {
+BCDECDEF void bcdec_bc5_float(const void* compressedBlock, void* decompressedBlock,
+                              int destinationPitch, int isSigned) {
     bcdec__bc4_block_float(compressedBlock, decompressedBlock, destinationPitch, 2, isSigned);
-    bcdec__bc4_block_float(((char*)compressedBlock) + 8, ((float*)decompressedBlock) + 1, destinationPitch, 2, isSigned);
+    bcdec__bc4_block_float(((char*)compressedBlock) + 8, ((float*)decompressedBlock) + 1,
+                           destinationPitch, 2, isSigned);
 }
 #endif /* BCDEC_BC4BC5_PRECISE */
 
@@ -526,9 +560,10 @@ static unsigned short bcdec__finish_unquantize(int val, int isSigned) {
     int s;
 
     if (!isSigned) {
-        return (unsigned short)((val * 31) >> 6);                   /* scale the magnitude by 31 / 64 */
+        return (unsigned short)((val * 31) >> 6); /* scale the magnitude by 31 / 64 */
     } else {
-        val = (val < 0) ? -(((-val) * 31) >> 5) : (val * 31) >> 5;  /* scale the magnitude by 31 / 32 */
+        val = (val < 0) ? -(((-val) * 31) >> 5)
+                        : (val * 31) >> 5; /* scale the magnitude by 31 / 32 */
         s = 0;
         if (val < 0) {
             s = 0x8000;
@@ -545,79 +580,80 @@ static float bcdec__half_to_float_quick(unsigned short half) {
         float f;
     } FP32;
 
-    static const FP32 magic = { 113 << 23 };
-    static const unsigned int shifted_exp = 0x7c00 << 13;   /* exponent mask after shift */
+    static const FP32 magic = {113 << 23};
+    static const unsigned int shifted_exp = 0x7c00 << 13; /* exponent mask after shift */
     FP32 o;
     unsigned int exp;
 
-    o.u = (half & 0x7fff) << 13;                            /* exponent/mantissa bits */
-    exp = shifted_exp & o.u;                                /* just the exponent */
-    o.u += (127 - 15) << 23;                                /* exponent adjust */
+    o.u = (half & 0x7fff) << 13; /* exponent/mantissa bits */
+    exp = shifted_exp & o.u;     /* just the exponent */
+    o.u += (127 - 15) << 23;     /* exponent adjust */
 
     /* handle exponent special cases */
-    if (exp == shifted_exp) {                               /* Inf/NaN? */
-        o.u += (128 - 16) << 23;                            /* extra exp adjust */
-    } else if (exp == 0) {                                  /* Zero/Denormal? */
-        o.u += 1 << 23;                                     /* extra exp adjust */
-        o.f -= magic.f;                                     /* renormalize */
+    if (exp == shifted_exp) {    /* Inf/NaN? */
+        o.u += (128 - 16) << 23; /* extra exp adjust */
+    } else if (exp == 0) {       /* Zero/Denormal? */
+        o.u += 1 << 23;          /* extra exp adjust */
+        o.f -= magic.f;          /* renormalize */
     }
 
-    o.u |= (half & 0x8000) << 16;                           /* sign bit */
+    o.u |= (half & 0x8000) << 16; /* sign bit */
     return o.f;
 }
 
-BCDECDEF void bcdec_bc6h_half(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned) {
+BCDECDEF void bcdec_bc6h_half(const void* compressedBlock, void* decompressedBlock,
+                              int destinationPitch, int isSigned) {
     static char actual_bits_count[4][14] = {
-        { 10, 7, 11, 11, 11, 9, 8, 8, 8, 6, 10, 11, 12, 16 },   /*  W */
-        {  5, 6,  5,  4,  4, 5, 6, 5, 5, 6, 10,  9,  8,  4 },   /* dR */
-        {  5, 6,  4,  5,  4, 5, 5, 6, 5, 6, 10,  9,  8,  4 },   /* dG */
-        {  5, 6,  4,  4,  5, 5, 5, 5, 6, 6, 10,  9,  8,  4 }    /* dB */
+        {10, 7, 11, 11, 11, 9, 8, 8, 8, 6, 10, 11, 12, 16}, /*  W */
+        {5, 6, 5, 4, 4, 5, 6, 5, 5, 6, 10, 9, 8, 4},        /* dR */
+        {5, 6, 4, 5, 4, 5, 5, 6, 5, 6, 10, 9, 8, 4},        /* dG */
+        {5, 6, 4, 4, 5, 5, 5, 5, 6, 6, 10, 9, 8, 4}         /* dB */
     };
 
     /* There are 32 possible partition sets for a two-region tile.
        Each 4x4 block represents a single shape.
        Here also every fix-up index has MSB bit set. */
     static unsigned char partition_sets[32][4][4] = {
-        { {128, 0,   1, 1}, {0, 0, 1, 1}, {  0, 0, 1, 1}, {0, 0, 1, 129} },   /*  0 */
-        { {128, 0,   0, 1}, {0, 0, 0, 1}, {  0, 0, 0, 1}, {0, 0, 0, 129} },   /*  1 */
-        { {128, 1,   1, 1}, {0, 1, 1, 1}, {  0, 1, 1, 1}, {0, 1, 1, 129} },   /*  2 */
-        { {128, 0,   0, 1}, {0, 0, 1, 1}, {  0, 0, 1, 1}, {0, 1, 1, 129} },   /*  3 */
-        { {128, 0,   0, 0}, {0, 0, 0, 1}, {  0, 0, 0, 1}, {0, 0, 1, 129} },   /*  4 */
-        { {128, 0,   1, 1}, {0, 1, 1, 1}, {  0, 1, 1, 1}, {1, 1, 1, 129} },   /*  5 */
-        { {128, 0,   0, 1}, {0, 0, 1, 1}, {  0, 1, 1, 1}, {1, 1, 1, 129} },   /*  6 */
-        { {128, 0,   0, 0}, {0, 0, 0, 1}, {  0, 0, 1, 1}, {0, 1, 1, 129} },   /*  7 */
-        { {128, 0,   0, 0}, {0, 0, 0, 0}, {  0, 0, 0, 1}, {0, 0, 1, 129} },   /*  8 */
-        { {128, 0,   1, 1}, {0, 1, 1, 1}, {  1, 1, 1, 1}, {1, 1, 1, 129} },   /*  9 */
-        { {128, 0,   0, 0}, {0, 0, 0, 1}, {  0, 1, 1, 1}, {1, 1, 1, 129} },   /* 10 */
-        { {128, 0,   0, 0}, {0, 0, 0, 0}, {  0, 0, 0, 1}, {0, 1, 1, 129} },   /* 11 */
-        { {128, 0,   0, 1}, {0, 1, 1, 1}, {  1, 1, 1, 1}, {1, 1, 1, 129} },   /* 12 */
-        { {128, 0,   0, 0}, {0, 0, 0, 0}, {  1, 1, 1, 1}, {1, 1, 1, 129} },   /* 13 */
-        { {128, 0,   0, 0}, {1, 1, 1, 1}, {  1, 1, 1, 1}, {1, 1, 1, 129} },   /* 14 */
-        { {128, 0,   0, 0}, {0, 0, 0, 0}, {  0, 0, 0, 0}, {1, 1, 1, 129} },   /* 15 */
-        { {128, 0,   0, 0}, {1, 0, 0, 0}, {  1, 1, 1, 0}, {1, 1, 1, 129} },   /* 16 */
-        { {128, 1, 129, 1}, {0, 0, 0, 1}, {  0, 0, 0, 0}, {0, 0, 0,   0} },   /* 17 */
-        { {128, 0,   0, 0}, {0, 0, 0, 0}, {129, 0, 0, 0}, {1, 1, 1,   0} },   /* 18 */
-        { {128, 1, 129, 1}, {0, 0, 1, 1}, {  0, 0, 0, 1}, {0, 0, 0,   0} },   /* 19 */
-        { {128, 0, 129, 1}, {0, 0, 0, 1}, {  0, 0, 0, 0}, {0, 0, 0,   0} },   /* 20 */
-        { {128, 0,   0, 0}, {1, 0, 0, 0}, {129, 1, 0, 0}, {1, 1, 1,   0} },   /* 21 */
-        { {128, 0,   0, 0}, {0, 0, 0, 0}, {129, 0, 0, 0}, {1, 1, 0,   0} },   /* 22 */
-        { {128, 1,   1, 1}, {0, 0, 1, 1}, {  0, 0, 1, 1}, {0, 0, 0, 129} },   /* 23 */
-        { {128, 0, 129, 1}, {0, 0, 0, 1}, {  0, 0, 0, 1}, {0, 0, 0,   0} },   /* 24 */
-        { {128, 0,   0, 0}, {1, 0, 0, 0}, {129, 0, 0, 0}, {1, 1, 0,   0} },   /* 25 */
-        { {128, 1, 129, 0}, {0, 1, 1, 0}, {  0, 1, 1, 0}, {0, 1, 1,   0} },   /* 26 */
-        { {128, 0, 129, 1}, {0, 1, 1, 0}, {  0, 1, 1, 0}, {1, 1, 0,   0} },   /* 27 */
-        { {128, 0,   0, 1}, {0, 1, 1, 1}, {129, 1, 1, 0}, {1, 0, 0,   0} },   /* 28 */
-        { {128, 0,   0, 0}, {1, 1, 1, 1}, {129, 1, 1, 1}, {0, 0, 0,   0} },   /* 29 */
-        { {128, 1, 129, 1}, {0, 0, 0, 1}, {  1, 0, 0, 0}, {1, 1, 1,   0} },   /* 30 */
-        { {128, 0, 129, 1}, {1, 0, 0, 1}, {  1, 0, 0, 1}, {1, 1, 0,   0} }    /* 31 */
+        {{128, 0, 1, 1}, {0, 0, 1, 1}, {0, 0, 1, 1}, {0, 0, 1, 129}}, /*  0 */
+        {{128, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 129}}, /*  1 */
+        {{128, 1, 1, 1}, {0, 1, 1, 1}, {0, 1, 1, 1}, {0, 1, 1, 129}}, /*  2 */
+        {{128, 0, 0, 1}, {0, 0, 1, 1}, {0, 0, 1, 1}, {0, 1, 1, 129}}, /*  3 */
+        {{128, 0, 0, 0}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 1, 129}}, /*  4 */
+        {{128, 0, 1, 1}, {0, 1, 1, 1}, {0, 1, 1, 1}, {1, 1, 1, 129}}, /*  5 */
+        {{128, 0, 0, 1}, {0, 0, 1, 1}, {0, 1, 1, 1}, {1, 1, 1, 129}}, /*  6 */
+        {{128, 0, 0, 0}, {0, 0, 0, 1}, {0, 0, 1, 1}, {0, 1, 1, 129}}, /*  7 */
+        {{128, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 1}, {0, 0, 1, 129}}, /*  8 */
+        {{128, 0, 1, 1}, {0, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 129}}, /*  9 */
+        {{128, 0, 0, 0}, {0, 0, 0, 1}, {0, 1, 1, 1}, {1, 1, 1, 129}}, /* 10 */
+        {{128, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 1}, {0, 1, 1, 129}}, /* 11 */
+        {{128, 0, 0, 1}, {0, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 129}}, /* 12 */
+        {{128, 0, 0, 0}, {0, 0, 0, 0}, {1, 1, 1, 1}, {1, 1, 1, 129}}, /* 13 */
+        {{128, 0, 0, 0}, {1, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 129}}, /* 14 */
+        {{128, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {1, 1, 1, 129}}, /* 15 */
+        {{128, 0, 0, 0}, {1, 0, 0, 0}, {1, 1, 1, 0}, {1, 1, 1, 129}}, /* 16 */
+        {{128, 1, 129, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}}, /* 17 */
+        {{128, 0, 0, 0}, {0, 0, 0, 0}, {129, 0, 0, 0}, {1, 1, 1, 0}}, /* 18 */
+        {{128, 1, 129, 1}, {0, 0, 1, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}}, /* 19 */
+        {{128, 0, 129, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}}, /* 20 */
+        {{128, 0, 0, 0}, {1, 0, 0, 0}, {129, 1, 0, 0}, {1, 1, 1, 0}}, /* 21 */
+        {{128, 0, 0, 0}, {0, 0, 0, 0}, {129, 0, 0, 0}, {1, 1, 0, 0}}, /* 22 */
+        {{128, 1, 1, 1}, {0, 0, 1, 1}, {0, 0, 1, 1}, {0, 0, 0, 129}}, /* 23 */
+        {{128, 0, 129, 1}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}}, /* 24 */
+        {{128, 0, 0, 0}, {1, 0, 0, 0}, {129, 0, 0, 0}, {1, 1, 0, 0}}, /* 25 */
+        {{128, 1, 129, 0}, {0, 1, 1, 0}, {0, 1, 1, 0}, {0, 1, 1, 0}}, /* 26 */
+        {{128, 0, 129, 1}, {0, 1, 1, 0}, {0, 1, 1, 0}, {1, 1, 0, 0}}, /* 27 */
+        {{128, 0, 0, 1}, {0, 1, 1, 1}, {129, 1, 1, 0}, {1, 0, 0, 0}}, /* 28 */
+        {{128, 0, 0, 0}, {1, 1, 1, 1}, {129, 1, 1, 1}, {0, 0, 0, 0}}, /* 29 */
+        {{128, 1, 129, 1}, {0, 0, 0, 1}, {1, 0, 0, 0}, {1, 1, 1, 0}}, /* 30 */
+        {{128, 0, 129, 1}, {1, 0, 0, 1}, {1, 0, 0, 1}, {1, 1, 0, 0}}  /* 31 */
     };
 
-    static int aWeight3[8] = { 0, 9, 18, 27, 37, 46, 55, 64 };
-    static int aWeight4[16] = { 0, 4, 9, 13, 17, 21, 26, 30, 34, 38, 43, 47, 51, 55, 60, 64 };
+    static int aWeight3[8] = {0, 9, 18, 27, 37, 46, 55, 64};
+    static int aWeight4[16] = {0, 4, 9, 13, 17, 21, 26, 30, 34, 38, 43, 47, 51, 55, 60, 64};
 
     bcdec__bitstream_t bstream;
     int mode, partition, numPartitions, i, j, partitionSet, indexBits, index, ep_i, actualBits0Mode;
-    int r[4], g[4], b[4];       /* wxyz */
+    int r[4], g[4], b[4]; /* wxyz */
     unsigned short* decompressed;
     int* weights;
 
@@ -639,380 +675,380 @@ BCDECDEF void bcdec_bc6h_half(const void* compressedBlock, void* decompressedBlo
     partition = 0;
 
     switch (mode) {
-        /* mode 1 */
-        case 0b00: {
-            /* Partitition indices: 46 bits
-               Partition: 5 bits
-               Color Endpoints: 75 bits (10.555, 10.555, 10.555) */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gy[4]   */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* by[4]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* bz[4]   */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* rw[9:0] */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* gw[9:0] */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* bw[9:0] */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* rx[4:0] */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gz[4]   */
-            g[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gy[3:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* gx[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream);            /* bz[0]   */
-            g[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gz[3:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* bx[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;       /* bz[1]   */
-            b[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* by[3:0] */
-            r[2] |= bcdec__bitstream_read_bits(&bstream, 5);        /* ry[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;       /* bz[2]   */
-            r[3] |= bcdec__bitstream_read_bits(&bstream, 5);        /* rz[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;       /* bz[3]   */
-            partition = bcdec__bitstream_read_bits(&bstream, 5);    /* d[4:0]  */
-            mode = 0;
-        } break;
+    /* mode 1 */
+    case 0b00: {
+        /* Partitition indices: 46 bits
+           Partition: 5 bits
+           Color Endpoints: 75 bits (10.555, 10.555, 10.555) */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gy[4]   */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* by[4]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* bz[4]   */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* rw[9:0] */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* gw[9:0] */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* bw[9:0] */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* rx[4:0] */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gz[4]   */
+        g[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gy[3:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* gx[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream);         /* bz[0]   */
+        g[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gz[3:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* bx[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;    /* bz[1]   */
+        b[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* by[3:0] */
+        r[2] |= bcdec__bitstream_read_bits(&bstream, 5);     /* ry[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;    /* bz[2]   */
+        r[3] |= bcdec__bitstream_read_bits(&bstream, 5);     /* rz[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;    /* bz[3]   */
+        partition = bcdec__bitstream_read_bits(&bstream, 5); /* d[4:0]  */
+        mode = 0;
+    } break;
 
-        /* mode 2 */
-        case 0b01: {
-            /* Partitition indices: 46 bits
-               Partition: 5 bits
-               Color Endpoints: 75 bits (7666, 7666, 7666) */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* gy[5]   */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gz[4]   */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* gz[5]   */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 7);        /* rw[6:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream);            /* bz[0]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;       /* bz[1]   */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* by[4]   */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 7);        /* gw[6:0] */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* by[5]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;       /* bz[2]   */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gy[4]   */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 7);        /* bw[6:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;       /* bz[3]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* bz[5]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* bz[4]   */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 6);        /* rx[5:0] */
-            g[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gy[3:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 6);        /* gx[5:0] */
-            g[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gz[3:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 6);        /* bx[5:0] */
-            b[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* by[3:0] */
-            r[2] |= bcdec__bitstream_read_bits(&bstream, 6);        /* ry[5:0] */
-            r[3] |= bcdec__bitstream_read_bits(&bstream, 6);        /* rz[5:0] */
-            partition = bcdec__bitstream_read_bits(&bstream, 5);    /* d[4:0]  */
-            mode = 1;
-        } break;
+    /* mode 2 */
+    case 0b01: {
+        /* Partitition indices: 46 bits
+           Partition: 5 bits
+           Color Endpoints: 75 bits (7666, 7666, 7666) */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* gy[5]   */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gz[4]   */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* gz[5]   */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 7);     /* rw[6:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream);         /* bz[0]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;    /* bz[1]   */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* by[4]   */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 7);     /* gw[6:0] */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* by[5]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;    /* bz[2]   */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gy[4]   */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 7);     /* bw[6:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;    /* bz[3]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* bz[5]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* bz[4]   */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 6);     /* rx[5:0] */
+        g[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gy[3:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 6);     /* gx[5:0] */
+        g[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gz[3:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 6);     /* bx[5:0] */
+        b[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* by[3:0] */
+        r[2] |= bcdec__bitstream_read_bits(&bstream, 6);     /* ry[5:0] */
+        r[3] |= bcdec__bitstream_read_bits(&bstream, 6);     /* rz[5:0] */
+        partition = bcdec__bitstream_read_bits(&bstream, 5); /* d[4:0]  */
+        mode = 1;
+    } break;
 
-        /* mode 3 */
-        case 0b00010: {
-            /* Partitition indices: 46 bits
-               Partition: 5 bits
-               Color Endpoints: 72 bits (11.555, 11.444, 11.444) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* rw[9:0] */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* gw[9:0] */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* bw[9:0] */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* rx[4:0] */
-            r[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* rw[10]  */
-            g[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gy[3:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gx[3:0] */
-            g[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* gw[10]  */
-            b[3] |= bcdec__bitstream_read_bit(&bstream);            /* bz[0]   */
-            g[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gz[3:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 4);        /* bx[3:0] */
-            b[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* bw[10]  */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;       /* bz[1]   */
-            b[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* by[3:0] */
-            r[2] |= bcdec__bitstream_read_bits(&bstream, 5);        /* ry[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;       /* bz[2]   */
-            r[3] |= bcdec__bitstream_read_bits(&bstream, 5);        /* rz[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;       /* bz[3]   */
-            partition = bcdec__bitstream_read_bits(&bstream, 5);    /* d[4:0]  */
-            mode = 2;
-        } break;
+    /* mode 3 */
+    case 0b00010: {
+        /* Partitition indices: 46 bits
+           Partition: 5 bits
+           Color Endpoints: 72 bits (11.555, 11.444, 11.444) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* rw[9:0] */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* gw[9:0] */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* bw[9:0] */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* rx[4:0] */
+        r[0] |= bcdec__bitstream_read_bit(&bstream) << 10;   /* rw[10]  */
+        g[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gy[3:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gx[3:0] */
+        g[0] |= bcdec__bitstream_read_bit(&bstream) << 10;   /* gw[10]  */
+        b[3] |= bcdec__bitstream_read_bit(&bstream);         /* bz[0]   */
+        g[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gz[3:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 4);     /* bx[3:0] */
+        b[0] |= bcdec__bitstream_read_bit(&bstream) << 10;   /* bw[10]  */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;    /* bz[1]   */
+        b[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* by[3:0] */
+        r[2] |= bcdec__bitstream_read_bits(&bstream, 5);     /* ry[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;    /* bz[2]   */
+        r[3] |= bcdec__bitstream_read_bits(&bstream, 5);     /* rz[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;    /* bz[3]   */
+        partition = bcdec__bitstream_read_bits(&bstream, 5); /* d[4:0]  */
+        mode = 2;
+    } break;
 
-        /* mode 4 */
-        case 0b00110: {
-            /* Partitition indices: 46 bits
-               Partition: 5 bits
-               Color Endpoints: 72 bits (11.444, 11.555, 11.444) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* rw[9:0] */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* gw[9:0] */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* bw[9:0] */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 4);        /* rx[3:0] */
-            r[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* rw[10]  */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gz[4]   */
-            g[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gy[3:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* gx[4:0] */
-            g[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* gw[10]  */
-            g[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gz[3:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 4);        /* bx[3:0] */
-            b[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* bw[10]  */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;       /* bz[1]   */
-            b[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* by[3:0] */
-            r[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* ry[3:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream);            /* bz[0]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;       /* bz[2]   */
-            r[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* rz[3:0] */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gy[4]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;       /* bz[3]   */
-            partition = bcdec__bitstream_read_bits(&bstream, 5);    /* d[4:0]  */
-            mode = 3;
-        } break;
+    /* mode 4 */
+    case 0b00110: {
+        /* Partitition indices: 46 bits
+           Partition: 5 bits
+           Color Endpoints: 72 bits (11.444, 11.555, 11.444) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* rw[9:0] */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* gw[9:0] */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* bw[9:0] */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 4);     /* rx[3:0] */
+        r[0] |= bcdec__bitstream_read_bit(&bstream) << 10;   /* rw[10]  */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gz[4]   */
+        g[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gy[3:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* gx[4:0] */
+        g[0] |= bcdec__bitstream_read_bit(&bstream) << 10;   /* gw[10]  */
+        g[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gz[3:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 4);     /* bx[3:0] */
+        b[0] |= bcdec__bitstream_read_bit(&bstream) << 10;   /* bw[10]  */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;    /* bz[1]   */
+        b[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* by[3:0] */
+        r[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* ry[3:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream);         /* bz[0]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;    /* bz[2]   */
+        r[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* rz[3:0] */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gy[4]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;    /* bz[3]   */
+        partition = bcdec__bitstream_read_bits(&bstream, 5); /* d[4:0]  */
+        mode = 3;
+    } break;
 
-        /* mode 5 */
-        case 0b01010: {
-            /* Partitition indices: 46 bits
-               Partition: 5 bits
-               Color Endpoints: 72 bits (11.444, 11.444, 11.555) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* rw[9:0] */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* gw[9:0] */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* bw[9:0] */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 4);        /* rx[3:0] */
-            r[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* rw[10]  */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* by[4]   */
-            g[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gy[3:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gx[3:0] */
-            g[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* gw[10]  */
-            b[3] |= bcdec__bitstream_read_bit(&bstream);            /* bz[0]   */
-            g[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gz[3:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* bx[4:0] */
-            b[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* bw[10]  */
-            b[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* by[3:0] */
-            r[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* ry[3:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;       /* bz[1]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;       /* bz[2]   */
-            r[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* rz[3:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* bz[4]   */ 
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;       /* bz[3]   */
-            partition = bcdec__bitstream_read_bits(&bstream, 5);    /* d[4:0]  */
-            mode = 4;
-        } break;
+    /* mode 5 */
+    case 0b01010: {
+        /* Partitition indices: 46 bits
+           Partition: 5 bits
+           Color Endpoints: 72 bits (11.444, 11.444, 11.555) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* rw[9:0] */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* gw[9:0] */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 10);    /* bw[9:0] */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 4);     /* rx[3:0] */
+        r[0] |= bcdec__bitstream_read_bit(&bstream) << 10;   /* rw[10]  */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* by[4]   */
+        g[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gy[3:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gx[3:0] */
+        g[0] |= bcdec__bitstream_read_bit(&bstream) << 10;   /* gw[10]  */
+        b[3] |= bcdec__bitstream_read_bit(&bstream);         /* bz[0]   */
+        g[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gz[3:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* bx[4:0] */
+        b[0] |= bcdec__bitstream_read_bit(&bstream) << 10;   /* bw[10]  */
+        b[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* by[3:0] */
+        r[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* ry[3:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;    /* bz[1]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;    /* bz[2]   */
+        r[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* rz[3:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* bz[4]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;    /* bz[3]   */
+        partition = bcdec__bitstream_read_bits(&bstream, 5); /* d[4:0]  */
+        mode = 4;
+    } break;
 
-        /* mode 6 */
-        case 0b01110: {
-            /* Partitition indices: 46 bits
-               Partition: 5 bits
-               Color Endpoints: 72 bits (9555, 9555, 9555) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 9);        /* rw[8:0] */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* by[4]   */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 9);        /* gw[8:0] */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gy[4]   */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 9);        /* bw[8:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* bz[4]   */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* rx[4:0] */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gz[4]   */
-            g[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gy[3:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* gx[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream);            /* bz[0]   */
-            g[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gx[3:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* bx[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;       /* bz[1]   */
-            b[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* by[3:0] */
-            r[2] |= bcdec__bitstream_read_bits(&bstream, 5);        /* ry[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;       /* bz[2]   */
-            r[3] |= bcdec__bitstream_read_bits(&bstream, 5);        /* rz[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;       /* bz[3]   */
-            partition = bcdec__bitstream_read_bits(&bstream, 5);    /* d[4:0]  */
-            mode = 5;
-        } break;
+    /* mode 6 */
+    case 0b01110: {
+        /* Partitition indices: 46 bits
+           Partition: 5 bits
+           Color Endpoints: 72 bits (9555, 9555, 9555) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 9);     /* rw[8:0] */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* by[4]   */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 9);     /* gw[8:0] */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gy[4]   */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 9);     /* bw[8:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* bz[4]   */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* rx[4:0] */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gz[4]   */
+        g[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gy[3:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* gx[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream);         /* bz[0]   */
+        g[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gx[3:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* bx[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;    /* bz[1]   */
+        b[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* by[3:0] */
+        r[2] |= bcdec__bitstream_read_bits(&bstream, 5);     /* ry[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;    /* bz[2]   */
+        r[3] |= bcdec__bitstream_read_bits(&bstream, 5);     /* rz[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;    /* bz[3]   */
+        partition = bcdec__bitstream_read_bits(&bstream, 5); /* d[4:0]  */
+        mode = 5;
+    } break;
 
-        /* mode 7 */
-        case 0b10010: {
-            /* Partitition indices: 46 bits
-               Partition: 5 bits
-               Color Endpoints: 72 bits (8666, 8555, 8555) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 8);        /* rw[7:0] */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gz[4]   */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* by[4]   */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 8);        /* gw[7:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;       /* bz[2]   */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gy[4]   */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 8);        /* bw[7:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;       /* bz[3]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* bz[4]   */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 6);        /* rx[5:0] */
-            g[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gy[3:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* gx[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream);            /* bz[0]   */
-            g[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gz[3:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* bx[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;       /* bz[1]   */
-            b[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* by[3:0] */
-            r[2] |= bcdec__bitstream_read_bits(&bstream, 6);        /* ry[5:0] */
-            r[3] |= bcdec__bitstream_read_bits(&bstream, 6);        /* rz[5:0] */
-            partition = bcdec__bitstream_read_bits(&bstream, 5);    /* d[4:0]  */
-            mode = 6;
-        } break;
+    /* mode 7 */
+    case 0b10010: {
+        /* Partitition indices: 46 bits
+           Partition: 5 bits
+           Color Endpoints: 72 bits (8666, 8555, 8555) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 8);     /* rw[7:0] */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gz[4]   */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* by[4]   */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 8);     /* gw[7:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;    /* bz[2]   */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gy[4]   */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 8);     /* bw[7:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;    /* bz[3]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* bz[4]   */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 6);     /* rx[5:0] */
+        g[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gy[3:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* gx[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream);         /* bz[0]   */
+        g[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gz[3:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* bx[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;    /* bz[1]   */
+        b[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* by[3:0] */
+        r[2] |= bcdec__bitstream_read_bits(&bstream, 6);     /* ry[5:0] */
+        r[3] |= bcdec__bitstream_read_bits(&bstream, 6);     /* rz[5:0] */
+        partition = bcdec__bitstream_read_bits(&bstream, 5); /* d[4:0]  */
+        mode = 6;
+    } break;
 
-        /* mode 8 */
-        case 0b10110: {
-            /* Partitition indices: 46 bits
-               Partition: 5 bits
-               Color Endpoints: 72 bits (8555, 8666, 8555) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 8);        /* rw[7:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream);            /* bz[0]   */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* by[4]   */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 8);        /* gw[7:0] */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* gy[5]   */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gy[4]   */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 8);        /* bw[7:0] */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* gz[5]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* bz[4]   */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* rx[4:0] */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gz[4]   */
-            g[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gy[3:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 6);        /* gx[5:0] */
-            g[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* zx[3:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* bx[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;       /* bz[1]   */
-            b[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* by[3:0] */
-            r[2] |= bcdec__bitstream_read_bits(&bstream, 5);        /* ry[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;       /* bz[2]   */
-            r[3] |= bcdec__bitstream_read_bits(&bstream, 5);        /* rz[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;       /* bz[3]   */
-            partition = bcdec__bitstream_read_bits(&bstream, 5);    /* d[4:0]  */
-            mode = 7;
-        } break;
+    /* mode 8 */
+    case 0b10110: {
+        /* Partitition indices: 46 bits
+           Partition: 5 bits
+           Color Endpoints: 72 bits (8555, 8666, 8555) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 8);     /* rw[7:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream);         /* bz[0]   */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* by[4]   */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 8);     /* gw[7:0] */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* gy[5]   */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gy[4]   */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 8);     /* bw[7:0] */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* gz[5]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* bz[4]   */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* rx[4:0] */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gz[4]   */
+        g[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gy[3:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 6);     /* gx[5:0] */
+        g[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* zx[3:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* bx[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;    /* bz[1]   */
+        b[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* by[3:0] */
+        r[2] |= bcdec__bitstream_read_bits(&bstream, 5);     /* ry[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;    /* bz[2]   */
+        r[3] |= bcdec__bitstream_read_bits(&bstream, 5);     /* rz[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;    /* bz[3]   */
+        partition = bcdec__bitstream_read_bits(&bstream, 5); /* d[4:0]  */
+        mode = 7;
+    } break;
 
-        /* mode 9 */
-        case 0b11010: {
-            /* Partitition indices: 46 bits
-               Partition: 5 bits
-               Color Endpoints: 72 bits (8555, 8555, 8666) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 8);        /* rw[7:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;       /* bz[1]   */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* by[4]   */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 8);        /* gw[7:0] */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* by[5]   */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gy[4]   */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 8);        /* bw[7:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* bz[5]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* bz[4]   */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* bw[4:0] */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gz[4]   */
-            g[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gy[3:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 5);        /* gx[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream);            /* bz[0]   */
-            g[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gz[3:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 6);        /* bx[5:0] */
-            b[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* by[3:0] */
-            r[2] |= bcdec__bitstream_read_bits(&bstream, 5);        /* ry[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;       /* bz[2]   */
-            r[3] |= bcdec__bitstream_read_bits(&bstream, 5);        /* rz[4:0] */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;       /* bz[3]   */
-            partition = bcdec__bitstream_read_bits(&bstream, 5);    /* d[4:0]  */
-            mode = 8;
-        } break;
+    /* mode 9 */
+    case 0b11010: {
+        /* Partitition indices: 46 bits
+           Partition: 5 bits
+           Color Endpoints: 72 bits (8555, 8555, 8666) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 8);     /* rw[7:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;    /* bz[1]   */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* by[4]   */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 8);     /* gw[7:0] */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* by[5]   */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gy[4]   */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 8);     /* bw[7:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* bz[5]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* bz[4]   */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* bw[4:0] */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gz[4]   */
+        g[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gy[3:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 5);     /* gx[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream);         /* bz[0]   */
+        g[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gz[3:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 6);     /* bx[5:0] */
+        b[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* by[3:0] */
+        r[2] |= bcdec__bitstream_read_bits(&bstream, 5);     /* ry[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;    /* bz[2]   */
+        r[3] |= bcdec__bitstream_read_bits(&bstream, 5);     /* rz[4:0] */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;    /* bz[3]   */
+        partition = bcdec__bitstream_read_bits(&bstream, 5); /* d[4:0]  */
+        mode = 8;
+    } break;
 
-        /* mode 10 */
-        case 0b11110: {
-            /* Partitition indices: 46 bits
-               Partition: 5 bits
-               Color Endpoints: 72 bits (6666, 6666, 6666) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 6);        /* rw[5:0] */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gz[4]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream);            /* bz[0]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;       /* bz[1]   */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* by[4]   */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 6);        /* gw[5:0] */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* gy[5]   */
-            b[2] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* by[5]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;       /* bz[2]   */
-            g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* gy[4]   */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 6);        /* bw[5:0] */
-            g[3] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* gz[5]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;       /* bz[3]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 5;       /* bz[5]   */
-            b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;       /* bz[4]   */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 6);        /* rx[5:0] */
-            g[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gy[3:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 6);        /* gx[5:0] */
-            g[3] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gz[3:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 6);        /* bx[5:0] */
-            b[2] |= bcdec__bitstream_read_bits(&bstream, 4);        /* by[3:0] */
-            r[2] |= bcdec__bitstream_read_bits(&bstream, 6);        /* ry[5:0] */
-            r[3] |= bcdec__bitstream_read_bits(&bstream, 6);        /* rz[5:0] */
-            partition = bcdec__bitstream_read_bits(&bstream, 5);    /* d[4:0]  */
-            mode = 9;
-        } break;
+    /* mode 10 */
+    case 0b11110: {
+        /* Partitition indices: 46 bits
+           Partition: 5 bits
+           Color Endpoints: 72 bits (6666, 6666, 6666) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 6);     /* rw[5:0] */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gz[4]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream);         /* bz[0]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 1;    /* bz[1]   */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* by[4]   */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 6);     /* gw[5:0] */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* gy[5]   */
+        b[2] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* by[5]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 2;    /* bz[2]   */
+        g[2] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* gy[4]   */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 6);     /* bw[5:0] */
+        g[3] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* gz[5]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 3;    /* bz[3]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 5;    /* bz[5]   */
+        b[3] |= bcdec__bitstream_read_bit(&bstream) << 4;    /* bz[4]   */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 6);     /* rx[5:0] */
+        g[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gy[3:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 6);     /* gx[5:0] */
+        g[3] |= bcdec__bitstream_read_bits(&bstream, 4);     /* gz[3:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 6);     /* bx[5:0] */
+        b[2] |= bcdec__bitstream_read_bits(&bstream, 4);     /* by[3:0] */
+        r[2] |= bcdec__bitstream_read_bits(&bstream, 6);     /* ry[5:0] */
+        r[3] |= bcdec__bitstream_read_bits(&bstream, 6);     /* rz[5:0] */
+        partition = bcdec__bitstream_read_bits(&bstream, 5); /* d[4:0]  */
+        mode = 9;
+    } break;
 
-        /* mode 11 */
-        case 0b00011: {
-            /* Partitition indices: 63 bits
-               Partition: 0 bits
-               Color Endpoints: 60 bits (10.10, 10.10, 10.10) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* rw[9:0] */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* gw[9:0] */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* bw[9:0] */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 10);       /* rx[9:0] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 10);       /* gx[9:0] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 10);       /* bx[9:0] */
-            mode = 10;
-        } break;
+    /* mode 11 */
+    case 0b00011: {
+        /* Partitition indices: 63 bits
+           Partition: 0 bits
+           Color Endpoints: 60 bits (10.10, 10.10, 10.10) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 10); /* rw[9:0] */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 10); /* gw[9:0] */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 10); /* bw[9:0] */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 10); /* rx[9:0] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 10); /* gx[9:0] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 10); /* bx[9:0] */
+        mode = 10;
+    } break;
 
-        /* mode 12 */
-        case 0b00111: {
-            /* Partitition indices: 63 bits
-               Partition: 0 bits
-               Color Endpoints: 60 bits (11.9, 11.9, 11.9) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* rw[9:0] */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* gw[9:0] */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* bw[9:0] */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 9);        /* rx[8:0] */
-            r[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* rw[10]  */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 9);        /* gx[8:0] */
-            g[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* gw[10]  */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 9);        /* bx[8:0] */
-            b[0] |= bcdec__bitstream_read_bit(&bstream) << 10;      /* bw[10]  */
-            mode = 11;
-        } break;
+    /* mode 12 */
+    case 0b00111: {
+        /* Partitition indices: 63 bits
+           Partition: 0 bits
+           Color Endpoints: 60 bits (11.9, 11.9, 11.9) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 10);  /* rw[9:0] */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 10);  /* gw[9:0] */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 10);  /* bw[9:0] */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 9);   /* rx[8:0] */
+        r[0] |= bcdec__bitstream_read_bit(&bstream) << 10; /* rw[10]  */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 9);   /* gx[8:0] */
+        g[0] |= bcdec__bitstream_read_bit(&bstream) << 10; /* gw[10]  */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 9);   /* bx[8:0] */
+        b[0] |= bcdec__bitstream_read_bit(&bstream) << 10; /* bw[10]  */
+        mode = 11;
+    } break;
 
-        /* mode 13 */
-        case 0b01011: {
-            /* Partitition indices: 63 bits
-               Partition: 0 bits
-               Color Endpoints: 60 bits (12.8, 12.8, 12.8) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* rw[9:0] */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* gw[9:0] */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* bw[9:0] */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 8);        /* rx[7:0] */
-            r[0] |= bcdec__bitstream_read_bits_r(&bstream, 2) << 10;/* rx[10:11] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 8);        /* gx[7:0] */
-            g[0] |= bcdec__bitstream_read_bits_r(&bstream, 2) << 10;/* gx[10:11] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 8);        /* bx[7:0] */
-            b[0] |= bcdec__bitstream_read_bits_r(&bstream, 2) << 10;/* bx[10:11] */
-            mode = 12;
-        } break;
+    /* mode 13 */
+    case 0b01011: {
+        /* Partitition indices: 63 bits
+           Partition: 0 bits
+           Color Endpoints: 60 bits (12.8, 12.8, 12.8) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 10);        /* rw[9:0] */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 10);        /* gw[9:0] */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 10);        /* bw[9:0] */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 8);         /* rx[7:0] */
+        r[0] |= bcdec__bitstream_read_bits_r(&bstream, 2) << 10; /* rx[10:11] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 8);         /* gx[7:0] */
+        g[0] |= bcdec__bitstream_read_bits_r(&bstream, 2) << 10; /* gx[10:11] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 8);         /* bx[7:0] */
+        b[0] |= bcdec__bitstream_read_bits_r(&bstream, 2) << 10; /* bx[10:11] */
+        mode = 12;
+    } break;
 
-        /* mode 14 */
-        case 0b01111: {
-            /* Partitition indices: 63 bits
-               Partition: 0 bits
-               Color Endpoints: 60 bits (16.4, 16.4, 16.4) */
-            r[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* rw[9:0] */
-            g[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* gw[9:0] */
-            b[0] |= bcdec__bitstream_read_bits(&bstream, 10);       /* bw[9:0] */
-            r[1] |= bcdec__bitstream_read_bits(&bstream, 4);        /* rx[3:0] */
-            r[0] |= bcdec__bitstream_read_bits_r(&bstream, 6) << 10;/* rw[10:15] */
-            g[1] |= bcdec__bitstream_read_bits(&bstream, 4);        /* gx[3:0] */
-            g[0] |= bcdec__bitstream_read_bits_r(&bstream, 6) << 10;/* gw[10:15] */
-            b[1] |= bcdec__bitstream_read_bits(&bstream, 4);        /* bx[3:0] */
-            b[0] |= bcdec__bitstream_read_bits_r(&bstream, 6) << 10;/* bw[10:15] */
-            mode = 13;
-        } break;
+    /* mode 14 */
+    case 0b01111: {
+        /* Partitition indices: 63 bits
+           Partition: 0 bits
+           Color Endpoints: 60 bits (16.4, 16.4, 16.4) */
+        r[0] |= bcdec__bitstream_read_bits(&bstream, 10);        /* rw[9:0] */
+        g[0] |= bcdec__bitstream_read_bits(&bstream, 10);        /* gw[9:0] */
+        b[0] |= bcdec__bitstream_read_bits(&bstream, 10);        /* bw[9:0] */
+        r[1] |= bcdec__bitstream_read_bits(&bstream, 4);         /* rx[3:0] */
+        r[0] |= bcdec__bitstream_read_bits_r(&bstream, 6) << 10; /* rw[10:15] */
+        g[1] |= bcdec__bitstream_read_bits(&bstream, 4);         /* gx[3:0] */
+        g[0] |= bcdec__bitstream_read_bits_r(&bstream, 6) << 10; /* gw[10:15] */
+        b[1] |= bcdec__bitstream_read_bits(&bstream, 4);         /* bx[3:0] */
+        b[0] |= bcdec__bitstream_read_bits_r(&bstream, 6) << 10; /* bw[10:15] */
+        mode = 13;
+    } break;
 
-        default: {
-            /* Modes 10011, 10111, 11011, and 11111 (not shown) are reserved.
-               Do not use these in your encoder. If the hardware is passed blocks
-               with one of these modes specified, the resulting decompressed block
-               must contain all zeroes in all channels except for the alpha channel. */
-            for (i = 0; i < 4; ++i) {
-                for (j = 0; j < 4; ++j) {
-                    decompressed[j * 3 + 0] = 0;
-                    decompressed[j * 3 + 1] = 0;
-                    decompressed[j * 3 + 2] = 0;
-                }
-                decompressed += destinationPitch;
+    default: {
+        /* Modes 10011, 10111, 11011, and 11111 (not shown) are reserved.
+           Do not use these in your encoder. If the hardware is passed blocks
+           with one of these modes specified, the resulting decompressed block
+           must contain all zeroes in all channels except for the alpha channel. */
+        for (i = 0; i < 4; ++i) {
+            for (j = 0; j < 4; ++j) {
+                decompressed[j * 3 + 0] = 0;
+                decompressed[j * 3 + 1] = 0;
+                decompressed[j * 3 + 2] = 0;
             }
-
-            return;
+            decompressed += destinationPitch;
         }
+
+        return;
+    }
     }
 
     numPartitions = (mode >= 10) ? 0 : 1;
@@ -1051,7 +1087,7 @@ BCDECDEF void bcdec_bc6h_half(const void* compressedBlock, void* decompressedBlo
     weights = (mode >= 10) ? aWeight4 : aWeight3;
     for (i = 0; i < 4; ++i) {
         for (j = 0; j < 4; ++j) {
-            partitionSet = (mode >= 10) ? ((i|j) ? 0 : 128) : partition_sets[partition][i][j];
+            partitionSet = (mode >= 10) ? ((i | j) ? 0 : 128) : partition_sets[partition][i][j];
 
             indexBits = (mode >= 10) ? 4 : 3;
             /* fix-up index is specified with one less bit */
@@ -1065,24 +1101,25 @@ BCDECDEF void bcdec_bc6h_half(const void* compressedBlock, void* decompressedBlo
 
             ep_i = partitionSet * 2;
             decompressed[j * 3 + 0] = bcdec__finish_unquantize(
-                                            bcdec__interpolate(r[ep_i], r[ep_i+1], weights, index), isSigned);
+                bcdec__interpolate(r[ep_i], r[ep_i + 1], weights, index), isSigned);
             decompressed[j * 3 + 1] = bcdec__finish_unquantize(
-                                            bcdec__interpolate(g[ep_i], g[ep_i+1], weights, index), isSigned);
+                bcdec__interpolate(g[ep_i], g[ep_i + 1], weights, index), isSigned);
             decompressed[j * 3 + 2] = bcdec__finish_unquantize(
-                                            bcdec__interpolate(b[ep_i], b[ep_i+1], weights, index), isSigned);
+                bcdec__interpolate(b[ep_i], b[ep_i + 1], weights, index), isSigned);
         }
 
         decompressed += destinationPitch;
     }
 }
 
-BCDECDEF void bcdec_bc6h_float(const void* compressedBlock, void* decompressedBlock, int destinationPitch, int isSigned) {
-    unsigned short block[16*3];
+BCDECDEF void bcdec_bc6h_float(const void* compressedBlock, void* decompressedBlock,
+                               int destinationPitch, int isSigned) {
+    unsigned short block[16 * 3];
     float* decompressed;
     const unsigned short* b;
     int i, j;
 
-    bcdec_bc6h_half(compressedBlock, block, 4*3, isSigned);
+    bcdec_bc6h_half(compressedBlock, block, 4 * 3, isSigned);
     b = block;
     decompressed = (float*)decompressedBlock;
     for (i = 0; i < 4; ++i) {
@@ -1099,153 +1136,155 @@ static void bcdec__swap_values(int* a, int* b) {
     a[0] ^= b[0], b[0] ^= a[0], a[0] ^= b[0];
 }
 
-BCDECDEF void bcdec_bc7(const void* compressedBlock, void* decompressedBlock, int destinationPitch) {
+BCDECDEF void bcdec_bc7(const void* compressedBlock, void* decompressedBlock,
+                        int destinationPitch) {
     static char actual_bits_count[2][8] = {
-        { 4, 6, 5, 7, 5, 7, 7, 5 },     /* RGBA  */
-        { 0, 0, 0, 0, 6, 8, 7, 5 },     /* Alpha */
+        {4, 6, 5, 7, 5, 7, 7, 5}, /* RGBA  */
+        {0, 0, 0, 0, 6, 8, 7, 5}, /* Alpha */
     };
 
     /* There are 64 possible partition sets for a two-region tile.
        Each 4x4 block represents a single shape.
        Here also every fix-up index has MSB bit set. */
     static unsigned char partition_sets[2][64][4][4] = {
-        {   /* Partition table for 2-subset BPTC */
-            { {128, 0,   1, 1}, {0, 0,   1, 1}, {  0, 0, 1, 1}, {0, 0, 1, 129} }, /*  0 */
-            { {128, 0,   0, 1}, {0, 0,   0, 1}, {  0, 0, 0, 1}, {0, 0, 0, 129} }, /*  1 */
-            { {128, 1,   1, 1}, {0, 1,   1, 1}, {  0, 1, 1, 1}, {0, 1, 1, 129} }, /*  2 */
-            { {128, 0,   0, 1}, {0, 0,   1, 1}, {  0, 0, 1, 1}, {0, 1, 1, 129} }, /*  3 */
-            { {128, 0,   0, 0}, {0, 0,   0, 1}, {  0, 0, 0, 1}, {0, 0, 1, 129} }, /*  4 */
-            { {128, 0,   1, 1}, {0, 1,   1, 1}, {  0, 1, 1, 1}, {1, 1, 1, 129} }, /*  5 */
-            { {128, 0,   0, 1}, {0, 0,   1, 1}, {  0, 1, 1, 1}, {1, 1, 1, 129} }, /*  6 */
-            { {128, 0,   0, 0}, {0, 0,   0, 1}, {  0, 0, 1, 1}, {0, 1, 1, 129} }, /*  7 */
-            { {128, 0,   0, 0}, {0, 0,   0, 0}, {  0, 0, 0, 1}, {0, 0, 1, 129} }, /*  8 */
-            { {128, 0,   1, 1}, {0, 1,   1, 1}, {  1, 1, 1, 1}, {1, 1, 1, 129} }, /*  9 */
-            { {128, 0,   0, 0}, {0, 0,   0, 1}, {  0, 1, 1, 1}, {1, 1, 1, 129} }, /* 10 */
-            { {128, 0,   0, 0}, {0, 0,   0, 0}, {  0, 0, 0, 1}, {0, 1, 1, 129} }, /* 11 */
-            { {128, 0,   0, 1}, {0, 1,   1, 1}, {  1, 1, 1, 1}, {1, 1, 1, 129} }, /* 12 */
-            { {128, 0,   0, 0}, {0, 0,   0, 0}, {  1, 1, 1, 1}, {1, 1, 1, 129} }, /* 13 */
-            { {128, 0,   0, 0}, {1, 1,   1, 1}, {  1, 1, 1, 1}, {1, 1, 1, 129} }, /* 14 */
-            { {128, 0,   0, 0}, {0, 0,   0, 0}, {  0, 0, 0, 0}, {1, 1, 1, 129} }, /* 15 */
-            { {128, 0,   0, 0}, {1, 0,   0, 0}, {  1, 1, 1, 0}, {1, 1, 1, 129} }, /* 16 */
-            { {128, 1, 129, 1}, {0, 0,   0, 1}, {  0, 0, 0, 0}, {0, 0, 0,   0} }, /* 17 */
-            { {128, 0,   0, 0}, {0, 0,   0, 0}, {129, 0, 0, 0}, {1, 1, 1,   0} }, /* 18 */
-            { {128, 1, 129, 1}, {0, 0,   1, 1}, {  0, 0, 0, 1}, {0, 0, 0,   0} }, /* 19 */
-            { {128, 0, 129, 1}, {0, 0,   0, 1}, {  0, 0, 0, 0}, {0, 0, 0,   0} }, /* 20 */
-            { {128, 0,   0, 0}, {1, 0,   0, 0}, {129, 1, 0, 0}, {1, 1, 1,   0} }, /* 21 */
-            { {128, 0,   0, 0}, {0, 0,   0, 0}, {129, 0, 0, 0}, {1, 1, 0,   0} }, /* 22 */
-            { {128, 1,   1, 1}, {0, 0,   1, 1}, {  0, 0, 1, 1}, {0, 0, 0, 129} }, /* 23 */
-            { {128, 0, 129, 1}, {0, 0,   0, 1}, {  0, 0, 0, 1}, {0, 0, 0,   0} }, /* 24 */
-            { {128, 0,   0, 0}, {1, 0,   0, 0}, {129, 0, 0, 0}, {1, 1, 0,   0} }, /* 25 */
-            { {128, 1, 129, 0}, {0, 1,   1, 0}, {  0, 1, 1, 0}, {0, 1, 1,   0} }, /* 26 */
-            { {128, 0, 129, 1}, {0, 1,   1, 0}, {  0, 1, 1, 0}, {1, 1, 0,   0} }, /* 27 */
-            { {128, 0,   0, 1}, {0, 1,   1, 1}, {129, 1, 1, 0}, {1, 0, 0,   0} }, /* 28 */
-            { {128, 0,   0, 0}, {1, 1,   1, 1}, {129, 1, 1, 1}, {0, 0, 0,   0} }, /* 29 */
-            { {128, 1, 129, 1}, {0, 0,   0, 1}, {  1, 0, 0, 0}, {1, 1, 1,   0} }, /* 30 */
-            { {128, 0, 129, 1}, {1, 0,   0, 1}, {  1, 0, 0, 1}, {1, 1, 0,   0} }, /* 31 */
-            { {128, 1,   0, 1}, {0, 1,   0, 1}, {  0, 1, 0, 1}, {0, 1, 0, 129} }, /* 32 */
-            { {128, 0,   0, 0}, {1, 1,   1, 1}, {  0, 0, 0, 0}, {1, 1, 1, 129} }, /* 33 */
-            { {128, 1,   0, 1}, {1, 0, 129, 0}, {  0, 1, 0, 1}, {1, 0, 1,   0} }, /* 34 */
-            { {128, 0,   1, 1}, {0, 0,   1, 1}, {129, 1, 0, 0}, {1, 1, 0,   0} }, /* 35 */
-            { {128, 0, 129, 1}, {1, 1,   0, 0}, {  0, 0, 1, 1}, {1, 1, 0,   0} }, /* 36 */
-            { {128, 1,   0, 1}, {0, 1,   0, 1}, {129, 0, 1, 0}, {1, 0, 1,   0} }, /* 37 */
-            { {128, 1,   1, 0}, {1, 0,   0, 1}, {  0, 1, 1, 0}, {1, 0, 0, 129} }, /* 38 */
-            { {128, 1,   0, 1}, {1, 0,   1, 0}, {  1, 0, 1, 0}, {0, 1, 0, 129} }, /* 39 */
-            { {128, 1, 129, 1}, {0, 0,   1, 1}, {  1, 1, 0, 0}, {1, 1, 1,   0} }, /* 40 */
-            { {128, 0,   0, 1}, {0, 0,   1, 1}, {129, 1, 0, 0}, {1, 0, 0,   0} }, /* 41 */
-            { {128, 0, 129, 1}, {0, 0,   1, 0}, {  0, 1, 0, 0}, {1, 1, 0,   0} }, /* 42 */
-            { {128, 0, 129, 1}, {1, 0,   1, 1}, {  1, 1, 0, 1}, {1, 1, 0,   0} }, /* 43 */
-            { {128, 1, 129, 0}, {1, 0,   0, 1}, {  1, 0, 0, 1}, {0, 1, 1,   0} }, /* 44 */
-            { {128, 0,   1, 1}, {1, 1,   0, 0}, {  1, 1, 0, 0}, {0, 0, 1, 129} }, /* 45 */
-            { {128, 1,   1, 0}, {0, 1,   1, 0}, {  1, 0, 0, 1}, {1, 0, 0, 129} }, /* 46 */
-            { {128, 0,   0, 0}, {0, 1, 129, 0}, {  0, 1, 1, 0}, {0, 0, 0,   0} }, /* 47 */
-            { {128, 1,   0, 0}, {1, 1, 129, 0}, {  0, 1, 0, 0}, {0, 0, 0,   0} }, /* 48 */
-            { {128, 0, 129, 0}, {0, 1,   1, 1}, {  0, 0, 1, 0}, {0, 0, 0,   0} }, /* 49 */
-            { {128, 0,   0, 0}, {0, 0, 129, 0}, {  0, 1, 1, 1}, {0, 0, 1,   0} }, /* 50 */
-            { {128, 0,   0, 0}, {0, 1,   0, 0}, {129, 1, 1, 0}, {0, 1, 0,   0} }, /* 51 */
-            { {128, 1,   1, 0}, {1, 1,   0, 0}, {  1, 0, 0, 1}, {0, 0, 1, 129} }, /* 52 */
-            { {128, 0,   1, 1}, {0, 1,   1, 0}, {  1, 1, 0, 0}, {1, 0, 0, 129} }, /* 53 */
-            { {128, 1, 129, 0}, {0, 0,   1, 1}, {  1, 0, 0, 1}, {1, 1, 0,   0} }, /* 54 */
-            { {128, 0, 129, 1}, {1, 0,   0, 1}, {  1, 1, 0, 0}, {0, 1, 1,   0} }, /* 55 */
-            { {128, 1,   1, 0}, {1, 1,   0, 0}, {  1, 1, 0, 0}, {1, 0, 0, 129} }, /* 56 */
-            { {128, 1,   1, 0}, {0, 0,   1, 1}, {  0, 0, 1, 1}, {1, 0, 0, 129} }, /* 57 */
-            { {128, 1,   1, 1}, {1, 1,   1, 0}, {  1, 0, 0, 0}, {0, 0, 0, 129} }, /* 58 */
-            { {128, 0,   0, 1}, {1, 0,   0, 0}, {  1, 1, 1, 0}, {0, 1, 1, 129} }, /* 59 */
-            { {128, 0,   0, 0}, {1, 1,   1, 1}, {  0, 0, 1, 1}, {0, 0, 1, 129} }, /* 60 */
-            { {128, 0, 129, 1}, {0, 0,   1, 1}, {  1, 1, 1, 1}, {0, 0, 0,   0} }, /* 61 */
-            { {128, 0, 129, 0}, {0, 0,   1, 0}, {  1, 1, 1, 0}, {1, 1, 1,   0} }, /* 62 */
-            { {128, 1,   0, 0}, {0, 1,   0, 0}, {  0, 1, 1, 1}, {0, 1, 1, 129} }  /* 63 */
+        {
+            /* Partition table for 2-subset BPTC */
+            {{128, 0, 1, 1}, {0, 0, 1, 1}, {0, 0, 1, 1}, {0, 0, 1, 129}}, /*  0 */
+            {{128, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 129}}, /*  1 */
+            {{128, 1, 1, 1}, {0, 1, 1, 1}, {0, 1, 1, 1}, {0, 1, 1, 129}}, /*  2 */
+            {{128, 0, 0, 1}, {0, 0, 1, 1}, {0, 0, 1, 1}, {0, 1, 1, 129}}, /*  3 */
+            {{128, 0, 0, 0}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 1, 129}}, /*  4 */
+            {{128, 0, 1, 1}, {0, 1, 1, 1}, {0, 1, 1, 1}, {1, 1, 1, 129}}, /*  5 */
+            {{128, 0, 0, 1}, {0, 0, 1, 1}, {0, 1, 1, 1}, {1, 1, 1, 129}}, /*  6 */
+            {{128, 0, 0, 0}, {0, 0, 0, 1}, {0, 0, 1, 1}, {0, 1, 1, 129}}, /*  7 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 1}, {0, 0, 1, 129}}, /*  8 */
+            {{128, 0, 1, 1}, {0, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 129}}, /*  9 */
+            {{128, 0, 0, 0}, {0, 0, 0, 1}, {0, 1, 1, 1}, {1, 1, 1, 129}}, /* 10 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 1}, {0, 1, 1, 129}}, /* 11 */
+            {{128, 0, 0, 1}, {0, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 129}}, /* 12 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {1, 1, 1, 1}, {1, 1, 1, 129}}, /* 13 */
+            {{128, 0, 0, 0}, {1, 1, 1, 1}, {1, 1, 1, 1}, {1, 1, 1, 129}}, /* 14 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {1, 1, 1, 129}}, /* 15 */
+            {{128, 0, 0, 0}, {1, 0, 0, 0}, {1, 1, 1, 0}, {1, 1, 1, 129}}, /* 16 */
+            {{128, 1, 129, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}}, /* 17 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {129, 0, 0, 0}, {1, 1, 1, 0}}, /* 18 */
+            {{128, 1, 129, 1}, {0, 0, 1, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}}, /* 19 */
+            {{128, 0, 129, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}, {0, 0, 0, 0}}, /* 20 */
+            {{128, 0, 0, 0}, {1, 0, 0, 0}, {129, 1, 0, 0}, {1, 1, 1, 0}}, /* 21 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {129, 0, 0, 0}, {1, 1, 0, 0}}, /* 22 */
+            {{128, 1, 1, 1}, {0, 0, 1, 1}, {0, 0, 1, 1}, {0, 0, 0, 129}}, /* 23 */
+            {{128, 0, 129, 1}, {0, 0, 0, 1}, {0, 0, 0, 1}, {0, 0, 0, 0}}, /* 24 */
+            {{128, 0, 0, 0}, {1, 0, 0, 0}, {129, 0, 0, 0}, {1, 1, 0, 0}}, /* 25 */
+            {{128, 1, 129, 0}, {0, 1, 1, 0}, {0, 1, 1, 0}, {0, 1, 1, 0}}, /* 26 */
+            {{128, 0, 129, 1}, {0, 1, 1, 0}, {0, 1, 1, 0}, {1, 1, 0, 0}}, /* 27 */
+            {{128, 0, 0, 1}, {0, 1, 1, 1}, {129, 1, 1, 0}, {1, 0, 0, 0}}, /* 28 */
+            {{128, 0, 0, 0}, {1, 1, 1, 1}, {129, 1, 1, 1}, {0, 0, 0, 0}}, /* 29 */
+            {{128, 1, 129, 1}, {0, 0, 0, 1}, {1, 0, 0, 0}, {1, 1, 1, 0}}, /* 30 */
+            {{128, 0, 129, 1}, {1, 0, 0, 1}, {1, 0, 0, 1}, {1, 1, 0, 0}}, /* 31 */
+            {{128, 1, 0, 1}, {0, 1, 0, 1}, {0, 1, 0, 1}, {0, 1, 0, 129}}, /* 32 */
+            {{128, 0, 0, 0}, {1, 1, 1, 1}, {0, 0, 0, 0}, {1, 1, 1, 129}}, /* 33 */
+            {{128, 1, 0, 1}, {1, 0, 129, 0}, {0, 1, 0, 1}, {1, 0, 1, 0}}, /* 34 */
+            {{128, 0, 1, 1}, {0, 0, 1, 1}, {129, 1, 0, 0}, {1, 1, 0, 0}}, /* 35 */
+            {{128, 0, 129, 1}, {1, 1, 0, 0}, {0, 0, 1, 1}, {1, 1, 0, 0}}, /* 36 */
+            {{128, 1, 0, 1}, {0, 1, 0, 1}, {129, 0, 1, 0}, {1, 0, 1, 0}}, /* 37 */
+            {{128, 1, 1, 0}, {1, 0, 0, 1}, {0, 1, 1, 0}, {1, 0, 0, 129}}, /* 38 */
+            {{128, 1, 0, 1}, {1, 0, 1, 0}, {1, 0, 1, 0}, {0, 1, 0, 129}}, /* 39 */
+            {{128, 1, 129, 1}, {0, 0, 1, 1}, {1, 1, 0, 0}, {1, 1, 1, 0}}, /* 40 */
+            {{128, 0, 0, 1}, {0, 0, 1, 1}, {129, 1, 0, 0}, {1, 0, 0, 0}}, /* 41 */
+            {{128, 0, 129, 1}, {0, 0, 1, 0}, {0, 1, 0, 0}, {1, 1, 0, 0}}, /* 42 */
+            {{128, 0, 129, 1}, {1, 0, 1, 1}, {1, 1, 0, 1}, {1, 1, 0, 0}}, /* 43 */
+            {{128, 1, 129, 0}, {1, 0, 0, 1}, {1, 0, 0, 1}, {0, 1, 1, 0}}, /* 44 */
+            {{128, 0, 1, 1}, {1, 1, 0, 0}, {1, 1, 0, 0}, {0, 0, 1, 129}}, /* 45 */
+            {{128, 1, 1, 0}, {0, 1, 1, 0}, {1, 0, 0, 1}, {1, 0, 0, 129}}, /* 46 */
+            {{128, 0, 0, 0}, {0, 1, 129, 0}, {0, 1, 1, 0}, {0, 0, 0, 0}}, /* 47 */
+            {{128, 1, 0, 0}, {1, 1, 129, 0}, {0, 1, 0, 0}, {0, 0, 0, 0}}, /* 48 */
+            {{128, 0, 129, 0}, {0, 1, 1, 1}, {0, 0, 1, 0}, {0, 0, 0, 0}}, /* 49 */
+            {{128, 0, 0, 0}, {0, 0, 129, 0}, {0, 1, 1, 1}, {0, 0, 1, 0}}, /* 50 */
+            {{128, 0, 0, 0}, {0, 1, 0, 0}, {129, 1, 1, 0}, {0, 1, 0, 0}}, /* 51 */
+            {{128, 1, 1, 0}, {1, 1, 0, 0}, {1, 0, 0, 1}, {0, 0, 1, 129}}, /* 52 */
+            {{128, 0, 1, 1}, {0, 1, 1, 0}, {1, 1, 0, 0}, {1, 0, 0, 129}}, /* 53 */
+            {{128, 1, 129, 0}, {0, 0, 1, 1}, {1, 0, 0, 1}, {1, 1, 0, 0}}, /* 54 */
+            {{128, 0, 129, 1}, {1, 0, 0, 1}, {1, 1, 0, 0}, {0, 1, 1, 0}}, /* 55 */
+            {{128, 1, 1, 0}, {1, 1, 0, 0}, {1, 1, 0, 0}, {1, 0, 0, 129}}, /* 56 */
+            {{128, 1, 1, 0}, {0, 0, 1, 1}, {0, 0, 1, 1}, {1, 0, 0, 129}}, /* 57 */
+            {{128, 1, 1, 1}, {1, 1, 1, 0}, {1, 0, 0, 0}, {0, 0, 0, 129}}, /* 58 */
+            {{128, 0, 0, 1}, {1, 0, 0, 0}, {1, 1, 1, 0}, {0, 1, 1, 129}}, /* 59 */
+            {{128, 0, 0, 0}, {1, 1, 1, 1}, {0, 0, 1, 1}, {0, 0, 1, 129}}, /* 60 */
+            {{128, 0, 129, 1}, {0, 0, 1, 1}, {1, 1, 1, 1}, {0, 0, 0, 0}}, /* 61 */
+            {{128, 0, 129, 0}, {0, 0, 1, 0}, {1, 1, 1, 0}, {1, 1, 1, 0}}, /* 62 */
+            {{128, 1, 0, 0}, {0, 1, 0, 0}, {0, 1, 1, 1}, {0, 1, 1, 129}}  /* 63 */
         },
-        {   /* Partition table for 3-subset BPTC */
-            { {128, 0, 1, 129}, {0,   0,   1, 1}, {  0,   2,   2, 1}, {  2,   2, 2, 130} }, /*  0 */
-            { {128, 0, 0, 129}, {0,   0,   1, 1}, {130,   2,   1, 1}, {  2,   2, 2,   1} }, /*  1 */
-            { {128, 0, 0,   0}, {2,   0,   0, 1}, {130,   2,   1, 1}, {  2,   2, 1, 129} }, /*  2 */
-            { {128, 2, 2, 130}, {0,   0,   2, 2}, {  0,   0,   1, 1}, {  0,   1, 1, 129} }, /*  3 */
-            { {128, 0, 0,   0}, {0,   0,   0, 0}, {129,   1,   2, 2}, {  1,   1, 2, 130} }, /*  4 */
-            { {128, 0, 1, 129}, {0,   0,   1, 1}, {  0,   0,   2, 2}, {  0,   0, 2, 130} }, /*  5 */
-            { {128, 0, 2, 130}, {0,   0,   2, 2}, {  1,   1,   1, 1}, {  1,   1, 1, 129} }, /*  6 */
-            { {128, 0, 1,   1}, {0,   0,   1, 1}, {130,   2,   1, 1}, {  2,   2, 1, 129} }, /*  7 */
-            { {128, 0, 0,   0}, {0,   0,   0, 0}, {129,   1,   1, 1}, {  2,   2, 2, 130} }, /*  8 */
-            { {128, 0, 0,   0}, {1,   1,   1, 1}, {129,   1,   1, 1}, {  2,   2, 2, 130} }, /*  9 */
-            { {128, 0, 0,   0}, {1,   1, 129, 1}, {  2,   2,   2, 2}, {  2,   2, 2, 130} }, /* 10 */
-            { {128, 0, 1,   2}, {0,   0, 129, 2}, {  0,   0,   1, 2}, {  0,   0, 1, 130} }, /* 11 */
-            { {128, 1, 1,   2}, {0,   1, 129, 2}, {  0,   1,   1, 2}, {  0,   1, 1, 130} }, /* 12 */
-            { {128, 1, 2,   2}, {0, 129,   2, 2}, {  0,   1,   2, 2}, {  0,   1, 2, 130} }, /* 13 */
-            { {128, 0, 1, 129}, {0,   1,   1, 2}, {  1,   1,   2, 2}, {  1,   2, 2, 130} }, /* 14 */
-            { {128, 0, 1, 129}, {2,   0,   0, 1}, {130,   2,   0, 0}, {  2,   2, 2,   0} }, /* 15 */
-            { {128, 0, 0, 129}, {0,   0,   1, 1}, {  0,   1,   1, 2}, {  1,   1, 2, 130} }, /* 16 */
-            { {128, 1, 1, 129}, {0,   0,   1, 1}, {130,   0,   0, 1}, {  2,   2, 0,   0} }, /* 17 */
-            { {128, 0, 0,   0}, {1,   1,   2, 2}, {129,   1,   2, 2}, {  1,   1, 2, 130} }, /* 18 */
-            { {128, 0, 2, 130}, {0,   0,   2, 2}, {  0,   0,   2, 2}, {  1,   1, 1, 129} }, /* 19 */
-            { {128, 1, 1, 129}, {0,   1,   1, 1}, {  0,   2,   2, 2}, {  0,   2, 2, 130} }, /* 20 */
-            { {128, 0, 0, 129}, {0,   0,   0, 1}, {130,   2,   2, 1}, {  2,   2, 2,   1} }, /* 21 */
-            { {128, 0, 0,   0}, {0,   0, 129, 1}, {  0,   1,   2, 2}, {  0,   1, 2, 130} }, /* 22 */
-            { {128, 0, 0,   0}, {1,   1,   0, 0}, {130,   2, 129, 0}, {  2,   2, 1,   0} }, /* 23 */
-            { {128, 1, 2, 130}, {0, 129,   2, 2}, {  0,   0,   1, 1}, {  0,   0, 0,   0} }, /* 24 */
-            { {128, 0, 1,   2}, {0,   0,   1, 2}, {129,   1,   2, 2}, {  2,   2, 2, 130} }, /* 25 */
-            { {128, 1, 1,   0}, {1,   2, 130, 1}, {129,   2,   2, 1}, {  0,   1, 1,   0} }, /* 26 */
-            { {128, 0, 0,   0}, {0,   1, 129, 0}, {  1,   2, 130, 1}, {  1,   2, 2,   1} }, /* 27 */
-            { {128, 0, 2,   2}, {1,   1,   0, 2}, {129,   1,   0, 2}, {  0,   0, 2, 130} }, /* 28 */
-            { {128, 1, 1,   0}, {0, 129,   1, 0}, {  2,   0,   0, 2}, {  2,   2, 2, 130} }, /* 29 */
-            { {128, 0, 1,   1}, {0,   1,   2, 2}, {  0,   1, 130, 2}, {  0,   0, 1, 129} }, /* 30 */
-            { {128, 0, 0,   0}, {2,   0,   0, 0}, {130,   2,   1, 1}, {  2,   2, 2, 129} }, /* 31 */
-            { {128, 0, 0,   0}, {0,   0,   0, 2}, {129,   1,   2, 2}, {  1,   2, 2, 130} }, /* 32 */
-            { {128, 2, 2, 130}, {0,   0,   2, 2}, {  0,   0,   1, 2}, {  0,   0, 1, 129} }, /* 33 */
-            { {128, 0, 1, 129}, {0,   0,   1, 2}, {  0,   0,   2, 2}, {  0,   2, 2, 130} }, /* 34 */
-            { {128, 1, 2,   0}, {0, 129,   2, 0}, {  0,   1, 130, 0}, {  0,   1, 2,   0} }, /* 35 */
-            { {128, 0, 0,   0}, {1,   1, 129, 1}, {  2,   2, 130, 2}, {  0,   0, 0,   0} }, /* 36 */
-            { {128, 1, 2,   0}, {1,   2,   0, 1}, {130,   0, 129, 2}, {  0,   1, 2,   0} }, /* 37 */
-            { {128, 1, 2,   0}, {2,   0,   1, 2}, {129, 130,   0, 1}, {  0,   1, 2,   0} }, /* 38 */
-            { {128, 0, 1,   1}, {2,   2,   0, 0}, {  1,   1, 130, 2}, {  0,   0, 1, 129} }, /* 39 */
-            { {128, 0, 1,   1}, {1,   1, 130, 2}, {  2,   2,   0, 0}, {  0,   0, 1, 129} }, /* 40 */
-            { {128, 1, 0, 129}, {0,   1,   0, 1}, {  2,   2,   2, 2}, {  2,   2, 2, 130} }, /* 41 */
-            { {128, 0, 0,   0}, {0,   0,   0, 0}, {130,   1,   2, 1}, {  2,   1, 2, 129} }, /* 42 */
-            { {128, 0, 2,   2}, {1, 129,   2, 2}, {  0,   0,   2, 2}, {  1,   1, 2, 130} }, /* 43 */
-            { {128, 0, 2, 130}, {0,   0,   1, 1}, {  0,   0,   2, 2}, {  0,   0, 1, 129} }, /* 44 */
-            { {128, 2, 2,   0}, {1,   2, 130, 1}, {  0,   2,   2, 0}, {  1,   2, 2, 129} }, /* 45 */
-            { {128, 1, 0,   1}, {2,   2, 130, 2}, {  2,   2,   2, 2}, {  0,   1, 0, 129} }, /* 46 */
-            { {128, 0, 0,   0}, {2,   1,   2, 1}, {130,   1,   2, 1}, {  2,   1, 2, 129} }, /* 47 */
-            { {128, 1, 0, 129}, {0,   1,   0, 1}, {  0,   1,   0, 1}, {  2,   2, 2, 130} }, /* 48 */
-            { {128, 2, 2, 130}, {0,   1,   1, 1}, {  0,   2,   2, 2}, {  0,   1, 1, 129} }, /* 49 */
-            { {128, 0, 0,   2}, {1, 129,   1, 2}, {  0,   0,   0, 2}, {  1,   1, 1, 130} }, /* 50 */
-            { {128, 0, 0,   0}, {2, 129,   1, 2}, {  2,   1,   1, 2}, {  2,   1, 1, 130} }, /* 51 */
-            { {128, 2, 2,   2}, {0, 129,   1, 1}, {  0,   1,   1, 1}, {  0,   2, 2, 130} }, /* 52 */
-            { {128, 0, 0,   2}, {1,   1,   1, 2}, {129,   1,   1, 2}, {  0,   0, 0, 130} }, /* 53 */
-            { {128, 1, 1,   0}, {0, 129,   1, 0}, {  0,   1,   1, 0}, {  2,   2, 2, 130} }, /* 54 */
-            { {128, 0, 0,   0}, {0,   0,   0, 0}, {  2,   1, 129, 2}, {  2,   1, 1, 130} }, /* 55 */
-            { {128, 1, 1,   0}, {0, 129,   1, 0}, {  2,   2,   2, 2}, {  2,   2, 2, 130} }, /* 56 */
-            { {128, 0, 2,   2}, {0,   0,   1, 1}, {  0,   0, 129, 1}, {  0,   0, 2, 130} }, /* 57 */
-            { {128, 0, 2,   2}, {1,   1,   2, 2}, {129,   1,   2, 2}, {  0,   0, 2, 130} }, /* 58 */
-            { {128, 0, 0,   0}, {0,   0,   0, 0}, {  0,   0,   0, 0}, {  2, 129, 1, 130} }, /* 59 */
-            { {128, 0, 0, 130}, {0,   0,   0, 1}, {  0,   0,   0, 2}, {  0,   0, 0, 129} }, /* 60 */
-            { {128, 2, 2,   2}, {1,   2,   2, 2}, {  0,   2,   2, 2}, {129,   2, 2, 130} }, /* 61 */
-            { {128, 1, 0, 129}, {2,   2,   2, 2}, {  2,   2,   2, 2}, {  2,   2, 2, 130} }, /* 62 */
-            { {128, 1, 1, 129}, {2,   0,   1, 1}, {130,   2,   0, 1}, {  2,   2, 2,   0} }  /* 63 */
-        }
-    };
+        {
+            /* Partition table for 3-subset BPTC */
+            {{128, 0, 1, 129}, {0, 0, 1, 1}, {0, 2, 2, 1}, {2, 2, 2, 130}}, /*  0 */
+            {{128, 0, 0, 129}, {0, 0, 1, 1}, {130, 2, 1, 1}, {2, 2, 2, 1}}, /*  1 */
+            {{128, 0, 0, 0}, {2, 0, 0, 1}, {130, 2, 1, 1}, {2, 2, 1, 129}}, /*  2 */
+            {{128, 2, 2, 130}, {0, 0, 2, 2}, {0, 0, 1, 1}, {0, 1, 1, 129}}, /*  3 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {129, 1, 2, 2}, {1, 1, 2, 130}}, /*  4 */
+            {{128, 0, 1, 129}, {0, 0, 1, 1}, {0, 0, 2, 2}, {0, 0, 2, 130}}, /*  5 */
+            {{128, 0, 2, 130}, {0, 0, 2, 2}, {1, 1, 1, 1}, {1, 1, 1, 129}}, /*  6 */
+            {{128, 0, 1, 1}, {0, 0, 1, 1}, {130, 2, 1, 1}, {2, 2, 1, 129}}, /*  7 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {129, 1, 1, 1}, {2, 2, 2, 130}}, /*  8 */
+            {{128, 0, 0, 0}, {1, 1, 1, 1}, {129, 1, 1, 1}, {2, 2, 2, 130}}, /*  9 */
+            {{128, 0, 0, 0}, {1, 1, 129, 1}, {2, 2, 2, 2}, {2, 2, 2, 130}}, /* 10 */
+            {{128, 0, 1, 2}, {0, 0, 129, 2}, {0, 0, 1, 2}, {0, 0, 1, 130}}, /* 11 */
+            {{128, 1, 1, 2}, {0, 1, 129, 2}, {0, 1, 1, 2}, {0, 1, 1, 130}}, /* 12 */
+            {{128, 1, 2, 2}, {0, 129, 2, 2}, {0, 1, 2, 2}, {0, 1, 2, 130}}, /* 13 */
+            {{128, 0, 1, 129}, {0, 1, 1, 2}, {1, 1, 2, 2}, {1, 2, 2, 130}}, /* 14 */
+            {{128, 0, 1, 129}, {2, 0, 0, 1}, {130, 2, 0, 0}, {2, 2, 2, 0}}, /* 15 */
+            {{128, 0, 0, 129}, {0, 0, 1, 1}, {0, 1, 1, 2}, {1, 1, 2, 130}}, /* 16 */
+            {{128, 1, 1, 129}, {0, 0, 1, 1}, {130, 0, 0, 1}, {2, 2, 0, 0}}, /* 17 */
+            {{128, 0, 0, 0}, {1, 1, 2, 2}, {129, 1, 2, 2}, {1, 1, 2, 130}}, /* 18 */
+            {{128, 0, 2, 130}, {0, 0, 2, 2}, {0, 0, 2, 2}, {1, 1, 1, 129}}, /* 19 */
+            {{128, 1, 1, 129}, {0, 1, 1, 1}, {0, 2, 2, 2}, {0, 2, 2, 130}}, /* 20 */
+            {{128, 0, 0, 129}, {0, 0, 0, 1}, {130, 2, 2, 1}, {2, 2, 2, 1}}, /* 21 */
+            {{128, 0, 0, 0}, {0, 0, 129, 1}, {0, 1, 2, 2}, {0, 1, 2, 130}}, /* 22 */
+            {{128, 0, 0, 0}, {1, 1, 0, 0}, {130, 2, 129, 0}, {2, 2, 1, 0}}, /* 23 */
+            {{128, 1, 2, 130}, {0, 129, 2, 2}, {0, 0, 1, 1}, {0, 0, 0, 0}}, /* 24 */
+            {{128, 0, 1, 2}, {0, 0, 1, 2}, {129, 1, 2, 2}, {2, 2, 2, 130}}, /* 25 */
+            {{128, 1, 1, 0}, {1, 2, 130, 1}, {129, 2, 2, 1}, {0, 1, 1, 0}}, /* 26 */
+            {{128, 0, 0, 0}, {0, 1, 129, 0}, {1, 2, 130, 1}, {1, 2, 2, 1}}, /* 27 */
+            {{128, 0, 2, 2}, {1, 1, 0, 2}, {129, 1, 0, 2}, {0, 0, 2, 130}}, /* 28 */
+            {{128, 1, 1, 0}, {0, 129, 1, 0}, {2, 0, 0, 2}, {2, 2, 2, 130}}, /* 29 */
+            {{128, 0, 1, 1}, {0, 1, 2, 2}, {0, 1, 130, 2}, {0, 0, 1, 129}}, /* 30 */
+            {{128, 0, 0, 0}, {2, 0, 0, 0}, {130, 2, 1, 1}, {2, 2, 2, 129}}, /* 31 */
+            {{128, 0, 0, 0}, {0, 0, 0, 2}, {129, 1, 2, 2}, {1, 2, 2, 130}}, /* 32 */
+            {{128, 2, 2, 130}, {0, 0, 2, 2}, {0, 0, 1, 2}, {0, 0, 1, 129}}, /* 33 */
+            {{128, 0, 1, 129}, {0, 0, 1, 2}, {0, 0, 2, 2}, {0, 2, 2, 130}}, /* 34 */
+            {{128, 1, 2, 0}, {0, 129, 2, 0}, {0, 1, 130, 0}, {0, 1, 2, 0}}, /* 35 */
+            {{128, 0, 0, 0}, {1, 1, 129, 1}, {2, 2, 130, 2}, {0, 0, 0, 0}}, /* 36 */
+            {{128, 1, 2, 0}, {1, 2, 0, 1}, {130, 0, 129, 2}, {0, 1, 2, 0}}, /* 37 */
+            {{128, 1, 2, 0}, {2, 0, 1, 2}, {129, 130, 0, 1}, {0, 1, 2, 0}}, /* 38 */
+            {{128, 0, 1, 1}, {2, 2, 0, 0}, {1, 1, 130, 2}, {0, 0, 1, 129}}, /* 39 */
+            {{128, 0, 1, 1}, {1, 1, 130, 2}, {2, 2, 0, 0}, {0, 0, 1, 129}}, /* 40 */
+            {{128, 1, 0, 129}, {0, 1, 0, 1}, {2, 2, 2, 2}, {2, 2, 2, 130}}, /* 41 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {130, 1, 2, 1}, {2, 1, 2, 129}}, /* 42 */
+            {{128, 0, 2, 2}, {1, 129, 2, 2}, {0, 0, 2, 2}, {1, 1, 2, 130}}, /* 43 */
+            {{128, 0, 2, 130}, {0, 0, 1, 1}, {0, 0, 2, 2}, {0, 0, 1, 129}}, /* 44 */
+            {{128, 2, 2, 0}, {1, 2, 130, 1}, {0, 2, 2, 0}, {1, 2, 2, 129}}, /* 45 */
+            {{128, 1, 0, 1}, {2, 2, 130, 2}, {2, 2, 2, 2}, {0, 1, 0, 129}}, /* 46 */
+            {{128, 0, 0, 0}, {2, 1, 2, 1}, {130, 1, 2, 1}, {2, 1, 2, 129}}, /* 47 */
+            {{128, 1, 0, 129}, {0, 1, 0, 1}, {0, 1, 0, 1}, {2, 2, 2, 130}}, /* 48 */
+            {{128, 2, 2, 130}, {0, 1, 1, 1}, {0, 2, 2, 2}, {0, 1, 1, 129}}, /* 49 */
+            {{128, 0, 0, 2}, {1, 129, 1, 2}, {0, 0, 0, 2}, {1, 1, 1, 130}}, /* 50 */
+            {{128, 0, 0, 0}, {2, 129, 1, 2}, {2, 1, 1, 2}, {2, 1, 1, 130}}, /* 51 */
+            {{128, 2, 2, 2}, {0, 129, 1, 1}, {0, 1, 1, 1}, {0, 2, 2, 130}}, /* 52 */
+            {{128, 0, 0, 2}, {1, 1, 1, 2}, {129, 1, 1, 2}, {0, 0, 0, 130}}, /* 53 */
+            {{128, 1, 1, 0}, {0, 129, 1, 0}, {0, 1, 1, 0}, {2, 2, 2, 130}}, /* 54 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {2, 1, 129, 2}, {2, 1, 1, 130}}, /* 55 */
+            {{128, 1, 1, 0}, {0, 129, 1, 0}, {2, 2, 2, 2}, {2, 2, 2, 130}}, /* 56 */
+            {{128, 0, 2, 2}, {0, 0, 1, 1}, {0, 0, 129, 1}, {0, 0, 2, 130}}, /* 57 */
+            {{128, 0, 2, 2}, {1, 1, 2, 2}, {129, 1, 2, 2}, {0, 0, 2, 130}}, /* 58 */
+            {{128, 0, 0, 0}, {0, 0, 0, 0}, {0, 0, 0, 0}, {2, 129, 1, 130}}, /* 59 */
+            {{128, 0, 0, 130}, {0, 0, 0, 1}, {0, 0, 0, 2}, {0, 0, 0, 129}}, /* 60 */
+            {{128, 2, 2, 2}, {1, 2, 2, 2}, {0, 2, 2, 2}, {129, 2, 2, 130}}, /* 61 */
+            {{128, 1, 0, 129}, {2, 2, 2, 2}, {2, 2, 2, 2}, {2, 2, 2, 130}}, /* 62 */
+            {{128, 1, 1, 129}, {2, 0, 1, 1}, {130, 2, 0, 1}, {2, 2, 2, 0}}  /* 63 */
+        }};
 
-    static int aWeight2[] = { 0, 21, 43, 64 };
-    static int aWeight3[] = { 0, 9, 18, 27, 37, 46, 55, 64 };
-    static int aWeight4[] = { 0, 4, 9, 13, 17, 21, 26, 30, 34, 38, 43, 47, 51, 55, 60, 64 };
+    static int aWeight2[] = {0, 21, 43, 64};
+    static int aWeight3[] = {0, 9, 18, 27, 37, 46, 55, 64};
+    static int aWeight4[] = {0, 4, 9, 13, 17, 21, 26, 30, 34, 38, 43, 47, 51, 55, 60, 64};
 
     static unsigned char sModeHasPBits = 0b11001011;
 
@@ -1255,7 +1294,7 @@ BCDECDEF void bcdec_bc7(const void* compressedBlock, void* decompressedBlock, in
     int endpoints[6][4];
     char indices[4][4];
     int r, g, b, a;
-    int* weights, * weights2;
+    int *weights, *weights2;
     unsigned char* decompressed;
 
     decompressed = (unsigned char*)decompressedBlock;
@@ -1263,7 +1302,8 @@ BCDECDEF void bcdec_bc7(const void* compressedBlock, void* decompressedBlock, in
     bstream.low = bcdec__getu64le(compressedBlock);
     bstream.high = bcdec__getu64le((const unsigned char*)compressedBlock + 8);
 
-    for (mode = 0; mode < 8 && (0 == bcdec__bitstream_read_bit(&bstream)); ++mode);
+    for (mode = 0; mode < 8 && (0 == bcdec__bitstream_read_bit(&bstream)); ++mode)
+        ;
 
     /* unexpected mode, clear the block (transparent black) */
     if (mode >= 8) {
@@ -1354,7 +1394,8 @@ BCDECDEF void bcdec_bc7(const void* compressedBlock, void* decompressedBlock, in
         for (k = 0; k < 3; ++k) {
             /* left shift endpoint components so that their MSB lies in bit 7 */
             endpoints[i][k] = endpoints[i][k] << (8 - j);
-            /* Replicate each component's MSB into the LSBs revealed by the left-shift operation above */
+            /* Replicate each component's MSB into the LSBs revealed by the left-shift operation
+             * above */
             endpoints[i][k] = endpoints[i][k] | (endpoints[i][k] >> j);
         }
 
@@ -1363,7 +1404,8 @@ BCDECDEF void bcdec_bc7(const void* compressedBlock, void* decompressedBlock, in
 
         /* left shift endpoint components so that their MSB lies in bit 7 */
         endpoints[i][3] = endpoints[i][3] << (8 - j);
-        /* Replicate each component's MSB into the LSBs revealed by the left-shift operation above */
+        /* Replicate each component's MSB into the LSBs revealed by the left-shift operation above
+         */
         endpoints[i][3] = endpoints[i][3] | (endpoints[i][3] >> j);
     }
 
@@ -1385,7 +1427,9 @@ BCDECDEF void bcdec_bc7(const void* compressedBlock, void* decompressedBlock, in
     /* Pass #1: collecting color indices */
     for (i = 0; i < 4; ++i) {
         for (j = 0; j < 4; ++j) {
-            partitionSet = (numPartitions == 1) ? ((i | j) ? 0 : 128) : partition_sets[numPartitions - 2][partition][i][j];
+            partitionSet = (numPartitions == 1)
+                               ? ((i | j) ? 0 : 128)
+                               : partition_sets[numPartitions - 2][partition][i][j];
 
             indexBits = (mode == 0 || mode == 1) ? 3 : ((mode == 6) ? 4 : 2);
             /* fix-up index is specified with one less bit */
@@ -1401,45 +1445,62 @@ BCDECDEF void bcdec_bc7(const void* compressedBlock, void* decompressedBlock, in
     /* Pass #2: reading alpha indices (if any) and interpolating & rotating */
     for (i = 0; i < 4; ++i) {
         for (j = 0; j < 4; ++j) {
-            partitionSet = (numPartitions == 1) ? ((i|j) ? 0 : 128) : partition_sets[numPartitions - 2][partition][i][j];
+            partitionSet = (numPartitions == 1)
+                               ? ((i | j) ? 0 : 128)
+                               : partition_sets[numPartitions - 2][partition][i][j];
             partitionSet &= 0x03;
 
             index = indices[i][j];
 
             if (!indexBits2) {
-                r = bcdec__interpolate(endpoints[partitionSet * 2][0], endpoints[partitionSet * 2 + 1][0], weights, index);
-                g = bcdec__interpolate(endpoints[partitionSet * 2][1], endpoints[partitionSet * 2 + 1][1], weights, index);
-                b = bcdec__interpolate(endpoints[partitionSet * 2][2], endpoints[partitionSet * 2 + 1][2], weights, index);
-                a = bcdec__interpolate(endpoints[partitionSet * 2][3], endpoints[partitionSet * 2 + 1][3], weights, index);
+                r = bcdec__interpolate(endpoints[partitionSet * 2][0],
+                                       endpoints[partitionSet * 2 + 1][0], weights, index);
+                g = bcdec__interpolate(endpoints[partitionSet * 2][1],
+                                       endpoints[partitionSet * 2 + 1][1], weights, index);
+                b = bcdec__interpolate(endpoints[partitionSet * 2][2],
+                                       endpoints[partitionSet * 2 + 1][2], weights, index);
+                a = bcdec__interpolate(endpoints[partitionSet * 2][3],
+                                       endpoints[partitionSet * 2 + 1][3], weights, index);
             } else {
-                index2 = bcdec__bitstream_read_bits(&bstream, (i|j) ? indexBits2 : (indexBits2 - 1));
-                /* The index value for interpolating color comes from the secondary index bits for the texel
-                   if the mode has an index selection bit and its value is one, and from the primary index bits otherwise.
-                   The alpha index comes from the secondary index bits if the block has a secondary index and
-                   the block either doesn’t have an index selection bit or that bit is zero, and from the primary index bits otherwise. */
+                index2 =
+                    bcdec__bitstream_read_bits(&bstream, (i | j) ? indexBits2 : (indexBits2 - 1));
+                /* The index value for interpolating color comes from the secondary index bits for
+                   the texel if the mode has an index selection bit and its value is one, and from
+                   the primary index bits otherwise. The alpha index comes from the secondary index
+                   bits if the block has a secondary index and the block either doesn’t have an
+                   index selection bit or that bit is zero, and from the primary index bits
+                   otherwise. */
                 if (!indexSelectionBit) {
-                    r = bcdec__interpolate(endpoints[partitionSet * 2][0], endpoints[partitionSet * 2 + 1][0],  weights,  index);
-                    g = bcdec__interpolate(endpoints[partitionSet * 2][1], endpoints[partitionSet * 2 + 1][1],  weights,  index);
-                    b = bcdec__interpolate(endpoints[partitionSet * 2][2], endpoints[partitionSet * 2 + 1][2],  weights,  index);
-                    a = bcdec__interpolate(endpoints[partitionSet * 2][3], endpoints[partitionSet * 2 + 1][3], weights2, index2);
+                    r = bcdec__interpolate(endpoints[partitionSet * 2][0],
+                                           endpoints[partitionSet * 2 + 1][0], weights, index);
+                    g = bcdec__interpolate(endpoints[partitionSet * 2][1],
+                                           endpoints[partitionSet * 2 + 1][1], weights, index);
+                    b = bcdec__interpolate(endpoints[partitionSet * 2][2],
+                                           endpoints[partitionSet * 2 + 1][2], weights, index);
+                    a = bcdec__interpolate(endpoints[partitionSet * 2][3],
+                                           endpoints[partitionSet * 2 + 1][3], weights2, index2);
                 } else {
-                    r = bcdec__interpolate(endpoints[partitionSet * 2][0], endpoints[partitionSet * 2 + 1][0], weights2, index2);
-                    g = bcdec__interpolate(endpoints[partitionSet * 2][1], endpoints[partitionSet * 2 + 1][1], weights2, index2);
-                    b = bcdec__interpolate(endpoints[partitionSet * 2][2], endpoints[partitionSet * 2 + 1][2], weights2, index2);
-                    a = bcdec__interpolate(endpoints[partitionSet * 2][3], endpoints[partitionSet * 2 + 1][3],  weights,  index);
+                    r = bcdec__interpolate(endpoints[partitionSet * 2][0],
+                                           endpoints[partitionSet * 2 + 1][0], weights2, index2);
+                    g = bcdec__interpolate(endpoints[partitionSet * 2][1],
+                                           endpoints[partitionSet * 2 + 1][1], weights2, index2);
+                    b = bcdec__interpolate(endpoints[partitionSet * 2][2],
+                                           endpoints[partitionSet * 2 + 1][2], weights2, index2);
+                    a = bcdec__interpolate(endpoints[partitionSet * 2][3],
+                                           endpoints[partitionSet * 2 + 1][3], weights, index);
                 }
             }
 
             switch (rotation) {
-                case 1: {   /* 01 – Block format is Scalar(R) Vector(AGB) - swap A and R */
-                    bcdec__swap_values(&a, &r);
-                } break;
-                case 2: {   /* 10 – Block format is Scalar(G) Vector(RAB) - swap A and G */
-                    bcdec__swap_values(&a, &g);
-                } break;
-                case 3: {   /* 11 - Block format is Scalar(B) Vector(RGA) - swap A and B */
-                    bcdec__swap_values(&a, &b);
-                } break;
+            case 1: { /* 01 – Block format is Scalar(R) Vector(AGB) - swap A and R */
+                bcdec__swap_values(&a, &r);
+            } break;
+            case 2: { /* 10 – Block format is Scalar(G) Vector(RAB) - swap A and G */
+                bcdec__swap_values(&a, &g);
+            } break;
+            case 3: { /* 11 - Block format is Scalar(B) Vector(RGA) - swap A and B */
+                bcdec__swap_values(&a, &b);
+            } break;
             }
 
             decompressed[j * 4 + 0] = r;
