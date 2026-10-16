@@ -134,6 +134,10 @@ set(COMMON src/common/types.h
            src/common/logging/log.h
            src/common/logging/thread_name_formatter.h
            src/common/assert.cpp
+           src/common/crypto.cpp
+           src/common/crypto.h
+           src/common/kraken.cpp
+           src/common/kraken.h
            src/common/assert.h
            src/common/arch.h
            src/common/memory_patcher.cpp
@@ -173,10 +177,24 @@ set(FILEFORMAT src/core/file_format/param.cpp
                src/core/file_format/npbind.h
                src/core/file_format/ucp.cpp
                src/core/file_format/ucp.h
+               src/core/file_format/playgo.cpp
+               src/core/file_format/playgo.h
+               src/core/file_format/uds.cpp
+               src/core/file_format/uds.h
                src/core/file_format/elf_info.cpp
                src/core/file_format/elf_info.h
                src/core/file_format/nid_catalog.cpp
                src/core/file_format/nid_catalog.h
+               src/core/file_format/dds.cpp
+               src/core/file_format/dds.h
+               src/core/file_format/ps5_pkg.cpp
+               src/core/file_format/ps5_pkg.h
+               src/core/file_format/ps5_pkg_keys.cpp
+               src/core/file_format/ps5_pkg_keys.h
+               src/core/file_format/ps5_pkg_extract.cpp
+               src/core/file_format/ps5_pkg_extract.h
+               src/core/file_format/ps5_pkg_image.cpp
+               src/core/file_format/ps5_pkg_image.h
                src/core/analysis/string_analysis.cpp
                src/core/analysis/string_analysis.h
                src/core/analysis/middleware.cpp
@@ -294,6 +312,10 @@ set(QT_UI src/qt_ui/settings.cpp
           src/qt_ui/version_dialog.ui
           src/qt_ui/npbind_dialog.cpp
           src/qt_ui/npbind_dialog.h
+          src/qt_ui/pkg_info_dialog.cpp
+          src/qt_ui/pkg_info_dialog.h
+          src/qt_ui/pkg_install_dialog.cpp
+          src/qt_ui/pkg_install_dialog.h
           src/qt_ui/cheats_patches_dialog.cpp
           src/qt_ui/cheats_patches_dialog.h
           src/qt_ui/cheats_patches_dialog.ui

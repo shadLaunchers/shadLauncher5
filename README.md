@@ -118,6 +118,8 @@ See `CMakeLists.txt` for the full build configuration and dependency list. shadL
 ## Thanks
 
 - [ps5rs](https://github.com/claimore22/ps5rs) by claimore22 — the SELF/ELF analysis, NID catalog, engine/middleware fingerprinting and function-signature data used by ELF Info and Engine & Middleware Info were ported from it.
+- [LibProsperoPkg](https://github.com/SvenGDK/LibProsperoPKG) by SvenGDK — its PS5 package format write-up documents the layout that PS5 PKG Info reads.
+- [ooz](https://github.com/powzix/ooz) by powzix — its public reverse engineering of the Oodle Kraken format and its sample streams were the reference for writing and verifying shadLauncher5's own Kraken decoder (no ooz code is included).
 
 ## License
 

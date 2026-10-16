@@ -16,8 +16,6 @@
 
 namespace {
 
-// tropmeta locale codes, indexed the same way param.json's localizedParameters
-// are. Kept in sync with the table in core/file_format/param.cpp.
 constexpr std::array<std::pair<int, std::string_view>, 31> locale_table = {{
     {0, "ja-JP"},  {1, "en-US"},  {2, "fr-FR"},   {3, "es-ES"},  {4, "de-DE"},    {5, "it-IT"},
     {6, "nl-NL"},  {7, "pt-PT"},  {8, "ru-RU"},   {9, "ko-KR"},  {10, "zh-Hant"}, {11, "zh-Hans"},
@@ -30,7 +28,6 @@ constexpr std::array<std::pair<int, std::string_view>, 31> locale_table = {{
 constexpr std::string_view meta_prefix = "tropmeta_";
 constexpr std::string_view json_suffix = ".json";
 
-// Reads a whole file into a string. Returns false if it can't be read.
 bool ReadWholeFile(const std::filesystem::path& path, std::string& out) {
     Common::FS::IOFile file(path, Common::FS::FileAccessMode::Read);
     if (!file.IsOpen()) {
@@ -46,9 +43,6 @@ bool ReadWholeFile(const std::filesystem::path& path, std::string& out) {
     return true;
 }
 
-// Several tropconf fields are strings in every sample seen ("id": "0000",
-// "targetValue": "1"), but the schema is young enough that a producer emitting
-// them as numbers is plausible. Accept both rather than dropping the field.
 std::string AsString(const nlohmann::json& node) {
     if (node.is_string()) {
         return node.get<std::string>();
@@ -305,10 +299,6 @@ bool TrophySet::LoadFromDir(const std::filesystem::path& dir, int language_index
     if (!ParseConf(conf_text)) {
         return false;
     }
-
-    // Preference order: the requested language, the set's own default, then
-    // any tropmeta present. A set with no readable tropmeta still loads --
-    // the trophy list is valid, just unnamed.
     std::vector<std::string> candidates;
     if (const auto locale = LocaleForLanguage(language_index); !locale.empty()) {
         candidates.emplace_back(locale);
@@ -330,10 +320,6 @@ bool TrophySet::LoadFromDir(const std::filesystem::path& dir, int language_index
             return true;
         }
     }
-
-    // Nothing in `languages` matched either; fall back to scanning the
-    // directory, which covers containers whose languages array is missing or
-    // disagrees with the files actually packed.
     std::error_code ec;
     for (const auto& entry : std::filesystem::directory_iterator(dir, ec)) {
         if (ec) {
@@ -384,8 +370,6 @@ bool UCP::Open(const std::filesystem::path& ucpPath) {
     const u32 num_files = header.num_files;
     const u64 toc_offset = header.toc_offset;
 
-    // TOC begins with a 0x20-byte reserved block, then num_files entries of
-    // 0x40 bytes each, packed with no gap.
     const u64 toc_bytes_needed =
         UCP_TOC_RESERVED_SIZE + static_cast<u64>(num_files) * sizeof(UcpTocEntry);
     if (toc_offset > file_size || toc_bytes_needed > file_size - toc_offset) {
@@ -410,9 +394,6 @@ bool UCP::Open(const std::filesystem::path& ucpPath) {
                       ucpPath.string());
             return false;
         }
-
-        // name may fill all 32 bytes with no NUL terminator; find its
-        // actual length rather than trusting it's NUL-terminated.
         size_t name_len = 0;
         while (name_len < sizeof(raw.name) && raw.name[name_len] != '\0') {
             ++name_len;
@@ -574,8 +555,6 @@ std::vector<std::filesystem::path> UCP::ListContainers(const std::filesystem::pa
             found.push_back(entry.path());
         }
     }
-
-    // directory_iterator order is unspecified, so sort for a stable result.
     std::sort(found.begin(), found.end());
     return found;
 }
@@ -592,8 +571,6 @@ std::string UCP::ReadNpCommId() const {
             return GetString(j, "trophyNpCommId");
         }
     } catch (const nlohmann::json::exception&) {
-        // Fall through: an unreadable tropconf just means this container
-        // can't identify itself, and the caller falls back to naming.
     }
     return {};
 }
@@ -603,8 +580,6 @@ std::optional<std::filesystem::path> UCP::SelectContainerFor(
     if (candidates.empty()) {
         return std::nullopt;
     }
-
-    // Preferred: ask each container which trophy set it actually holds.
     if (!npCommId.empty()) {
         for (const auto& path : candidates) {
             UCP ucp;
@@ -616,9 +591,6 @@ std::optional<std::filesystem::path> UCP::SelectContainerFor(
             }
         }
     }
-
-    // Fallback: the conventional Trophy<NN>.ucp / uds<NN>.ucp naming, for
-    // containers whose tropconf couldn't be read.
     if (index >= 0) {
         for (const char* stem : {"Trophy", "uds"}) {
             const auto wanted = fmt::format("{}{:02}.ucp", stem, index);
@@ -629,9 +601,6 @@ std::optional<std::filesystem::path> UCP::SelectContainerFor(
             }
         }
     }
-
-    // Single-set titles are the common case: if there is exactly one
-    // container and nothing matched, it is unambiguously the right one.
     if (candidates.size() == 1) {
         LOG_WARNING(Common_Filesystem, "Using sole trophy container {} for NPComm ID '{}'",
                     candidates.front().string(), std::string(npCommId));
@@ -660,8 +629,6 @@ bool UCP::LoadTrophySet(TrophySet& out, int language_index) const {
         return false;
     }
 
-    // Same preference order LoadFromDir uses: the requested language, the
-    // set's own default, then anything the container actually packs.
     std::vector<std::string> candidates;
     if (const auto locale = TrophySet::LocaleForLanguage(language_index); !locale.empty()) {
         candidates.emplace_back(locale);
@@ -713,8 +680,6 @@ bool TrophyProgress::Parse(std::string_view json_text) {
 
     const auto list = j.find("trophies");
     if (list == j.end() || !list->is_array()) {
-        // A file with no trophies array is still a valid "nothing earned yet"
-        // state; don't treat it as corrupt.
         return true;
     }
 
@@ -742,7 +707,6 @@ std::string TrophyProgress::Serialize() const {
     j["trophyNpCommId"] = np_comm_id;
     j["trophySetVersion"] = set_version;
 
-    // Sorted by id so the file is stable across saves and diffs cleanly.
     std::vector<std::string> ids;
     ids.reserve(m_entries.size());
     for (const auto& [id, _] : m_entries) {

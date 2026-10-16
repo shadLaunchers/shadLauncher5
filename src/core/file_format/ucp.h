@@ -13,7 +13,6 @@
 #include "common/endian.h"
 #include "common/types.h"
 
-// Also used for the near-identical "uds00.ucp" variant.
 static constexpr u32 UCP_MAGIC = 0xB228C60A;
 
 static constexpr u32 UCP_TOC_RESERVED_SIZE = 0x20;
@@ -65,34 +64,19 @@ struct TrophyDefinition {
     TrophyGrade grade = TrophyGrade::Unknown;
     bool hidden = false;
     bool has_reward = false;
-    // "platinumTrophyId": the platinum this trophy counts toward. Empty on the
-    // platinum itself, and on sets that have no platinum at all.
     std::string platinum_id;
 
     bool has_unlock_condition = false;
     TrophyUnlockCondition unlock_condition;
-
-    // From tropmeta_<locale>.json; empty when that locale has no entry for
-    // this id, which is why the definition list is what drives iteration.
     std::string name;
     std::string detail;
-
-    // Icon file name inside the container, derived from `id`: "trop0000.png".
     [[nodiscard]] std::string IconFileName() const;
 };
 
 class TrophySet {
 public:
-    // Loads tropconf.json plus the best-matching tropmeta for
-    // `language_index` (a Prospero language index, see LocaleForLanguage).
-    // Locale resolution: the requested language, then defaultLanguage, then
-    // whichever tropmeta_*.json is present.
     bool LoadFromDir(const std::filesystem::path& dir, int language_index);
-
-    // Parses a tropconf.json buffer. Resets the whole object first.
     bool ParseConf(std::string_view json_text);
-    // Layers a tropmeta_<locale>.json buffer's strings onto the definitions
-    // already loaded by ParseConf. Unknown ids are ignored.
     bool ApplyMeta(std::string_view json_text);
 
     void Reset();
