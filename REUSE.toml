@@ -64,3 +64,9 @@ SPDX-License-Identifier = "GPL-2.0-or-later"
 path = "cmake/CMakeRC.cmake"
 SPDX-FileCopyrightText = "Copyright (c) 2017 vector-of-bool <vectorofbool@gmail.com>"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = "src/common/bcdec.h"
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2022 Sergii Kudlai"
+SPDX-License-Identifier = "MIT"

@@ -12,6 +12,9 @@
 #include "common/types.h"
 #include "core/file_format/param.h"
 
+// Read-only inspection of PS5 package files. Only plaintext structures are
+// read: the finalized image header (FIH), the metadata container (CNT) with
+// its entry table, and the outer PFS superblock. Nothing is decrypted.
 namespace PS5Pkg {
 
 enum class PackageKind {
@@ -38,6 +41,7 @@ inline constexpr u32 ENTRY_NAMES = 0x0200;
 inline constexpr u32 ENTRY_PARAM_SFO = 0x1000;
 inline constexpr u32 ENTRY_ICON0_PNG = 0x1200;
 inline constexpr u32 ENTRY_PIC0_PNG = 0x1220;
+inline constexpr u32 ENTRY_PIC1_PNG = 0x1006;
 inline constexpr u32 ENTRY_ICON0_DDS = 0x1280;
 inline constexpr u32 ENTRY_PIC0_DDS = 0x12A0;
 inline constexpr u32 ENTRY_PIC1_DDS = 0x12C0;
@@ -108,7 +112,7 @@ struct ArtworkSlot {
 inline constexpr ArtworkSlot ARTWORK_SLOTS[] = {
     {"icon0", ENTRY_ICON0_PNG, ENTRY_ICON0_DDS},
     {"pic0", ENTRY_PIC0_PNG, ENTRY_PIC0_DDS},
-    {"pic1", 0, ENTRY_PIC1_DDS},
+    {"pic1", ENTRY_PIC1_PNG, ENTRY_PIC1_DDS},
     {"pic2", ENTRY_PIC2_PNG, ENTRY_PIC2_DDS},
 };
 

@@ -25,6 +25,12 @@ bool NPBindFile::Load(const std::string& path) {
     if (!f.read(reinterpret_cast<char*>(buf.data()), sz))
         return false;
 
+    return Parse(buf);
+}
+
+bool NPBindFile::Parse(const std::vector<u8>& buf) {
+    Clear();
+
     const u64 size = buf.size();
     if (size < sizeof(NpBindHeader))
         return false;

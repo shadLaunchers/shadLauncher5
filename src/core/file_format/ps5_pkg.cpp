@@ -221,6 +221,14 @@ void BuildSegments(PkgInfo& info) {
         info.segments.push_back(
             {"SI", "Install-metadata archive (zip)", info.si_offset, info.si_size});
     }
+    // Anything after the last known segment is listed rather than hidden.
+    u64 end = 0;
+    for (const auto& seg : info.segments) {
+        end = std::max(end, seg.offset + seg.size);
+    }
+    if (!info.segments.empty() && end < info.file_size) {
+        info.segments.push_back({"?", "Unidentified trailing data", end, info.file_size - end});
+    }
 }
 
 bool ReadCnt(std::ifstream& f, PkgInfo& info) {
@@ -617,6 +625,8 @@ std::string_view WellKnownEntryName(u32 id) {
         return "playgo-chunk.dat";
     case 0x1004:
         return "pronunciation.xml";
+    case 0x1006:
+        return "pic1.png";
     case 0x1005:
         return "pronunciation.sig";
     case 0x1007:

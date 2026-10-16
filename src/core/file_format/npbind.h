@@ -4,6 +4,7 @@
 
 #pragma once
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 #include "common/endian.h"
@@ -49,6 +50,8 @@ public:
 
     // Load from file
     bool Load(const std::string& path);
+    // Parse an npbind.dat already in memory
+    bool Parse(const std::vector<u8>& data);
 
     // Accessors
     const NpBindHeader& Header() const {

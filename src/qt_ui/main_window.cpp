@@ -33,6 +33,7 @@
 #include "module_picker_dialog.h"
 #include "nid_catalog_sync.h"
 #include "pkg_info_dialog.h"
+#include "pkg_install_dialog.h"
 #include "progress_dialog.h"
 #include "qt_ui/check_update.h"
 #include "settings_dialog.h"
@@ -230,6 +231,17 @@ void MainWindow::createConnects() {
                                        /*include_sys_modules=*/true, this);
             dialog->setAttribute(Qt::WA_DeleteOnClose);
             dialog->show();
+        });
+
+        auto* install_pkg = new QAction(tr("&Install Packages (PKG)..."), this);
+        install_pkg->setToolTip(tr("Install PS5 packages into a game install directory."));
+        ui->menuFile->insertAction(ui->menuFile->actions().value(0), install_pkg);
+        connect(install_pkg, &QAction::triggered, this, [this] {
+            const auto files = PkgInstallDialog::PickPackages(this);
+            if (PkgInstallDialog::InstallPackages(this, m_emu_settings, m_gui_settings, files) &&
+                m_game_list_frame) {
+                m_game_list_frame->Refresh(true);
+            }
         });
 
         auto* pkg_info = new QAction(tr("PS5 &PKG Info..."), this);
