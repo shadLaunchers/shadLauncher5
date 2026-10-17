@@ -3122,6 +3122,22 @@ Select an emulator version from the right panel.</source>
         <source>sys_modules</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>&amp;Install Packages (PKG)...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Install PS5 packages into a game install directory.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PS5 &amp;PKG Info...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show the header, metadata, param.json and icon of a PS5 package.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>ModulePickerDialog</name>
@@ -3449,6 +3465,1224 @@ Select an emulator version from the right panel.</source>
     </message>
 </context>
 <context>
+    <name>PkgInfoDialog</name>
+    <message>
+        <source>PS5 PKG Info</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Field</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Value</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Overview</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Artwork</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Trophies</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Activities</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PlayGo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game Files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Entries</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Segments</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Install Metadata</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keys</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open PKG...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Copy Summary</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Close</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export Report...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save everything shown here as a JSON or text report.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Name</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Flags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Encrypted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Entry...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save the selected metadata entry (for example icon0.png or param.json) to a file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open in NPBind Viewer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Decrypt the selected npbind.dat and show it in the NPBind viewer.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Segment</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>End</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Contents</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stored</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Method</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select a file to preview it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save File...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open PS5 Package</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PS5 packages (*.pkg);;All files (*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Its filesystem is stored unencrypted (verified); install it with File &gt; Install Packages, or save single files from Game Files.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Its files are encrypted with keys derived from the content ID, so they can be installed (File &gt; Install Packages) without console keys.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Its header is marked retail, but its filesystem is stored unencrypted (verified), so it can be installed without any keys.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Its header is marked retail, but its keys derive from the content ID (verified), so it can be installed without console keys.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Its files are encrypted with console keys and cannot be extracted here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Update package. Its metadata is shown here; its files are encrypted and cannot be extracted yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>It describes a package but holds no game files.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This is not a PS5 package. Use shadLauncher4 to install it.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not a recognized PS5 package.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PS5 PKG Info - %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No icon</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No package loaded</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open a .pkg file or drop one onto this window.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Artwork (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Entries (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Install Metadata (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Package</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>File size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Content ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Content type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>DRM type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Region</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Patch type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Patch flags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (built from a patch; this is a full image)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Application (param.json)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Title ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Concept ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Category</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Application DRM type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Content version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Master version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Required system software</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SDK version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Target content version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Origin content version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Content badge type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Download data size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>None</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Age level (default)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Creation date</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Tool version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version file URI</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Default language</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Localized titles</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n language(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>PlayStation Network and licence</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NP communication ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NP title ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Licence</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>RIF version %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Licensed to</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Any account (not bound to a user)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Account %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Valid from</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Expires</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Never</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Licence content ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (differs from the package!)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not readable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 (%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Patch image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Header version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Metadata container offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Finalized image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Signed byte</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>debug</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>retail</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Format version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filesystem image offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Filesystem image size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game data size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game files (outside sce_sys)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Files and folders</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> (param.json says %1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Layout table size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Outer filesystem (PFS)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Superblock offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Block size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Blocks</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Inodes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>encrypted</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>plaintext</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>signed</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>64-bit</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Mode</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Superblock</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not readable (encrypted with console keys)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not found</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Metadata container</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Body offset</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Body size</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Content flags</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Encrypted entries</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 of %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>(unnamed)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Yes (slot %1, decryptable)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Yes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not write a temporary copy of the file.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 - %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Entry</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not write %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Install metadata</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Result: verified</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Result: not verified - %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Key derivation: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Key fingerprint: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Blocks checked: %1 of %2 matched</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game data starts with: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Image...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This package has no readable artwork in its metadata.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not decode: %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save Image</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PNG image (*.png);;JPEG image (*.jpg);;All files (*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 of %2 metadata entries are encrypted.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>stored</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>deflate</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This package has no install-metadata archive.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save File</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Debug packages are encrypted with a key derived from the content ID and a passcode (normally 32 zeros). Verifying decrypts the package&apos;s outer filesystem and checks every block against the hash stored for it, so a match proves the key is right.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Passcode:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>32 characters. Leave as zeros unless the package was built with a custom passcode.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Verify Keys</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Path</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>First block</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Sectors</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save the selected decrypted file. Only small files (up to 12 blocks) can be saved here.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Press Verify Keys to check this package&apos;s key.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Only finalized debug packages can be verified.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Verified, no keys needed.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The filesystem is stored unencrypted; all %1 checked blocks matched their hashes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Keys verified.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>All %1 checked blocks decrypted and matched their hashes.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unencrypted image, but some blocks did not check out.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Key found, but some blocks did not check out.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not verified.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Key derivation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Key fingerprint</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Blocks checked</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 of %2 matched</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game data starts with</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Unpacked: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>hash OK</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>hash mismatch</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>unreadable</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>directory</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>data</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>metadata</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Open in Param Viewer</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show param.json in the structured viewer, with search and per-key descriptions.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This package has no param.json.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not write a temporary copy of param.json.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extract Container To</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extract Container</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Could not extract to %1.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Extracted %n file(s) to %1.</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Trophy container</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Language of the trophy names and descriptions</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Description</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Grade</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Hidden</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Extract Container...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save the trophy container&apos;s files (icons and JSON) to a folder.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The trophy container could not be read.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n trophies</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>%1 hidden</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>NP ID %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>set version %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Trophies (%1)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Definition</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Details</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Save the activity definition files (JSON) to a folder.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The activity container could not be read.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Events</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stats</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>values from %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Group: %1, source: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Stat rules</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>on %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> if %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 → stat #%2 %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Enums</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n value(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n event(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n stat(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n rule(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n enum(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>configuration %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>JSON report (*.json)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Text report (*.txt)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Export Report</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The game files could not be listed: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n file(s), %1 in total, stored as %2 in pfs_image.dat (Kraken-compressed blocks). Double-click a file to save it.</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Saving %1...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancel</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>%1 could not be saved: %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Item</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PlayGo lets a game start before it has finished installing: the package is split into chunks, and each scenario lists the chunks it needs, in order.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>playgo-chunk.dat could not be read: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Chunks</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>all languages</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>languages %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>flag %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>disc layer %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Scenarios</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> (default)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>type %1 · playable after %2 of %3 chunk(s): %4</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Storage ranges</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n chunk(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n scenario(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>default: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Format %1, version %2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Fake package (retail header)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>PkgInstallDialog</name>
+    <message>
+        <source>shadLauncher5 - Install PKG Files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select PKG files to install</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Install</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Title ID</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Title</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Type</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Version</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Package</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Notes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select All</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Select None</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Invert Selection</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PKG Info...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Show everything about the selected package.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Installation Directory</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Browse...</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Installs the game files (decompressing Kraken-packed blocks) and sce_sys: param.json, artwork, trophies, activities, PlayGo and licence files, with encrypted ones decrypted.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Install Selected</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cannot install: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n sce_sys file(s)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>, %n to decrypt</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Select Directory</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add-ons are installed to the add-on folder: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add-ons need an add-on folder; set one in Settings &gt; Paths.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Choose an installation directory; add one with Browse.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Install PKG Files</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PS5 packages (*.pkg *.PKG);;All files (*)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Not installed: it needs %1 but only %2 is free on that drive.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PKG Installation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Installing PKG %1/%2: %3</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Cancelled after %n file(s).</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Skipped.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>%n game file(s) (%1)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>%n sce_sys file(s) written</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source> (%n decrypted)</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message numerus="yes">
+        <source>... and %n more problem(s).</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
+    </message>
+    <message>
+        <source>Installation Finished</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Nothing Installed</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>PortBindingsPage</name>
     <message>
         <source>Click a control to select it.</source>
@@ -3751,6 +4985,88 @@ Select an emulator version from the right panel.</source>
     <message>
         <source>Unidentified</source>
         <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>... (%1 more bytes)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>PKG Installation</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>No add-on folder is set, or the content ID has no label.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Add-on already installed:
+%1
+
+Overwrite its sce_sys files?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>This is a patch; install the game %1 first.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Install patch %1 to
+%2 ?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Patch detected!
+PKG and installed versions match: %1
+Would you like to overwrite?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Patch detected!
+PKG version %1 is older than the installed version %2.
+Would you like to overwrite?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Patch detected!
+Installed version: %1
+Would you like to install patch %2?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>The game is already installed as an archive:
+%1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game already installed:
+%1
+
+Would you like to overwrite its sce_sys files?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game files of update packages are not supported yet.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Game files not installed: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source> - %1/s, about %2 min left</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Installing PKG %1/%2: game files
+%3 of %4%5
+%6</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message numerus="yes">
+        <source>Cancelled after %n game file(s).</source>
+        <translation type="unfinished">
+            <numerusform></numerusform>
+        </translation>
     </message>
 </context>
 <context>
